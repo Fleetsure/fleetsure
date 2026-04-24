@@ -1,6 +1,6 @@
 "use client";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import {
   LayoutDashboard, Truck, Users, Route,
   Wrench, Fuel, CreditCard, HeartPulse,
@@ -61,12 +61,20 @@ const PROFILE_MENU = [
 
 export default function Sidebar() {
   const pathname = usePathname();
+  const router = useRouter();
   const [openGroups, setOpenGroups] = useState<string[]>(["EXPENSES", "COMPLIANCE"]);
   const [profileOpen, setProfileOpen] = useState(false);
   const profileRef = useRef<HTMLDivElement>(null);
   const [orgName, setOrgName]   = useState("");
   const [orgLogo, setOrgLogo]   = useState("");
   const [userName, setUserName] = useState("");
+
+  const handleLogout = () => {
+    localStorage.removeItem("token");
+    localStorage.removeItem("userName");
+    localStorage.removeItem("userId");
+    router.push("/login");
+  };
 
   const loadOrgSettings = () => {
     setOrgName(localStorage.getItem("orgName") || "");
@@ -189,6 +197,22 @@ export default function Sidebar() {
                 </div>
               );
 
+              // Logout — special handler
+              if (item.danger) return (
+                <button key={item.label}
+                  onClick={() => { setProfileOpen(false); handleLogout(); }}
+                  style={{
+                    display: "flex", alignItems: "center", gap: 10, padding: "8px 16px",
+                    width: "100%", background: "none", border: "none", cursor: "pointer",
+                    color: "#e53935", fontSize: 13, fontWeight: 500, transition: "background 0.12s",
+                  }}
+                  onMouseEnter={e => (e.currentTarget.style.background = "#fff5f5")}
+                  onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>
+                  <item.icon size={15} color="#e53935" />
+                  <span style={{ flex: 1, textAlign: "left" }}>{item.label}</span>
+                </button>
+              );
+
               // Coming Soon but has href (e.g. Billing) — clickable but badged
               const href = item.tab ? `${item.href}?tab=${item.tab}` : item.href;
 
@@ -197,12 +221,12 @@ export default function Sidebar() {
                   onClick={() => setProfileOpen(false)}
                   style={{
                     display: "flex", alignItems: "center", gap: 10, padding: "8px 16px",
-                    textDecoration: "none", color: item.danger ? "#e53935" : "#2a2a4a",
+                    textDecoration: "none", color: "#2a2a4a",
                     fontSize: 13, fontWeight: 500, transition: "background 0.12s"
                   }}
-                  onMouseEnter={e => (e.currentTarget.style.background = item.danger ? "#fff5f5" : "#f8f9ff")}
+                  onMouseEnter={e => (e.currentTarget.style.background = "#f8f9ff")}
                   onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>
-                  <item.icon size={15} color={item.danger ? "#e53935" : "#888"} />
+                  <item.icon size={15} color="#888" />
                   <span style={{ flex: 1 }}>{item.label}</span>
                   {item.soon && (
                     <span style={{ fontSize: 9.5, fontWeight: 700, padding: "2px 6px", borderRadius: 6, background: "#fff3e0", color: "#e65100" }}>Soon</span>

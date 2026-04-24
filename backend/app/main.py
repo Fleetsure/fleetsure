@@ -4,6 +4,11 @@ from sqlalchemy import text
 
 from app.config import settings
 from app.database import Base, engine
+
+# Import User first so its table exists before FK tables are created
+from app.models.user import User  # noqa: F401
+
+from app.routers.auth import router as auth_router
 from app.routers.vehicles import router as vehicles_router
 from app.routers.trips import router as trips_router
 from app.routers.expenses import router as expenses_router
@@ -39,6 +44,7 @@ _DRIVER_MIGRATIONS = [
     "ALTER TABLE drivers ADD COLUMN IF NOT EXISTS transport_validity DATE",
     "ALTER TABLE drivers ADD COLUMN IF NOT EXISTS issuing_rto       VARCHAR(100)",
     "ALTER TABLE drivers ADD COLUMN IF NOT EXISTS badge_issue_date  DATE",
+    "ALTER TABLE drivers ADD COLUMN IF NOT EXISTS owner_id          UUID REFERENCES users(id) ON DELETE CASCADE",
 ]
 
 _VEHICLE_MIGRATIONS = [
@@ -53,6 +59,7 @@ _VEHICLE_MIGRATIONS = [
     "ALTER TABLE vehicles ADD COLUMN IF NOT EXISTS fitness_expiry   DATE",
     "ALTER TABLE vehicles ADD COLUMN IF NOT EXISTS puc_expiry       DATE",
     "ALTER TABLE vehicles ADD COLUMN IF NOT EXISTS permit_expiry    DATE",
+    "ALTER TABLE vehicles ADD COLUMN IF NOT EXISTS owner_id         UUID REFERENCES users(id) ON DELETE CASCADE",
 ]
 
 with engine.connect() as conn:
@@ -74,12 +81,14 @@ app = FastAPI(
 Backend for fleet management — track vehicles, trips, expenses, and profit.
 
 ### Key Workflows
-1. **Register a vehicle** → `POST /vehicles/`
-2. **Auto-fetch vehicle details** → `GET /vahan/lookup?reg=MH12AB1234`
-3. **Start a trip** → `POST /trips/`
-4. **Add expenses** as they happen → `POST /trips/{trip_id}/expenses/`
-5. **Check profit** → `GET /trips/{trip_id}/profit`
-6. **Complete trip** → `PATCH /trips/{trip_id}` with `status: completed`
+1. **Register** → `POST /auth/register`
+2. **Login** → `POST /auth/login`
+3. **Register a vehicle** → `POST /vehicles/`
+4. **Auto-fetch vehicle details** → `GET /vahan/lookup?reg=MH12AB1234`
+5. **Start a trip** → `POST /trips/`
+6. **Add expenses** as they happen → `POST /trips/{trip_id}/expenses/`
+7. **Check profit** → `GET /trips/{trip_id}/profit`
+8. **Complete trip** → `PATCH /trips/{trip_id}` with `status: completed`
     """,
     docs_url="/docs",
     redoc_url="/redoc",
@@ -93,6 +102,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+app.include_router(auth_router,     prefix="/api/v1")
 app.include_router(vehicles_router, prefix="/api/v1")
 app.include_router(drivers_router,  prefix="/api/v1")
 app.include_router(trips_router,    prefix="/api/v1")

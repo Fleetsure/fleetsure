@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
-import Sidebar from "@/components/Sidebar";
+import AppShell from "@/components/AppShell";
 
 export const metadata: Metadata = {
   title: "FleetSure — Fleet Management Platform",
@@ -24,10 +24,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         `}} />
       </head>
       <body style={{ margin: 0, display: "flex", minHeight: "100vh" }}>
-        <Sidebar />
-        <main style={{ flex: 1, display: "flex", flexDirection: "column", minHeight: "100vh", overflow: "auto", background: "var(--bg-page)", color: "var(--text-main)" }}>
-          {children}
-        </main>
+        <AppShell>{children}</AppShell>
       </body>
     </html>
   );

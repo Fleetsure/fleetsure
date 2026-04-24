@@ -7,6 +7,24 @@ export const api = axios.create({
   headers: { "Content-Type": "application/json" },
 });
 
+// ── Auth interceptor: attach JWT to every request ─────────
+api.interceptors.request.use((config) => {
+  if (typeof window !== "undefined") {
+    const token = localStorage.getItem("token");
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+  }
+  return config;
+});
+
+// ── Auth ──────────────────────────────────────────────────
+export const register = (data: { name: string; email: string; password: string }) =>
+  api.post("/auth/register", data);
+export const login = (data: { email: string; password: string }) =>
+  api.post("/auth/login", data);
+export const getMe = () => api.get("/auth/me");
+
 // ── Vehicles ─────────────────────────────────────────────
 export const getVehicles  = () => api.get("/vehicles/");
 export const createVehicle = (data: any) => api.post("/vehicles/", data);
