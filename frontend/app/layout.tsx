@@ -5,6 +5,10 @@ import Sidebar from "@/components/Sidebar";
 export const metadata: Metadata = {
   title: "FleetSure — Fleet Management Platform",
   description: "Track vehicles, trips, expenses and profitability.",
+  icons: {
+    icon: "/logo.png",
+    apple: "/logo.png",
+  },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
