@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+  <!-- Background -->
+  <rect width="200" height="200" rx="20" fill="#2B3190"/>
+
+  <!-- Vertical stem with curved bottom (teardrop/hook) -->
+  <path d="M62 42 L75 42 L75 130 Q75 155 58 158 Q42 160 40 148 Q38 136 52 133 Q62 131 62 120 Z" fill="white"/>
+
+  <!-- Top swoosh bar -->
+  <path d="M68 42 L68 58 L128 54 Q148 52 152 44 Q156 36 144 34 Q132 32 68 42 Z" fill="white"/>
+
+  <!-- Middle swoosh bar -->
+  <path d="M68 75 L68 90 L118 87 Q136 85 138 78 Q140 71 128 70 Q116 69 68 75 Z" fill="white"/>
+
+  <!-- Dot -->
+  <circle cx="148" cy="148" r="14" fill="white"/>
+</svg>
