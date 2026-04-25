@@ -1,10 +1,9 @@
 from datetime import datetime, timedelta, timezone
-from typing import Optional
 from uuid import UUID
 
+import jwt
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
-from jose import JWTError, jwt
 from passlib.context import CryptContext
 from sqlalchemy.orm import Session
 
@@ -94,7 +93,7 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
         user_id: str = payload.get("sub")
         if user_id is None:
             raise credentials_exc
-    except JWTError:
+    except jwt.PyJWTError:
         raise credentials_exc
 
     user = db.query(User).filter(User.id == user_id).first()
