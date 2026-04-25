@@ -1,7 +1,6 @@
 import uuid
 from sqlalchemy import Column, String, Boolean, DateTime, func
 from sqlalchemy.dialects.postgresql import UUID
-from sqlalchemy.orm import relationship
 from app.database import Base
 
 
@@ -19,9 +18,8 @@ class User(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
 
-    # Relationships
-    vehicles = relationship("Vehicle", back_populates="owner", cascade="all, delete-orphan")
-    drivers = relationship("Driver", back_populates="owner", cascade="all, delete-orphan")
+    # Note: owner_id on Vehicle/Driver is a soft UUID reference (no FK constraint).
+    # Relationships are resolved at query time in services, not via SQLAlchemy relationship().
 
     def __repr__(self):
         return f"<User {self.email}>"
