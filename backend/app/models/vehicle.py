@@ -1,5 +1,5 @@
 import uuid
-from sqlalchemy import Column, String, Integer, Enum, DateTime, Date, func, ForeignKey
+from sqlalchemy import Column, String, Integer, Enum, DateTime, Date, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 from app.database import Base
@@ -52,8 +52,8 @@ class Vehicle(Base):
     # Status
     status = Column(Enum(VehicleStatus), nullable=False, default=VehicleStatus.ACTIVE)
 
-    # Multi-tenant: FK to users table
-    owner_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=True, index=True)
+    # Multi-tenant: soft reference to users.id (no FK constraint to avoid migration issues)
+    owner_id = Column(UUID(as_uuid=True), nullable=True, index=True)
 
     # Timestamps
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
@@ -61,7 +61,6 @@ class Vehicle(Base):
 
     # Relationships
     trips = relationship("Trip", back_populates="vehicle", lazy="select")
-    owner = relationship("User", back_populates="vehicles")
 
     def __repr__(self):
         return f"<Vehicle {self.registration_number} - {self.make} {self.model}>"

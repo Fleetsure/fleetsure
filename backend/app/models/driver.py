@@ -1,5 +1,5 @@
 import uuid
-from sqlalchemy import Column, String, Enum, DateTime, Date, Numeric, func, Text, ForeignKey
+from sqlalchemy import Column, String, Enum, DateTime, Date, Numeric, func, Text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 from app.database import Base
@@ -47,15 +47,12 @@ class Driver(Base):
     # Status
     status = Column(Enum(DriverStatus), nullable=False, default=DriverStatus.AVAILABLE)
 
-    # Multi-tenant: FK to users table
-    owner_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=True, index=True)
+    # Multi-tenant: soft reference to users.id (no FK constraint to avoid migration issues)
+    owner_id = Column(UUID(as_uuid=True), nullable=True, index=True)
 
     # Timestamps
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
-
-    # Relationships
-    owner = relationship("User", back_populates="drivers")
 
     def __repr__(self):
         return f"<Driver {self.name} - {self.phone}>"
