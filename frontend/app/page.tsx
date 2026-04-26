@@ -60,15 +60,20 @@ export default function Dashboard() {
   }, []);
 
   useEffect(() => {
-    Promise.all([getVehicles(), getTrips(), getDrivers(), getVehiclePnL()])
-      .then(([v, t, d, p]) => {
+    // Load core data independently from P&L so a backend error on one doesn't blank everything
+    Promise.all([getVehicles(), getTrips(), getDrivers()])
+      .then(([v, t, d]) => {
         setVehicles(v.data);
         setTrips(t.data);
         setDrivers(d.data);
-        setPnlData(p.data || []);
       })
       .catch(() => {})
       .finally(() => setLoading(false));
+
+    // P&L loads separately — if it fails, rest of dashboard still works
+    getVehiclePnL()
+      .then(p => setPnlData(p.data || []))
+      .catch(() => {});
   }, []);
 
   const activeVehicles = vehicles.filter(v => v.status === "active").length;
