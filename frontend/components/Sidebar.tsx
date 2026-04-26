@@ -5,7 +5,7 @@ import {
   LayoutDashboard, Truck, Users, Route,
   Wrench, Fuel, CreditCard, HeartPulse,
   ShieldCheck, FileText, ChevronDown, ChevronUp, Settings,
-  PlusCircle, UserCog, Upload, Zap, UserCircle, Bell, Lock, LogOut
+  PlusCircle, UserCog, Upload, Zap, UserCircle, Bell, Lock, LogOut, Building2
 } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
 import Image from "next/image";
@@ -30,6 +30,7 @@ const NAV = [
       { label: "Insurance & Renewals", href: "/insurance",    icon: ShieldCheck },
     ]
   },
+  { label: "Parties",   href: "/parties",   icon: Building2 },
   { label: "Documents", href: "/documents", icon: FileText },
   { label: "Settings",  href: "/settings",  icon: Settings },
 ];
@@ -278,4 +279,3 @@ export default function Sidebar() {
     </aside>
   );
 }
-              
