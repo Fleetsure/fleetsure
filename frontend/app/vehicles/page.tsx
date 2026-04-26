@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import Header from "@/components/Header";
 import { getVehicles, createVehicle, updateVehicle } from "@/lib/api";
-import { Plus, Truck, X, Search, Zap, CheckCircle, AlertCircle, Info, ChevronDown, ChevronUp, Calendar, Shield, Gauge } from "lucide-react";
+import { Plus, Truck, X, Search, Zap, CheckCircle, AlertCircle, ChevronDown, ChevronUp, Shield, Wrench, Navigation, AlertTriangle } from "lucide-react";
 import { api } from "@/lib/api";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -12,6 +12,7 @@ const EMPTY_FORM = {
   vehicle_type: "truck", fuel_type: "", chassis_number: "",
   engine_number: "", vehicle_class: "", owner_name: "", rto_code: "",
   color: "", insurance_expiry: "", fitness_expiry: "", puc_expiry: "", permit_expiry: "",
+  status: "active",
 };
 
 const VEHICLE_TYPES = ["truck", "mini_truck", "trailer", "tanker", "container", "other"];
@@ -86,6 +87,7 @@ export default function VehiclesPage() {
       owner_name: v.owner_name || "", rto_code: v.rto_code || "", color: v.color || "",
       insurance_expiry: v.insurance_expiry || "", fitness_expiry: v.fitness_expiry || "",
       puc_expiry: v.puc_expiry || "", permit_expiry: v.permit_expiry || "",
+      status: v.status || "active",
     });
     setEditVehicle(v);
     setFetchStatus("idle");
@@ -206,15 +208,21 @@ export default function VehiclesPage() {
         {/* Stats */}
         <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 14, marginBottom: 24 }}>
           {[
-            { label: "Total Vehicles", value: vehicles.length, icon: "🚛" },
-            { label: "Active",         value: vehicles.filter(v => v.status === "active").length, icon: "✅" },
-            { label: "On Trip",        value: vehicles.filter(v => v.status === "in_trip").length, icon: "🛣️" },
-            { label: "Maintenance",    value: vehicles.filter(v => v.status === "maintenance").length, icon: "🔧" },
-            { label: "Insurance Due",  value: expiringInsurance, icon: "⚠️", warn: expiringInsurance > 0 },
+            { label: "Total Vehicles", value: vehicles.length,                                         icon: <Truck size={18} />,         color: "#1E2D8E", bg: "#eef0fb" },
+            { label: "Active",         value: vehicles.filter(v => v.status === "active").length,       icon: <CheckCircle size={18} />,    color: "#2e7d32", bg: "#e8f5e9" },
+            { label: "On Trip",        value: vehicles.filter(v => v.status === "in_trip").length,      icon: <Navigation size={18} />,    color: "#0277bd", bg: "#e1f5fe" },
+            { label: "In Maintenance", value: vehicles.filter(v => v.status === "maintenance").length,  icon: <Wrench size={18} />,        color: "#6a1b9a", bg: "#f3e5f5" },
+            { label: "Insurance Due",  value: expiringInsurance,                                        icon: <AlertTriangle size={18} />, color: expiringInsurance > 0 ? "#e65100" : "#888", bg: expiringInsurance > 0 ? "#fff3e0" : "#f5f5f5" },
           ].map(s => (
             <div key={s.label} className="stat-card" style={{ textAlign: "center" }}>
-              <div style={{ fontSize: 22, marginBottom: 2 }}>{s.icon}</div>
-              <div style={{ fontSize: 24, fontWeight: 700, color: (s as any).warn ? "#e65100" : "#1E2D8E" }}>{s.value}</div>
+              <div style={{
+                width: 40, height: 40, borderRadius: 10, background: s.bg, color: s.color,
+                display: "flex", alignItems: "center", justifyContent: "center",
+                margin: "0 auto 10px"
+              }}>
+                {s.icon}
+              </div>
+              <div style={{ fontSize: 24, fontWeight: 700, color: s.color }}>{s.value}</div>
               <div style={{ fontSize: 12, color: "#888", marginTop: 3 }}>{s.label}</div>
             </div>
           ))}
@@ -427,6 +435,15 @@ export default function VehiclesPage() {
                     <select value={form.fuel_type} onChange={e => set("fuel_type", e.target.value)} style={inputStyle}>
                       <option value="">Select fuel type</option>
                       {FUEL_TYPES.map(f => <option key={f} value={f}>{f}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label style={labelStyle}>Status</label>
+                    <select value={form.status} onChange={e => set("status", e.target.value)} style={inputStyle}>
+                      <option value="active">Active</option>
+                      <option value="in_trip">On Trip</option>
+                      <option value="maintenance">In Maintenance</option>
+                      <option value="inactive">Inactive</option>
                     </select>
                   </div>
                 </div>
