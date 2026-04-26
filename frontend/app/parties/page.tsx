@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import Header from "@/components/Header";
 import { getParties, createParty, updateParty, deleteParty } from "@/lib/api";
 import {
@@ -192,9 +192,8 @@ export default function PartiesPage() {
                   const isExpanded = expandedId === p.id;
                   const bal = parseFloat(p.opening_balance || 0);
                   return (
-                    <>
+                    <React.Fragment key={p.id}>
                       <tr
-                        key={p.id}
                         style={{ borderBottom: "1px solid #f5f5fa", cursor: "pointer" }}
                         onClick={() => setExpandedId(isExpanded ? null : p.id)}
                       >
@@ -246,7 +245,7 @@ export default function PartiesPage() {
                         </td>
                       </tr>
                       {isExpanded && (
-                        <tr key={`${p.id}-expand`} style={{ background: "#fafbff", borderBottom: "1px solid #f0f0f8" }}>
+                        <tr style={{ background: "#fafbff", borderBottom: "1px solid #f0f0f8" }}>
                           <td colSpan={6} style={{ padding: "12px 20px 14px 56px" }}>
                             <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 16, fontSize: 13 }}>
                               <div>
@@ -265,7 +264,7 @@ export default function PartiesPage() {
                           </td>
                         </tr>
                       )}
-                    </>
+                    </React.Fragment>
                   );
                 })}
               </tbody>
