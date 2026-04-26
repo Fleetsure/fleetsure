@@ -724,56 +724,58 @@ const PLANS = [
 ];
 
 function BillingSettings() {
-  const [currentPlan] = useState("trial"); // will come from backend later
-
-  const inputStyle: React.CSSProperties = {
-    width: "100%", padding: "8px 11px", border: "1.5px solid var(--border-input)",
-    borderRadius: 8, fontSize: 13.5, background: "var(--bg-card)", color: "var(--text-main)",
-    boxSizing: "border-box"
-  };
+  const [currentPlan] = useState("trial");
+  const [hoveredPlan, setHoveredPlan] = useState<string | null>(null);
 
   return (
     <div>
       <h2 style={{ margin: "0 0 4px", fontSize: 17, fontWeight: 700 }}>Billing & Subscriptions</h2>
-      <p style={{ margin: "0 0 24px", fontSize: 13, color: "var(--text-muted)" }}>
+      <p style={{ margin: "0 0 20px", fontSize: 13, color: "var(--text-muted)" }}>
         Choose the plan that fits your fleet size. All plans include a 14-day free trial — no credit card required.
       </p>
 
       {/* Current plan banner */}
       <div style={{
         display: "flex", alignItems: "center", justifyContent: "space-between",
-        padding: "14px 18px", borderRadius: 12, marginBottom: 28,
+        padding: "13px 18px", borderRadius: 12, marginBottom: 24,
         background: "linear-gradient(135deg, #1E2D8E 0%, #3949ab 100%)",
         color: "white",
       }}>
         <div>
-          <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", opacity: 0.75, marginBottom: 3 }}>Current Plan</div>
-          <div style={{ fontSize: 16, fontWeight: 700 }}>Free Trial</div>
-          <div style={{ fontSize: 12, opacity: 0.8, marginTop: 2 }}>Explore all features. Upgrade anytime.</div>
+          <div style={{ fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", opacity: 0.7, marginBottom: 2 }}>Current Plan</div>
+          <div style={{ fontSize: 15, fontWeight: 700 }}>Free Trial — Explore all features. Upgrade anytime.</div>
         </div>
-        <div style={{ textAlign: "right" }}>
-          <div style={{ fontSize: 11, opacity: 0.7, marginBottom: 6 }}>Payment integration</div>
-          <span style={{ fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 8, background: "rgba(255,255,255,0.2)", color: "white" }}>
-            Coming Soon
-          </span>
-        </div>
+        <span style={{ fontSize: 11, fontWeight: 700, padding: "4px 12px", borderRadius: 8, background: "rgba(255,255,255,0.18)", color: "white", whiteSpace: "nowrap" }}>
+          Payment coming soon
+        </span>
       </div>
 
-      {/* Plan cards */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 16, marginBottom: 28 }}>
-        {PLANS.map(plan => (
-          <div key={plan.id} style={{
-            border: `1.5px solid ${plan.popular ? plan.color : plan.border}`,
-            borderRadius: 14, padding: "20px 20px 18px",
-            background: "var(--bg-card)",
-            position: "relative",
-            boxShadow: plan.popular ? `0 4px 20px ${plan.color}22` : "none",
-          }}>
+      {/* Plan cards — 4 in a row */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 14, marginBottom: 24 }}>
+        {PLANS.map(plan => {
+          const isHovered = hoveredPlan === plan.id;
+          return (
+          <div
+            key={plan.id}
+            onMouseEnter={() => setHoveredPlan(plan.id)}
+            onMouseLeave={() => setHoveredPlan(null)}
+            style={{
+              border: `2px solid ${isHovered || plan.popular ? plan.color : plan.border}`,
+              borderRadius: 14, padding: "18px 16px 16px",
+              background: isHovered ? plan.bg : "var(--bg-card)",
+              position: "relative", cursor: "default",
+              transform: isHovered ? "translateY(-6px) scale(1.02)" : "translateY(0) scale(1)",
+              boxShadow: isHovered
+                ? `0 16px 40px ${plan.color}33`
+                : plan.popular ? `0 4px 16px ${plan.color}22` : "none",
+              transition: "all 0.2s ease",
+              display: "flex", flexDirection: "column",
+            }}>
             {plan.popular && (
               <div style={{
                 position: "absolute", top: -11, left: "50%", transform: "translateX(-50%)",
                 background: plan.color, color: "white",
-                fontSize: 10.5, fontWeight: 700, padding: "3px 12px", borderRadius: 20,
+                fontSize: 9.5, fontWeight: 700, padding: "3px 10px", borderRadius: 20,
                 letterSpacing: "0.06em", textTransform: "uppercase", whiteSpace: "nowrap",
               }}>
                 Most Popular
@@ -781,32 +783,29 @@ function BillingSettings() {
             )}
 
             {/* Plan header */}
-            <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 14 }}>
-              <div>
-                <div style={{ fontSize: 11, fontWeight: 700, color: plan.color, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 3 }}>
-                  {plan.name}
-                </div>
-                <div style={{ fontSize: 11.5, color: "var(--text-muted)", display: "flex", alignItems: "center", gap: 4 }}>
-                  <Truck size={11} style={{ flexShrink: 0 }} /> {plan.trucks}
-                </div>
+            <div style={{ marginBottom: 14 }}>
+              <div style={{ fontSize: 12, fontWeight: 800, color: plan.color, textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 2 }}>
+                {plan.name}
               </div>
-              <div style={{ textAlign: "right" }}>
-                {plan.price ? (
-                  <>
-                    <span style={{ fontSize: 22, fontWeight: 800, color: plan.color }}>₹{plan.price.toLocaleString("en-IN")}</span>
-                    <span style={{ fontSize: 11, color: "var(--text-muted)" }}>/mo</span>
-                  </>
-                ) : (
-                  <span style={{ fontSize: 15, fontWeight: 700, color: plan.color }}>Custom</span>
-                )}
+              <div style={{ fontSize: 10.5, color: "var(--text-muted)", display: "flex", alignItems: "center", gap: 3, marginBottom: 10 }}>
+                <Truck size={10} style={{ flexShrink: 0 }} /> {plan.trucks}
               </div>
+              {plan.price ? (
+                <div>
+                  <span style={{ fontSize: 26, fontWeight: 800, color: plan.color }}>₹{plan.price.toLocaleString("en-IN")}</span>
+                  <span style={{ fontSize: 11, color: "var(--text-muted)" }}> /mo</span>
+                </div>
+              ) : (
+                <span style={{ fontSize: 20, fontWeight: 800, color: plan.color }}>Custom</span>
+              )}
             </div>
+            <div style={{ height: 1, background: `${plan.color}22`, marginBottom: 14 }} />
 
             {/* Features */}
-            <div style={{ display: "flex", flexDirection: "column", gap: 7, marginBottom: 18 }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 16, flex: 1 }}>
               {plan.features.map(f => (
-                <div key={f} style={{ display: "flex", alignItems: "flex-start", gap: 8, fontSize: 12.5, color: "var(--text-main)" }}>
-                  <CheckCircle size={13} color={plan.color} style={{ flexShrink: 0, marginTop: 1 }} />
+                <div key={f} style={{ display: "flex", alignItems: "flex-start", gap: 7, fontSize: 11.5, color: "var(--text-main)", lineHeight: 1.4 }}>
+                  <CheckCircle size={12} color={plan.color} style={{ flexShrink: 0, marginTop: 1 }} />
                   {f}
                 </div>
               ))}
@@ -817,16 +816,18 @@ function BillingSettings() {
               disabled
               title="Payment integration coming soon — Razorpay setup in progress"
               style={{
-                width: "100%", padding: "9px 0", borderRadius: 9, fontSize: 13, fontWeight: 700,
+                width: "100%", padding: "8px 0", borderRadius: 8, fontSize: 12, fontWeight: 700,
                 border: `1.5px solid ${plan.color}`,
-                background: plan.popular ? plan.color : "transparent",
-                color: plan.popular ? "white" : plan.color,
-                cursor: "not-allowed", opacity: 0.7,
+                background: isHovered || plan.popular ? plan.color : "transparent",
+                color: isHovered || plan.popular ? "white" : plan.color,
+                cursor: "not-allowed",
+                transition: "all 0.2s ease",
               }}>
               {plan.price ? "Upgrade — Coming Soon" : "Contact Us"}
             </button>
           </div>
-        ))}
+          );
+        })}
       </div>
 
       {/* FAQ strip */}
