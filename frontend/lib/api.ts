@@ -66,6 +66,8 @@ export const deleteDriverPayment = (id: string) => api.delete(`/driver-payments/
 export const getDriverLedger    = (driver_id: string) => api.get(`/driver-payments/ledger/${driver_id}`);
 
 // ── Parties ───────────────────────────────────────────────
+export const getVehiclePnL = () => api.get("/pnl/vehicles");
+
 export const getParties    = (party_type?: string) => api.get("/parties/", { params: party_type ? { party_type } : {} });
 export const createParty   = (data: any) => api.post("/parties/", data);
 export const updateParty   = (id: string, data: any) => api.patch(`/parties/${id}`, data);
