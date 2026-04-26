@@ -43,7 +43,7 @@ const PROFILE_MENU = [
   // ── Fleet
   { section: "Fleet" },
   { label: "Settings",               icon: Settings,    href: "/settings",              tab: "general" },
-  { label: "Billing & Subscriptions",icon: CreditCard,  href: "/settings",              tab: "billing", soon: "Soon" },
+  { label: "Billing & Subscriptions",icon: CreditCard,  href: "/settings",              tab: "billing" },
   { label: "User Management",        icon: UserCog,     href: "/settings",              tab: "manage-users" },
   // ── Tools
   { section: "Tools" },
