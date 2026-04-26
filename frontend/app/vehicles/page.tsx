@@ -509,29 +509,4 @@ export default function VehiclesPage() {
                     </div>
                   ))}
                 </div>
-              </div>
-
-              {/* Actions */}
-              <div style={{ display: "flex", gap: 10, marginTop: 4 }}>
-                <button type="button" className="btn-outline" style={{ flex: 1 }} onClick={() => setShowForm(false)}>Cancel</button>
-                <button type="submit" className="btn-primary" style={{ flex: 1, justifyContent: "center" }} disabled={saving}>
-                  {saving ? "Saving..." : editVehicle ? "Save Changes" : "Add Vehicle"}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ── Style constants ────────────────────────────────────────────────────────────
-const labelStyle: React.CSSProperties = {
-  fontSize: 12, fontWeight: 600, color: "var(--text-muted)", display: "block", marginBottom: 4
-};
-const inputStyle: React.CSSProperties = {
-  width: "100%", padding: "8px 12px", border: "1.5px solid var(--border-input)",
-  borderRadius: 8, fontSize: 13.5, background: "var(--bg-card)", color: "var(--text-main)",
-  boxSizing: "border-box",
-};
+             

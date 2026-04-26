@@ -5,7 +5,39 @@ import {
   getTrips, createTrip, updateTrip,
   getVehicles, getDrivers, getTripDetail, addExpense,
 } from "@/lib/api";
-import { Plus, X, Route } from "lucide-react";
+import { Plus, X, Route, MessageCircle } from "lucide-react";
+
+// ── WhatsApp trip sheet generator ─────────────────────────────────────────────
+function shareOnWhatsApp(trip: any, detail: any, vehicleReg: string) {
+  const fmt = (d: string | null) => d ? new Date(d).toLocaleDateString("en-IN") : "—";
+  const expenses = detail?.expenses || [];
+  const totalExp = expenses.reduce((s: number, e: any) => s + parseFloat(e.amount || 0), 0);
+  const freight  = parseFloat(trip.freight_amount || 0);
+  const profit   = freight - totalExp;
+
+  const lines = [
+    `🚛 *FleetSure Trip Sheet*`,
+    ``,
+    `📍 *Route:* ${trip.origin} → ${trip.destination}`,
+    `🚗 *Vehicle:* ${vehicleReg}`,
+    `👤 *Driver:* ${trip.driver_name}${trip.driver_phone ? ` (${trip.driver_phone})` : ""}`,
+    `📅 *Dates:* ${fmt(trip.start_date)} → ${fmt(trip.end_date)}`,
+    detail?.doc_number ? `📄 *LR No:* ${detail.doc_number}` : null,
+    detail?.material   ? `📦 *Material:* ${detail.material}` : null,
+    detail?.weight_tonnes ? `⚖️ *Weight:* ${detail.weight_tonnes} T` : null,
+    ``,
+    `💰 *Freight Amount:* ₹${freight.toLocaleString("en-IN")}`,
+    totalExp > 0 ? `📊 *Total Expenses:* ₹${totalExp.toLocaleString("en-IN")}` : null,
+    totalExp > 0 ? `📈 *Net Profit:* ₹${profit.toLocaleString("en-IN")}` : null,
+    ``,
+    `✅ *Status:* ${trip.status.replace("_", " ").toUpperCase()}`,
+    ``,
+    `_Shared via FleetSure_`,
+  ].filter(Boolean).join("\n");
+
+  const url = `https://wa.me/?text=${encodeURIComponent(lines)}`;
+  window.open(url, "_blank");
+}
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -415,6 +447,12 @@ export default function TripsPage() {
                 {selTrip.status === "completed" && (
                   <span style={{ fontSize: 12.5, color: "#2e7d32", fontWeight: 600, paddingTop: 8 }}>✓ Trip completed</span>
                 )}
+                {/* WhatsApp share — available on any trip */}
+                <button
+                  onClick={() => shareOnWhatsApp(selTrip, detail, vehicleMap[selTrip.vehicle_id]?.registration_number || "—")}
+                  style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 14px", background: "#25D366", color: "white", border: "none", borderRadius: 8, fontSize: 12.5, fontWeight: 700, cursor: "pointer" }}>
+                  <MessageCircle size={14} /> Share on WhatsApp
+                </button>
               </div>
             </div>
 
@@ -698,41 +736,4 @@ export default function TripsPage() {
                 ))}
               </div>
 
-              {/* Dates / Distance */}
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
-                {[
-                  { label: "Start Date *", key: "start_date",  type: "date",   required: true },
-                  { label: "End Date",     key: "end_date",    type: "date",   required: false },
-                  { label: "Distance (km)",key: "distance_km", type: "number", required: false, placeholder: "1200" },
-                ].map(f => (
-                  <div key={f.key}>
-                    <label style={{ fontSize: 12, fontWeight: 600, color: "#555", display: "block", marginBottom: 4 }}>{f.label}</label>
-                    <input type={f.type} required={f.required} value={(form as any)[f.key]}
-                      placeholder={(f as any).placeholder || ""}
-                      onChange={e => setForm(p => ({ ...p, [f.key]: e.target.value }))}
-                      style={{ width: "100%", padding: "8px 12px", border: "1.5px solid #e8e8f0", borderRadius: 8, fontSize: 13.5, boxSizing: "border-box" }} />
-                  </div>
-                ))}
-              </div>
-
-              {/* Notes */}
-              <div>
-                <label style={{ fontSize: 12, fontWeight: 600, color: "#555", display: "block", marginBottom: 4 }}>Notes</label>
-                <textarea value={form.notes} rows={2} placeholder="Optional..."
-                  onChange={e => setForm(p => ({ ...p, notes: e.target.value }))}
-                  style={{ width: "100%", padding: "8px 12px", border: "1.5px solid #e8e8f0", borderRadius: 8, fontSize: 13.5, resize: "vertical", boxSizing: "border-box" }} />
-              </div>
-
-              <div style={{ display: "flex", gap: 10, marginTop: 4 }}>
-                <button type="button" className="btn-outline" style={{ flex: 1 }} onClick={() => setShowForm(false)}>Cancel</button>
-                <button type="submit" className="btn-primary" style={{ flex: 1, justifyContent: "center" }} disabled={saving}>
-                  {saving ? "Saving…" : "Log Trip"}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
+              {/* Dates / Dista

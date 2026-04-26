@@ -52,3 +52,21 @@ export const dlLookup = (dl_no: string, dob: string) => api.get("/dl/lookup", { 
 // ── Expenses ──────────────────────────────────────────────
 export const getTripExpenses = (tripId: string) => api.get(`/trips/${tripId}/expenses/`);
 export const addExpense      = (tripId: string, data: any) => api.post(`/trips/${tripId}/expenses/`, data);
+
+// ── Fuel Logs ─────────────────────────────────────────────
+export const getFuelLogs     = (vehicle_id?: string) => api.get("/fuel/", { params: vehicle_id ? { vehicle_id } : {} });
+export const addFuelLog      = (data: any) => api.post("/fuel/", data);
+export const deleteFuelLog   = (id: string) => api.delete(`/fuel/${id}`);
+export const getFuelAnalytics = () => api.get("/fuel/analytics");
+
+// ── Driver Payments ───────────────────────────────────────
+export const getDriverPayments  = (driver_id?: string) => api.get("/driver-payments/", { params: driver_id ? { driver_id } : {} });
+export const addDriverPayment   = (data: any) => api.post("/driver-payments/", data);
+export const deleteDriverPayment = (id: string) => api.delete(`/driver-payments/${id}`);
+export const getDriverLedger    = (driver_id: string) => api.get(`/driver-payments/ledger/${driver_id}`);
+
+// ── Parties ───────────────────────────────────────────────
+export const getParties    = (party_type?: string) => api.get("/parties/", { params: party_type ? { party_type } : {} });
+export const createParty   = (data: any) => api.post("/parties/", data);
+export const updateParty   = (id: string, data: any) => api.patch(`/parties/${id}`, data);
+export const deleteParty   = (id: string) => api.delete(`/parties/${id}`);

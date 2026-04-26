@@ -3,19 +3,22 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 # Import ALL models before create_all so SQLAlchemy sees every table
-from app.models.user import User          # noqa: F401
-from app.models.vehicle import Vehicle   # noqa: F401
-from app.models.driver import Driver     # noqa: F401
-from app.models.trip import Trip         # noqa: F401
-from app.models.expense import Expense   # noqa: F401
+from app.models.user import User                      # noqa: F401
+from app.models.vehicle import Vehicle                # noqa: F401
+from app.models.driver import Driver                  # noqa: F401
+from app.models.trip import Trip                      # noqa: F401
+from app.models.expense import Expense                # noqa: F401
+from app.models.fuel_log import FuelLog               # noqa: F401
+from app.models.driver_payment import DriverPayment   # noqa: F401
+from app.models.party import Party                    # noqa: F401
 
 from app.database import engine, Base
 from app.routers import auth, vehicles, drivers, trips, expenses, vahan, dl, export
+from app.routers import fuel, driver_payments, parties
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Create all tables on startup if they don't exist
     Base.metadata.create_all(bind=engine)
     yield
 
@@ -34,17 +37,19 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# ── Routers ───────────────────────────────────────────────────────────────────
 API_PREFIX = "/api/v1"
 
-app.include_router(auth.router,      prefix=API_PREFIX)
-app.include_router(vehicles.router,  prefix=API_PREFIX)
-app.include_router(drivers.router,   prefix=API_PREFIX)
-app.include_router(trips.router,     prefix=API_PREFIX)
-app.include_router(expenses.router,  prefix=API_PREFIX)
-app.include_router(vahan.router,     prefix=API_PREFIX)
-app.include_router(dl.router,        prefix=API_PREFIX)
-app.include_router(export.router,    prefix=API_PREFIX)
+app.include_router(auth.router,            prefix=API_PREFIX)
+app.include_router(vehicles.router,        prefix=API_PREFIX)
+app.include_router(drivers.router,         prefix=API_PREFIX)
+app.include_router(trips.router,           prefix=API_PREFIX)
+app.include_router(expenses.router,        prefix=API_PREFIX)
+app.include_router(fuel.router,            prefix=API_PREFIX)
+app.include_router(driver_payments.router, prefix=API_PREFIX)
+app.include_router(parties.router,         prefix=API_PREFIX)
+app.include_router(vahan.router,           prefix=API_PREFIX)
+app.include_router(dl.router,              prefix=API_PREFIX)
+app.include_router(export.router,          prefix=API_PREFIX)
 
 
 @app.get("/health")

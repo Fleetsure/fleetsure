@@ -1,8 +1,133 @@
 "use client";
 import { useEffect, useState } from "react";
 import Header from "@/components/Header";
-import { getDrivers, createDriver, updateDriver, dlLookup } from "@/lib/api";
-import { Plus, Users, X, Phone, Search, ChevronDown, ChevronRight, Edit2 } from "lucide-react";
+import { getDrivers, createDriver, updateDriver, dlLookup, getDriverLedger, addDriverPayment, deleteDriverPayment } from "@/lib/api";
+import { Plus, Users, X, Phone, Search, ChevronDown, ChevronRight, Edit2, Wallet, Trash2 } from "lucide-react";
+
+// ── Driver Payment Ledger Modal ───────────────────────────────────────────────
+const PAYMENT_TYPES = ["advance", "salary", "bonus", "deduction", "settlement"];
+const PAYMENT_COLORS: Record<string, { color: string; bg: string; sign: string }> = {
+  advance:    { color: "#e65100", bg: "#fff3e0", sign: "−" },
+  salary:     { color: "#1565c0", bg: "#e3f2fd", sign: "−" },
+  bonus:      { color: "#2e7d32", bg: "#e8f5e9", sign: "−" },
+  deduction:  { color: "#b71c1c", bg: "#fce4ec", sign: "+" },
+  settlement: { color: "#6a1b9a", bg: "#f3e5f5", sign: "−" },
+};
+
+function DriverLedgerModal({ driver, onClose }: { driver: any; onClose: () => void }) {
+  const [ledger, setLedger]   = useState<any>(null);
+  const [showAdd, setShowAdd] = useState(false);
+  const [form, setForm]       = useState({ date: new Date().toISOString().slice(0, 10), type: "advance", amount: "", notes: "" });
+  const [saving, setSaving]   = useState(false);
+
+  const load = () => getDriverLedger(driver.id).then((r: any) => setLedger(r.data));
+  useEffect(() => { load(); }, [driver.id]);
+
+  const set = (k: string, v: string) => setForm(p => ({ ...p, [k]: v }));
+
+  const handleAdd = async (e: any) => {
+    e.preventDefault(); setSaving(true);
+    try {
+      await addDriverPayment({ driver_id: driver.id, ...form, amount: parseFloat(form.amount) });
+      setShowAdd(false);
+      setForm({ date: new Date().toISOString().slice(0, 10), type: "advance", amount: "", notes: "" });
+      load();
+    } finally { setSaving(false); }
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!confirm("Delete this entry?")) return;
+    await deleteDriverPayment(id); load();
+  };
+
+  const pc = (type: string) => PAYMENT_COLORS[type] || PAYMENT_COLORS.advance;
+
+  return (
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1100, padding: 20 }}>
+      <div className="card" style={{ width: "100%", maxWidth: 560, maxHeight: "88vh", overflowY: "auto", position: "relative" }}>
+        <button onClick={onClose} style={{ position: "absolute", top: 16, right: 16, background: "none", border: "none", cursor: "pointer", color: "#888" }}><X size={18} /></button>
+        <div style={{ marginBottom: 20 }}>
+          <h2 style={{ margin: "0 0 2px", fontSize: 16, fontWeight: 700 }}>{driver.name} — Payment Ledger</h2>
+          <div style={{ fontSize: 12.5, color: "var(--text-muted)" }}>{driver.phone}</div>
+        </div>
+
+        {/* Balance summary */}
+        {ledger && (
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10, marginBottom: 20 }}>
+            {[
+              { label: "Total Paid Out", value: `₹${ledger.total_paid.toLocaleString("en-IN")}`, color: "#1565c0" },
+              { label: "Deductions", value: `₹${ledger.total_deducted.toLocaleString("en-IN")}`, color: "#b71c1c" },
+              { label: ledger.net_balance >= 0 ? "Driver Owes" : "You Owe Driver", value: `₹${Math.abs(ledger.net_balance).toLocaleString("en-IN")}`, color: ledger.net_balance >= 0 ? "#e65100" : "#2e7d32" },
+            ].map(s => (
+              <div key={s.label} style={{ textAlign: "center", padding: "12px 8px", borderRadius: 10, background: "#f8f9ff", border: "1px solid #e8eaf6" }}>
+                <div style={{ fontSize: 16, fontWeight: 800, color: s.color }}>{s.value}</div>
+                <div style={{ fontSize: 11, color: "#888", marginTop: 3 }}>{s.label}</div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Add entry */}
+        {!showAdd ? (
+          <button onClick={() => setShowAdd(true)} className="btn-primary" style={{ marginBottom: 16 }}>
+            <Plus size={14} /> Add Entry
+          </button>
+        ) : (
+          <form onSubmit={handleAdd} style={{ background: "#f8f9ff", borderRadius: 10, padding: 14, marginBottom: 16, display: "flex", flexDirection: "column", gap: 10 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+              <div>
+                <label style={{ fontSize: 12, fontWeight: 600, color: "#555", display: "block", marginBottom: 4 }}>Date</label>
+                <input type="date" value={form.date} onChange={e => set("date", e.target.value)} required
+                  style={{ width: "100%", padding: "7px 10px", border: "1.5px solid #e8e8f0", borderRadius: 7, fontSize: 13, boxSizing: "border-box" }} />
+              </div>
+              <div>
+                <label style={{ fontSize: 12, fontWeight: 600, color: "#555", display: "block", marginBottom: 4 }}>Type</label>
+                <select value={form.type} onChange={e => set("type", e.target.value)}
+                  style={{ width: "100%", padding: "7px 10px", border: "1.5px solid #e8e8f0", borderRadius: 7, fontSize: 13, boxSizing: "border-box" }}>
+                  {PAYMENT_TYPES.map(t => <option key={t} value={t}>{t.charAt(0).toUpperCase() + t.slice(1)}</option>)}
+                </select>
+              </div>
+            </div>
+            <div>
+              <label style={{ fontSize: 12, fontWeight: 600, color: "#555", display: "block", marginBottom: 4 }}>Amount (₹)</label>
+              <input type="number" min="0" step="0.01" placeholder="5000" value={form.amount} onChange={e => set("amount", e.target.value)} required
+                style={{ width: "100%", padding: "7px 10px", border: "1.5px solid #e8e8f0", borderRadius: 7, fontSize: 13, boxSizing: "border-box" }} />
+            </div>
+            <div>
+              <label style={{ fontSize: 12, fontWeight: 600, color: "#555", display: "block", marginBottom: 4 }}>Notes</label>
+              <input type="text" placeholder="e.g. May salary, Trip advance..." value={form.notes} onChange={e => set("notes", e.target.value)}
+                style={{ width: "100%", padding: "7px 10px", border: "1.5px solid #e8e8f0", borderRadius: 7, fontSize: 13, boxSizing: "border-box" }} />
+            </div>
+            <div style={{ display: "flex", gap: 8 }}>
+              <button type="button" className="btn-outline" style={{ flex: 1 }} onClick={() => setShowAdd(false)}>Cancel</button>
+              <button type="submit" className="btn-primary" style={{ flex: 1, justifyContent: "center" }} disabled={saving}>
+                {saving ? "Saving..." : "Add Entry"}
+              </button>
+            </div>
+          </form>
+        )}
+
+        {/* Ledger entries */}
+        {ledger && ledger.payments.length === 0 && (
+          <div style={{ textAlign: "center", color: "#aaa", fontSize: 13, padding: "20px 0" }}>No payment entries yet.</div>
+        )}
+        {ledger && ledger.payments.map((p: any) => {
+          const c = pc(p.type);
+          return (
+            <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 12px", borderRadius: 9, background: c.bg, border: `1px solid ${c.color}22`, marginBottom: 6 }}>
+              <div style={{ minWidth: 70, fontSize: 11, color: "#888" }}>{new Date(p.date).toLocaleDateString("en-IN")}</div>
+              <span style={{ fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 6, background: c.color, color: "white" }}>{p.type}</span>
+              <div style={{ flex: 1, fontSize: 12.5, color: "#333" }}>{p.notes || "—"}</div>
+              <div style={{ fontWeight: 800, fontSize: 14, color: c.color }}>{c.sign}₹{parseFloat(p.amount).toLocaleString("en-IN")}</div>
+              <button onClick={() => handleDelete(p.id)} style={{ background: "none", border: "none", cursor: "pointer", color: "#ccc", padding: 2 }}><Trash2 size={12} /></button>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 
 const LICENSE_CLASSES = ["LMV", "HMV", "HGMV", "HPMV", "other"];
 
@@ -42,6 +167,7 @@ export default function DriversPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [expandedRow, setExpandedRow] = useState<string | null>(null);
+  const [ledgerDriver, setLedgerDriver] = useState<any>(null);
 
   // DL fetch state
   const [fetchStatus, setFetchStatus] = useState<"idle" | "loading" | "success" | "demo" | "error">("idle");
@@ -210,10 +336,15 @@ export default function DriversPage() {
                       <td><Badge dateStr={d.license_expiry} /></td>
                       <td><Badge dateStr={d.transport_validity} /></td>
                       <td><span className={`badge badge-${d.status}`}>{d.status.replace("_", " ")}</span></td>
-                      <td>
+                      <td style={{ display: "flex", gap: 4, alignItems: "center" }}>
                         <button onClick={e => { e.stopPropagation(); openEdit(d); }}
                           style={{ background: "none", border: "none", cursor: "pointer", color: "#1E2D8E", padding: 4 }}>
                           <Edit2 size={14} />
+                        </button>
+                        <button onClick={e => { e.stopPropagation(); setLedgerDriver(d); }}
+                          title="Payment Ledger"
+                          style={{ background: "none", border: "none", cursor: "pointer", color: "#2e7d32", padding: 4 }}>
+                          <Wallet size={14} />
                         </button>
                       </td>
                     </tr>
@@ -404,6 +535,8 @@ export default function DriversPage() {
           </div>
         </div>
       )}
+      {/* Driver Payment Ledger Modal */}
+      {ledgerDriver && <DriverLedgerModal driver={ledgerDriver} onClose={() => setLedgerDriver(null)} />}
     </div>
   );
 }

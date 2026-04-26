@@ -1,128 +1,202 @@
 "use client";
 import { useEffect, useState } from "react";
 import Header from "@/components/Header";
-import { getTrips, getTripExpenses, addExpense } from "@/lib/api";
-import { Fuel, Plus, X } from "lucide-react";
+import { getFuelLogs, addFuelLog, deleteFuelLog, getFuelAnalytics, getVehicles } from "@/lib/api";
+import { Fuel, Plus, X, AlertTriangle, TrendingDown, TrendingUp, Truck, Trash2 } from "lucide-react";
+
+const EMPTY = { vehicle_id: "", date: new Date().toISOString().slice(0, 10), odometer_km: "", litres: "", amount: "", fuel_station: "", notes: "" };
 
 export default function FuelPage() {
-  const [trips, setTrips]       = useState<any[]>([]);
-  const [fuelExpenses, setFuel] = useState<any[]>([]);
-  const [showForm, setShowForm] = useState(false);
-  const [selectedTrip, setTrip] = useState("");
-  const [form, setForm]         = useState({ amount: "", description: "", date: "" });
-  const [saving, setSaving]     = useState(false);
-  const [error, setError]       = useState("");
+  const [logs, setLogs]           = useState<any[]>([]);
+  const [analytics, setAnalytics] = useState<any[]>([]);
+  const [vehicles, setVehicles]   = useState<any[]>([]);
+  const [loading, setLoading]     = useState(true);
+  const [showForm, setShowForm]   = useState(false);
+  const [form, setForm]           = useState<any>({ ...EMPTY });
+  const [saving, setSaving]       = useState(false);
+  const [error, setError]         = useState("");
+  const [tab, setTab]             = useState<"log" | "analytics">("log");
 
-  useEffect(() => {
-    getTrips().then(r => {
-      const ts = r.data;
-      setTrips(ts);
-      Promise.all(ts.map((t: any) => getTripExpenses(t.id))).then(results => {
-        const all = results.flatMap((r: any, i: number) =>
-          r.data.filter((e: any) => e.expense_type === "fuel").map((e: any) => ({ ...e, trip: ts[i] }))
-        );
-        setFuel(all.sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime()));
-      });
-    });
-  }, []);
+  const load = async () => {
+    const [l, a, v] = await Promise.all([getFuelLogs(), getFuelAnalytics(), getVehicles()]);
+    setLogs(l.data);
+    setAnalytics(a.data);
+    setVehicles(v.data);
+    setLoading(false);
+  };
+  useEffect(() => { load(); }, []);
+
+  const set = (k: string, v: string) => setForm((p: any) => ({ ...p, [k]: v }));
 
   const handleSubmit = async (e: any) => {
     e.preventDefault(); setSaving(true); setError("");
     try {
-      await addExpense(selectedTrip, { expense_type: "fuel", amount: parseFloat(form.amount), description: form.description, date: form.date });
-      setShowForm(false); setForm({ amount: "", description: "", date: "" });
-      window.location.reload();
+      await addFuelLog({ ...form, odometer_km: parseFloat(form.odometer_km), litres: parseFloat(form.litres), amount: parseFloat(form.amount) });
+      setShowForm(false); setForm({ ...EMPTY }); load();
     } catch (err: any) {
-      setError(err.response?.data?.detail || "Error");
+      setError(err?.response?.data?.detail || "Failed to save");
     } finally { setSaving(false); }
   };
 
-  const total = fuelExpenses.reduce((s, e) => s + parseFloat(e.amount), 0);
+  const handleDelete = async (id: string) => {
+    if (!confirm("Delete this fuel entry?")) return;
+    await deleteFuelLog(id); load();
+  };
+
+  const vehicleName = (id: string) => {
+    const v = vehicles.find(v => v.id === id);
+    return v ? `${v.registration_number} (${v.make} ${v.model})` : id;
+  };
+
+  const anomalies = analytics.filter(a => a.anomaly);
 
   return (
     <div>
-      <Header title="Fuel" subtitle="Track fuel expenses across all trips" />
+      <Header title="Fuel" subtitle={`${logs.length} fill-up entries · ${anomalies.length} anomaly${anomalies.length !== 1 ? "s" : ""} detected`} />
       <div style={{ padding: "24px 28px" }}>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 14, marginBottom: 24 }}>
-          <div className="stat-card" style={{ textAlign: "center" }}>
-            <div style={{ fontSize: 24, fontWeight: 700, color: "#1E2D8E" }}>{fuelExpenses.length}</div>
-            <div style={{ fontSize: 12.5, color: "#888", marginTop: 4 }}>Fuel Entries</div>
-          </div>
-          <div className="stat-card" style={{ textAlign: "center" }}>
-            <div style={{ fontSize: 24, fontWeight: 700, color: "#1E2D8E" }}>₹{Number(total).toLocaleString("en-IN")}</div>
-            <div style={{ fontSize: 12.5, color: "#888", marginTop: 4 }}>Total Spent</div>
-          </div>
-          <div className="stat-card" style={{ textAlign: "center" }}>
-            <div style={{ fontSize: 24, fontWeight: 700, color: "#1E2D8E" }}>
-              {fuelExpenses.length > 0 ? `₹${Math.round(total / fuelExpenses.length).toLocaleString("en-IN")}` : "—"}
+
+        {/* Anomaly banner */}
+        {anomalies.length > 0 && (
+          <div style={{ background: "#fff3e0", border: "1.5px solid #ffb74d", borderRadius: 12, padding: "14px 18px", marginBottom: 20, display: "flex", gap: 12, alignItems: "flex-start" }}>
+            <AlertTriangle size={18} color="#e65100" style={{ flexShrink: 0, marginTop: 1 }} />
+            <div>
+              <div style={{ fontWeight: 700, color: "#bf360c", fontSize: 13.5, marginBottom: 4 }}>⚠️ Possible fuel theft detected on {anomalies.length} vehicle{anomalies.length > 1 ? "s" : ""}</div>
+              {anomalies.map(a => (
+                <div key={String(a.vehicle_id)} style={{ fontSize: 12.5, color: "#e65100", marginBottom: 2 }}>
+                  <strong>{a.registration_number}</strong> — last fill-up efficiency dropped <strong>{a.anomaly_pct}%</strong> below average ({a.last_kmpl} km/L vs avg {a.avg_kmpl} km/L)
+                </div>
+              ))}
             </div>
-            <div style={{ fontSize: 12.5, color: "#888", marginTop: 4 }}>Avg per Entry</div>
           </div>
+        )}
+
+        {/* Stat cards */}
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 14, marginBottom: 22 }}>
+          {[
+            { label: "Total Fill-ups",   value: logs.length,                                                          color: "#1E2D8E", bg: "#eef0fb" },
+            { label: "Total Litres",     value: `${logs.reduce((s, l) => s + parseFloat(l.litres || 0), 0).toFixed(0)} L`, color: "#0277bd", bg: "#e1f5fe" },
+            { label: "Total Spend",      value: `₹${logs.reduce((s, l) => s + parseFloat(l.amount || 0), 0).toLocaleString("en-IN")}`, color: "#2e7d32", bg: "#e8f5e9" },
+            { label: "Anomalies Found",  value: anomalies.length,                                                     color: anomalies.length > 0 ? "#bf360c" : "#888", bg: anomalies.length > 0 ? "#fff3e0" : "#f5f5f5" },
+          ].map(s => (
+            <div key={s.label} className="stat-card" style={{ textAlign: "center" }}>
+              <div style={{ fontSize: 22, fontWeight: 800, color: s.color }}>{s.value}</div>
+              <div style={{ fontSize: 12, color: "#888", marginTop: 3 }}>{s.label}</div>
+            </div>
+          ))}
+        </div>
+
+        {/* Tabs */}
+        <div style={{ display: "flex", gap: 4, marginBottom: 16 }}>
+          {(["log", "analytics"] as const).map(t => (
+            <button key={t} onClick={() => setTab(t)}
+              style={{ padding: "7px 18px", borderRadius: 8, border: "1.5px solid", fontSize: 13, fontWeight: 600, cursor: "pointer",
+                background: tab === t ? "#1E2D8E" : "transparent",
+                color: tab === t ? "white" : "#1E2D8E",
+                borderColor: "#1E2D8E" }}>
+              {t === "log" ? "Fuel Log" : "Efficiency Analytics"}
+            </button>
+          ))}
+          <div style={{ flex: 1 }} />
+          <button className="btn-primary" onClick={() => setShowForm(true)}><Plus size={15} />Add Fill-up</button>
         </div>
 
         <div className="card">
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-            <h2 style={{ margin: 0, fontSize: 15, fontWeight: 700 }}>Fuel Log</h2>
-            <button className="btn-primary" onClick={() => setShowForm(true)}><Plus size={15} />Log Fuel</button>
-          </div>
-          {fuelExpenses.length === 0 ? (
-            <div style={{ textAlign: "center", padding: "40px 0" }}>
-              <Fuel size={36} color="#ddd" style={{ margin: "0 auto 10px", display: "block" }} />
-              <p style={{ color: "#aaa", margin: 0, fontSize: 13.5 }}>No fuel expenses logged yet</p>
-            </div>
+          {tab === "log" ? (
+            loading ? <p style={{ color: "#aaa", textAlign: "center", padding: "32px 0" }}>Loading...</p>
+            : logs.length === 0 ? (
+              <div style={{ textAlign: "center", padding: "48px 0" }}>
+                <Fuel size={36} color="#ddd" style={{ margin: "0 auto 10px", display: "block" }} />
+                <p style={{ color: "#aaa", fontSize: 13.5 }}>No fuel entries yet. Add your first fill-up.</p>
+                <button className="btn-primary" style={{ marginTop: 10 }} onClick={() => setShowForm(true)}>Add Fill-up</button>
+              </div>
+            ) : (
+              <table>
+                <thead>
+                  <tr><th>Date</th><th>Vehicle</th><th>Odometer</th><th>Litres</th><th>Amount</th><th>₹/L</th><th>Station</th><th></th></tr>
+                </thead>
+                <tbody>
+                  {logs.map((l: any) => (
+                    <tr key={l.id}>
+                      <td>{new Date(l.date).toLocaleDateString("en-IN")}</td>
+                      <td style={{ fontWeight: 600, color: "#1E2D8E", fontSize: 12.5 }}>{vehicleName(l.vehicle_id)}</td>
+                      <td>{parseFloat(l.odometer_km).toLocaleString("en-IN")} km</td>
+                      <td>{parseFloat(l.litres).toFixed(2)} L</td>
+                      <td>₹{parseFloat(l.amount).toLocaleString("en-IN")}</td>
+                      <td style={{ color: "#555" }}>₹{(parseFloat(l.amount) / parseFloat(l.litres)).toFixed(1)}</td>
+                      <td style={{ color: "#888", fontSize: 12 }}>{l.fuel_station || "—"}</td>
+                      <td>
+                        <button onClick={() => handleDelete(l.id)} style={{ background: "none", border: "none", cursor: "pointer", color: "#e53935", padding: 4 }}>
+                          <Trash2 size={13} />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )
           ) : (
-            <table>
-              <thead><tr><th>Trip</th><th>Amount</th><th>Date</th><th>Notes</th></tr></thead>
-              <tbody>
-                {fuelExpenses.map((e: any) => (
-                  <tr key={e.id}>
-                    <td style={{ fontWeight: 500 }}>{e.trip.origin} → {e.trip.destination}</td>
-                    <td style={{ fontWeight: 700, color: "#1E2D8E" }}>₹{Number(e.amount).toLocaleString("en-IN")}</td>
-                    <td>{e.date}</td>
-                    <td style={{ color: "#888" }}>{e.description || "—"}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            analytics.length === 0 ? (
+              <p style={{ textAlign: "center", padding: "48px 0", color: "#aaa" }}>No analytics yet — add at least 2 fill-ups per vehicle.</p>
+            ) : (
+              <table>
+                <thead>
+                  <tr><th>Vehicle</th><th>Avg km/L</th><th>Last km/L</th><th>Total Litres</th><th>Total Spend</th><th>Fill-ups</th><th>Status</th></tr>
+                </thead>
+                <tbody>
+                  {analytics.map((a: any) => (
+                    <tr key={String(a.vehicle_id)}>
+                      <td style={{ fontWeight: 700, color: "#1E2D8E" }}>{a.registration_number}</td>
+                      <td>{a.avg_kmpl ?? "—"}</td>
+                      <td style={{ color: a.anomaly ? "#bf360c" : "inherit", fontWeight: a.anomaly ? 700 : 400 }}>{a.last_kmpl ?? "—"}</td>
+                      <td>{a.total_litres.toFixed(0)} L</td>
+                      <td>₹{a.total_spend.toLocaleString("en-IN")}</td>
+                      <td>{a.fill_count}</td>
+                      <td>
+                        {a.anomaly ? (
+                          <span style={{ display: "flex", alignItems: "center", gap: 5, color: "#bf360c", fontWeight: 700, fontSize: 12 }}>
+                            <TrendingDown size={13} /> {a.anomaly_pct}% drop — check driver
+                          </span>
+                        ) : (
+                          <span style={{ display: "flex", alignItems: "center", gap: 5, color: "#2e7d32", fontSize: 12 }}>
+                            <TrendingUp size={13} /> Normal
+                          </span>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )
           )}
         </div>
       </div>
 
+      {/* Add fill-up modal */}
       {showForm && (
-        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000 }}>
-          <div className="card" style={{ width: 400, position: "relative" }}>
-            <button onClick={() => setShowForm(false)} style={{ position: "absolute", top: 16, right: 16, background: "none", border: "none", cursor: "pointer" }}><X size={18} /></button>
-            <h2 style={{ margin: "0 0 20px", fontSize: 16, fontWeight: 700 }}>Log Fuel Expense</h2>
-            {error && <div style={{ background: "#fce4ec", color: "#b71c1c", padding: "8px 12px", borderRadius: 6, marginBottom: 14, fontSize: 13 }}>{error}</div>}
-            <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, padding: 20 }}>
+          <div className="card" style={{ width: "100%", maxWidth: 480, position: "relative" }}>
+            <button onClick={() => setShowForm(false)} style={{ position: "absolute", top: 16, right: 16, background: "none", border: "none", cursor: "pointer", color: "#888" }}><X size={18} /></button>
+            <h2 style={{ margin: "0 0 20px", fontSize: 16, fontWeight: 700 }}>Add Fuel Fill-up</h2>
+            {error && <div style={{ background: "#fce4ec", color: "#b71c1c", padding: "8px 12px", borderRadius: 8, marginBottom: 12, fontSize: 13 }}>{error}</div>}
+            <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
               <div>
-                <label style={{ fontSize: 12.5, fontWeight: 600, color: "#555", display: "block", marginBottom: 4 }}>Trip *</label>
-                <select required value={selectedTrip} onChange={e => setTrip(e.target.value)}
-                  style={{ width: "100%", padding: "8px 12px", border: "1.5px solid #e8e8f0", borderRadius: 8, fontSize: 13.5 }}>
-                  <option value="">Select trip</option>
-                  {trips.filter((t: any) => t.status !== "cancelled").map((t: any) => (
-                    <option key={t.id} value={t.id}>{t.origin} → {t.destination} ({t.start_date})</option>
-                  ))}
+                <label style={lbl}>Vehicle *</label>
+                <select required value={form.vehicle_id} onChange={e => set("vehicle_id", e.target.value)} style={inp}>
+                  <option value="">Select vehicle</option>
+                  {vehicles.map(v => <option key={v.id} value={v.id}>{v.registration_number} — {v.make} {v.model}</option>)}
                 </select>
               </div>
-              <div>
-                <label style={{ fontSize: 12.5, fontWeight: 600, color: "#555", display: "block", marginBottom: 4 }}>Amount (₹) *</label>
-                <input type="number" required value={form.amount} onChange={e => setForm(p => ({ ...p, amount: e.target.value }))} placeholder="5000"
-                  style={{ width: "100%", padding: "8px 12px", border: "1.5px solid #e8e8f0", borderRadius: 8, fontSize: 13.5 }} />
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                <div><label style={lbl}>Date *</label><input required type="date" value={form.date} onChange={e => set("date", e.target.value)} style={inp} /></div>
+                <div><label style={lbl}>Odometer (km) *</label><input required type="number" step="0.01" min="0" placeholder="54321" value={form.odometer_km} onChange={e => set("odometer_km", e.target.value)} style={inp} /></div>
+                <div><label style={lbl}>Litres filled *</label><input required type="number" step="0.01" min="0.1" placeholder="80.5" value={form.litres} onChange={e => set("litres", e.target.value)} style={inp} /></div>
+                <div><label style={lbl}>Total Amount (₹) *</label><input required type="number" step="0.01" min="1" placeholder="7500" value={form.amount} onChange={e => set("amount", e.target.value)} style={inp} /></div>
               </div>
-              <div>
-                <label style={{ fontSize: 12.5, fontWeight: 600, color: "#555", display: "block", marginBottom: 4 }}>Date *</label>
-                <input type="date" required value={form.date} onChange={e => setForm(p => ({ ...p, date: e.target.value }))}
-                  style={{ width: "100%", padding: "8px 12px", border: "1.5px solid #e8e8f0", borderRadius: 8, fontSize: 13.5 }} />
-              </div>
-              <div>
-                <label style={{ fontSize: 12.5, fontWeight: 600, color: "#555", display: "block", marginBottom: 4 }}>Notes</label>
-                <input value={form.description} onChange={e => setForm(p => ({ ...p, description: e.target.value }))} placeholder="Pump name, litres, etc."
-                  style={{ width: "100%", padding: "8px 12px", border: "1.5px solid #e8e8f0", borderRadius: 8, fontSize: 13.5 }} />
-              </div>
+              <div><label style={lbl}>Fuel Station</label><input placeholder="HP Petrol Pump, NH-48" value={form.fuel_station} onChange={e => set("fuel_station", e.target.value)} style={inp} /></div>
+              <div><label style={lbl}>Notes</label><input placeholder="Any notes..." value={form.notes} onChange={e => set("notes", e.target.value)} style={inp} /></div>
               <div style={{ display: "flex", gap: 10, marginTop: 4 }}>
                 <button type="button" className="btn-outline" style={{ flex: 1 }} onClick={() => setShowForm(false)}>Cancel</button>
-                <button type="submit" className="btn-primary" style={{ flex: 1, justifyContent: "center" }} disabled={saving}>{saving ? "Saving..." : "Log Fuel"}</button>
+                <button type="submit" className="btn-primary" style={{ flex: 1, justifyContent: "center" }} disabled={saving}>{saving ? "Saving..." : "Save Fill-up"}</button>
               </div>
             </form>
           </div>
@@ -131,3 +205,6 @@ export default function FuelPage() {
     </div>
   );
 }
+
+const lbl: React.CSSProperties = { fontSize: 12, fontWeight: 600, color: "var(--text-muted)", display: "block", marginBottom: 4 };
+const inp: React.CSSProperties = { width: "100%", padding: "8px 11px", border: "1.5px solid var(--border-input)", borderRadius: 8, fontSize: 13.5, background: "var(--bg-card)", color: "var(--text-main)", boxSizing: "border-box" };
