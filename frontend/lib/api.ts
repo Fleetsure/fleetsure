@@ -72,3 +72,12 @@ export const getParties    = (party_type?: string) => api.get("/parties/", { par
 export const createParty   = (data: any) => api.post("/parties/", data);
 export const updateParty   = (id: string, data: any) => api.patch(`/parties/${id}`, data);
 export const deleteParty   = (id: string) => api.delete(`/parties/${id}`);
+
+export const getPolicies     = (vehicle_id?: string) => api.get("/insurance/", { params: vehicle_id ? { vehicle_id } : {} });
+export const createPolicy    = (data: any) => api.post("/insurance/", data);
+export const deletePolicy    = (id: string) => api.delete(`/insurance/${id}`);
+
+export const getDocuments    = (vehicle_id?: string) => api.get("/documents/", { params: vehicle_id ? { vehicle_id } : {} });
+export const uploadDocument  = (data: any) => api.post("/documents/", data);
+export const downloadDocument = (id: string) => api.get(`/documents/${id}/download`);
+export const deleteDocument  = (id: string) => api.delete(`/documents/${id}`);
