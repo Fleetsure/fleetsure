@@ -1,12 +1,30 @@
+from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+# Import ALL models before create_all so SQLAlchemy sees every table
+from app.models.user import User          # noqa: F401
+from app.models.vehicle import Vehicle   # noqa: F401
+from app.models.driver import Driver     # noqa: F401
+from app.models.trip import Trip         # noqa: F401
+from app.models.expense import Expense   # noqa: F401
+
+from app.database import engine, Base
 from app.routers import auth, vehicles, drivers, trips, expenses, vahan, dl, export
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Create all tables on startup if they don't exist
+    Base.metadata.create_all(bind=engine)
+    yield
+
 
 app = FastAPI(
     title="FleetSure API",
     version="1.0.0",
     description="Backend for FleetSure fleet management SaaS",
+    lifespan=lifespan,
 )
 
 app.add_middleware(
