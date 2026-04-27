@@ -3,7 +3,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
   LayoutDashboard, Truck, Users, Route,
-  Wrench, Fuel, HeartPulse,
+  Wrench, Fuel, HeartPulse, ReceiptText,
   ShieldCheck, FileText, ChevronDown, ChevronUp, Settings,
   PlusCircle, UserCircle, LogOut, Building2
 } from "lucide-react";
@@ -20,6 +20,7 @@ const NAV = [
     children: [
       { label: "Services", href: "/expenses", icon: Wrench },
       { label: "Fuel",     href: "/fuel",     icon: Fuel },
+      { label: "Tolls",    href: "/tolls",    icon: ReceiptText },
     ]
   },
   {

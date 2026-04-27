@@ -81,3 +81,8 @@ export const getDocuments    = (vehicle_id?: string) => api.get("/documents/", {
 export const uploadDocument  = (data: any) => api.post("/documents/", data);
 export const downloadDocument = (id: string) => api.get(`/documents/${id}/download`);
 export const deleteDocument  = (id: string) => api.delete(`/documents/${id}`);
+
+// ── Tolls ─────────────────────────────────────────────────
+export const getTollLogs  = (vehicle_id?: string) => api.get("/tolls/", { params: vehicle_id ? { vehicle_id } : {} });
+export const addTollLog   = (data: any) => api.post("/tolls/", data);
+export const deleteTollLog = (id: string) => api.delete(`/tolls/${id}`);
