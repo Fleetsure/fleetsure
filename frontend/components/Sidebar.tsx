@@ -74,6 +74,8 @@ export default function Sidebar() {
     localStorage.removeItem("token");
     localStorage.removeItem("userName");
     localStorage.removeItem("userId");
+    localStorage.removeItem("orgName");
+    localStorage.removeItem("orgLogo");
     router.push("/login");
   };
 
