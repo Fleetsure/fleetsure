@@ -78,53 +78,68 @@ def build_trip_pdf(trip: Trip, org_name: str, org_logo_b64: str,
     )
     story = []
 
-    # ── 1. HEADER — Org branding ───────────────────────────────────────────────
-    # Left: logo + company name
-    logo_cell = []
+    # ── 1. HEADER — flat, no nested tables ───────────────────────────────────
+    org_display = org_name or "Fleet Company"
+    MUTED = colors.HexColor("#c5cae9")
+
+    # Logo (optional)
+    logo_img = None
     if org_logo_b64:
         try:
             img_data = base64.b64decode(org_logo_b64.split(",")[-1])
-            img_buf  = io.BytesIO(img_data)
-            logo_img = RLImage(img_buf, width=40, height=40)
-            logo_cell.append(logo_img)
+            logo_img = RLImage(io.BytesIO(img_data), width=36, height=36)
         except Exception:
             pass
 
-    org_display = org_name or "Fleet Company"
-    header_left = Table(
-        [[P(org_display, font=FONTB, size=16, color=WHITE)],
-         [P("Transport & Logistics", size=8, color=colors.HexColor("#c5cae9"))]],
-        colWidths=[W * 0.55]
-    )
-    header_right = Table(
-        [[P("TRIP SHEET", font=FONTB, size=13, color=WHITE, align=TA_RIGHT)],
-         [P(f"Doc: {trip.doc_number or '—'}   Date: {_fmt_date(trip.start_date)}",
-            size=8, color=colors.HexColor("#c5cae9"), align=TA_RIGHT)]],
-        colWidths=[W * 0.45]
-    )
-
-    if logo_cell:
-        left_content = Table([[logo_cell[0],
-                               Table([[P(org_display, font=FONTB, size=14, color=WHITE)],
-                                      [P("Transport & Logistics", size=8, color=colors.HexColor("#c5cae9"))]],
-                                     colWidths=[W*0.45])]],
-                             colWidths=[44, W*0.45])
-        left_content.setStyle(TableStyle([
-            ("VALIGN",(0,0),(-1,-1),"MIDDLE"),
-            ("LEFTPADDING",(0,0),(-1,-1),0),
-            ("RIGHTPADDING",(0,0),(-1,-1),6),
-            ("TOPPADDING",(0,0),(-1,-1),0),
-            ("BOTTOMPADDING",(0,0),(-1,-1),0),
+    # Left cell: logo row then org name
+    if logo_img:
+        left_cell = Table(
+            [[logo_img, Table([[P(org_display, font=FONTB, size=14, color=WHITE)],
+                               [P("Transport & Logistics", size=8, color=MUTED)]],
+                              colWidths=[W*0.42])]],
+            colWidths=[42, W*0.42]
+        )
+        left_cell.setStyle(TableStyle([
+            ("VALIGN",        (0,0),(-1,-1), "MIDDLE"),
+            ("LEFTPADDING",   (0,0),(-1,-1), 0),
+            ("RIGHTPADDING",  (0,0),(-1,-1), 4),
+            ("TOPPADDING",    (0,0),(-1,-1), 0),
+            ("BOTTOMPADDING", (0,0),(-1,-1), 0),
         ]))
     else:
-        left_content = header_left
+        left_cell = Table(
+            [[P(org_display, font=FONTB, size=15, color=WHITE)],
+             [P("Transport & Logistics", size=8, color=MUTED)]],
+            colWidths=[W*0.55]
+        )
+        left_cell.setStyle(TableStyle([
+            ("TOPPADDING",    (0,0),(-1,-1), 1),
+            ("BOTTOMPADDING", (0,0),(-1,-1), 1),
+            ("LEFTPADDING",   (0,0),(-1,-1), 0),
+            ("RIGHTPADDING",  (0,0),(-1,-1), 0),
+        ]))
 
-    banner = Table([[left_content, header_right]], colWidths=[W*0.55, W*0.45])
+    # Right cell: direct paragraphs, no inner table
+    right_cell = Table(
+        [[P("TRIP SHEET", font=FONTB, size=12, color=WHITE, align=TA_RIGHT)],
+         [P(f"Doc: {trip.doc_number or '—'}", size=8, color=MUTED, align=TA_RIGHT)],
+         [P(f"Date: {_fmt_date(trip.start_date)}", size=8, color=MUTED, align=TA_RIGHT)]],
+        colWidths=[W*0.38]
+    )
+    right_cell.setStyle(TableStyle([
+        ("TOPPADDING",    (0,0),(-1,-1), 1),
+        ("BOTTOMPADDING", (0,0),(-1,-1), 1),
+        ("LEFTPADDING",   (0,0),(-1,-1), 0),
+        ("RIGHTPADDING",  (0,0),(-1,-1), 0),
+    ]))
+
+    banner = Table([[left_cell, right_cell]], colWidths=[W*0.58, W*0.42])
     banner.setStyle(TableStyle([
         ("BACKGROUND",    (0,0),(-1,-1), BLUE),
         ("VALIGN",        (0,0),(-1,-1), "MIDDLE"),
-        ("LEFTPADDING",   (0,0),(-1,-1), 16),
-        ("RIGHTPADDING",  (0,0),(-1,-1), 16),
+        ("LEFTPADDING",   (0,0),(0,-1),  14),
+        ("RIGHTPADDING",  (-1,0),(-1,-1),14),
+        ("LEFTPADDING",   (-1,0),(-1,-1), 6),
         ("TOPPADDING",    (0,0),(-1,-1), 14),
         ("BOTTOMPADDING", (0,0),(-1,-1), 14),
         ("ROUNDEDCORNERS", [8,8,8,8]),
