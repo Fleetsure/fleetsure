@@ -16,7 +16,7 @@ from app.models.document import Document          # noqa: F401                  
 
 from app.database import engine, Base
 from app.routers import auth, vehicles, drivers, trips, expenses, vahan, dl, export
-from app.routers import fuel, driver_payments, parties, pnl, insurance, documents
+from app.routers import fuel, driver_payments, parties, pnl, insurance, documents, pdf
 
 
 @asynccontextmanager
@@ -55,6 +55,7 @@ app.include_router(documents.router,       prefix=API_PREFIX)
 app.include_router(vahan.router,           prefix=API_PREFIX)
 app.include_router(dl.router,              prefix=API_PREFIX)
 app.include_router(export.router,          prefix=API_PREFIX)
+app.include_router(pdf.router,             prefix=API_PREFIX)
 
 
 @app.get("/health")

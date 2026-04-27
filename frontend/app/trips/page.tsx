@@ -5,7 +5,7 @@ import {
   getTrips, createTrip, updateTrip,
   getVehicles, getDrivers, getTripDetail, addExpense,
 } from "@/lib/api";
-import { Plus, X, Route, MessageCircle } from "lucide-react";
+import { Plus, X, Route, MessageCircle, FileDown } from "lucide-react";
 
 // ── WhatsApp trip sheet generator ─────────────────────────────────────────────
 function shareOnWhatsApp(trip: any, detail: any, vehicleReg: string) {
@@ -452,6 +452,23 @@ export default function TripsPage() {
                   onClick={() => shareOnWhatsApp(selTrip, detail, vehicleMap[selTrip.vehicle_id]?.registration_number || "—")}
                   style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 14px", background: "#25D366", color: "white", border: "none", borderRadius: 8, fontSize: 12.5, fontWeight: 700, cursor: "pointer" }}>
                   <MessageCircle size={14} /> Share on WhatsApp
+                </button>
+                <button
+                  onClick={() => {
+                    const orgName = encodeURIComponent(localStorage.getItem("orgName") || "");
+                    const url = `${process.env.NEXT_PUBLIC_API_URL}/trips/${selTrip.id}/pdf?org_name=${orgName}`;
+                    const token = localStorage.getItem("token");
+                    fetch(url, { headers: { Authorization: `Bearer ${token}` } })
+                      .then(r => r.blob())
+                      .then(blob => {
+                        const a = document.createElement("a");
+                        a.href = URL.createObjectURL(blob);
+                        a.download = `tripsheet_${selTrip.origin}_${selTrip.destination}.pdf`;
+                        a.click();
+                      });
+                  }}
+                  style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 14px", background: "#1E2D8E", color: "white", border: "none", borderRadius: 8, fontSize: 12.5, fontWeight: 700, cursor: "pointer" }}>
+                  <FileDown size={14} /> Download PDF
                 </button>
               </div>
             </div>
