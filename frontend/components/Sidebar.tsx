@@ -3,9 +3,9 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
   LayoutDashboard, Truck, Users, Route,
-  Wrench, Fuel, CreditCard, HeartPulse,
+  Wrench, Fuel, HeartPulse,
   ShieldCheck, FileText, ChevronDown, ChevronUp, Settings,
-  PlusCircle, UserCog, Upload, Zap, UserCircle, Bell, Lock, LogOut, Building2
+  PlusCircle, UserCircle, LogOut, Building2
 } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
 import Image from "next/image";
@@ -40,23 +40,9 @@ const NAV = [
 // danger → red styling (Log Out)
 
 const PROFILE_MENU = [
-  // ── Fleet
-  { section: "Fleet" },
-  { label: "Settings",               icon: Settings,    href: "/settings",              tab: "general" },
-  { label: "Billing & Subscriptions",icon: CreditCard,  href: "/settings",              tab: "billing" },
-  { label: "User Management",        icon: UserCog,     href: "/settings",              tab: "manage-users" },
-  // ── Tools
-  { section: "Tools" },
-  { label: "Imports",                icon: Upload,      soon: "Soon", soonNote: "OCR for handwritten documents — coming soon" },
-  { label: "Automations",            icon: Zap,         soon: "Soon", soonNote: "Rule-based automation — coming soon" },
-  // ── My Account
-  { section: "My Account" },
-  { label: "User Profile",           icon: UserCircle,  href: "/settings",              tab: "profile" },
-  { label: "Notification Settings",  icon: Bell,        href: "/settings",              tab: "notifications" },
-  { label: "Login & Password",       icon: Lock,        href: "/settings",              tab: "password" },
-  // ── Danger
+  { label: "User Profile", icon: UserCircle, href: "/settings", tab: "profile" },
   { divider: true },
-  { label: "Log Out",                icon: LogOut,      href: "/logout",                danger: true },
+  { label: "Log Out",      icon: LogOut,     href: "/logout",   danger: true },
 ] as const;
 
 export default function Sidebar() {
