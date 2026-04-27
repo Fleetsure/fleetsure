@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import Header from "@/components/Header";
 import { getVehicles, createVehicle, updateVehicle } from "@/lib/api";
-import { Plus, Truck, X, AlertCircle, ChevronDown, ChevronUp, Wrench, Navigation, AlertTriangle } from "lucide-react";
+import { Plus, Truck, X, AlertCircle, CheckCircle, ChevronDown, ChevronUp, Wrench, Navigation, AlertTriangle } from "lucide-react";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
