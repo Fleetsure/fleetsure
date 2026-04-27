@@ -20,7 +20,6 @@ const NAV = [
     children: [
       { label: "Services", href: "/expenses", icon: Wrench },
       { label: "Fuel",     href: "/fuel",     icon: Fuel },
-      { label: "FASTag",   href: "/fastag",   icon: CreditCard },
     ]
   },
   {
