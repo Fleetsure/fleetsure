@@ -78,11 +78,19 @@ def build_trip_pdf(trip: Trip, org_name: str, org_logo_b64: str,
     )
     story = []
 
-    # ── 1. HEADER — flat, no nested tables ───────────────────────────────────
+    # ── 1. HEADER — single flat table, Paragraphs directly in cells ─────────
     org_display = org_name or "Fleet Company"
     MUTED = colors.HexColor("#c5cae9")
 
-    # Logo (optional)
+    # Right cell: single Paragraph with line breaks — no nested table
+    right_para = Paragraph(
+        f'<font name="{FONTB}" size="12" color="white">TRIP SHEET</font><br/>'
+        f'<font name="{FONT}" size="8" color="#c5cae9">Doc: {trip.doc_number or "—"}</font><br/>'
+        f'<font name="{FONT}" size="8" color="#c5cae9">Date: {_fmt_date(trip.start_date)}</font>',
+        ParagraphStyle("rp", alignment=TA_RIGHT, leading=14)
+    )
+
+    # Left cell: logo + text OR just text
     logo_img = None
     if org_logo_b64:
         try:
@@ -91,13 +99,16 @@ def build_trip_pdf(trip: Trip, org_name: str, org_logo_b64: str,
         except Exception:
             pass
 
-    # Left cell: logo row then org name
     if logo_img:
         left_cell = Table(
-            [[logo_img, Table([[P(org_display, font=FONTB, size=14, color=WHITE)],
-                               [P("Transport & Logistics", size=8, color=MUTED)]],
-                              colWidths=[W*0.42])]],
-            colWidths=[42, W*0.42]
+            [[logo_img,
+              Paragraph(
+                f'<font name="{FONTB}" size="13" color="white">{org_display}</font><br/>'
+                f'<font name="{FONT}" size="8" color="#c5cae9">Transport &amp; Logistics</font>',
+                ParagraphStyle("lp", leading=16)
+              )
+            ]],
+            colWidths=[42, W*0.46]
         )
         left_cell.setStyle(TableStyle([
             ("VALIGN",        (0,0),(-1,-1), "MIDDLE"),
@@ -106,40 +117,22 @@ def build_trip_pdf(trip: Trip, org_name: str, org_logo_b64: str,
             ("TOPPADDING",    (0,0),(-1,-1), 0),
             ("BOTTOMPADDING", (0,0),(-1,-1), 0),
         ]))
+        left_content = left_cell
     else:
-        left_cell = Table(
-            [[P(org_display, font=FONTB, size=15, color=WHITE)],
-             [P("Transport & Logistics", size=8, color=MUTED)]],
-            colWidths=[W*0.55]
+        left_content = Paragraph(
+            f'<font name="{FONTB}" size="15" color="white">{org_display}</font><br/>'
+            f'<font name="{FONT}" size="8" color="#c5cae9">Transport &amp; Logistics</font>',
+            ParagraphStyle("lp2", leading=18)
         )
-        left_cell.setStyle(TableStyle([
-            ("TOPPADDING",    (0,0),(-1,-1), 1),
-            ("BOTTOMPADDING", (0,0),(-1,-1), 1),
-            ("LEFTPADDING",   (0,0),(-1,-1), 0),
-            ("RIGHTPADDING",  (0,0),(-1,-1), 0),
-        ]))
 
-    # Right cell: direct paragraphs, no inner table
-    right_cell = Table(
-        [[P("TRIP SHEET", font=FONTB, size=12, color=WHITE, align=TA_RIGHT)],
-         [P(f"Doc: {trip.doc_number or '—'}", size=8, color=MUTED, align=TA_RIGHT)],
-         [P(f"Date: {_fmt_date(trip.start_date)}", size=8, color=MUTED, align=TA_RIGHT)]],
-        colWidths=[W*0.38]
-    )
-    right_cell.setStyle(TableStyle([
-        ("TOPPADDING",    (0,0),(-1,-1), 1),
-        ("BOTTOMPADDING", (0,0),(-1,-1), 1),
-        ("LEFTPADDING",   (0,0),(-1,-1), 0),
-        ("RIGHTPADDING",  (0,0),(-1,-1), 0),
-    ]))
-
-    banner = Table([[left_cell, right_cell]], colWidths=[W*0.58, W*0.42])
+    banner = Table([[left_content, right_para]], colWidths=[W*0.60, W*0.40])
     banner.setStyle(TableStyle([
         ("BACKGROUND",    (0,0),(-1,-1), BLUE),
         ("VALIGN",        (0,0),(-1,-1), "MIDDLE"),
         ("LEFTPADDING",   (0,0),(0,-1),  14),
-        ("RIGHTPADDING",  (-1,0),(-1,-1),14),
-        ("LEFTPADDING",   (-1,0),(-1,-1), 6),
+        ("RIGHTPADDING",  (0,0),(0,-1),  6),
+        ("LEFTPADDING",   (1,0),(1,-1),  6),
+        ("RIGHTPADDING",  (1,0),(1,-1),  14),
         ("TOPPADDING",    (0,0),(-1,-1), 14),
         ("BOTTOMPADDING", (0,0),(-1,-1), 14),
         ("ROUNDEDCORNERS", [8,8,8,8]),
