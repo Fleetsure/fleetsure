@@ -21,12 +21,14 @@ from app.models.user import User
 from app.services.auth_service import get_current_user
 
 # ── Register Unicode fonts (supports ₹) ───────────────────────────────────────
-_FONT_PATH = "/usr/share/fonts/truetype/dejavu/"
+import os as _os
+_FONT_DIR = _os.path.join(_os.path.dirname(_os.path.dirname(__file__)), "fonts")
 try:
-    pdfmetrics.registerFont(TTFont("DJ",  _FONT_PATH + "DejaVuSans.ttf"))
-    pdfmetrics.registerFont(TTFont("DJB", _FONT_PATH + "DejaVuSans-Bold.ttf"))
+    pdfmetrics.registerFont(TTFont("DJ",  _os.path.join(_FONT_DIR, "DejaVuSans.ttf")))
+    pdfmetrics.registerFont(TTFont("DJB", _os.path.join(_FONT_DIR, "DejaVuSans-Bold.ttf")))
     FONT, FONTB = "DJ", "DJB"
-except Exception:
+except Exception as _e:
+    print(f"Font load failed: {_e}, falling back to Helvetica")
     FONT, FONTB = "Helvetica", "Helvetica-Bold"
 
 router = APIRouter(prefix="/trips", tags=["PDF"])
