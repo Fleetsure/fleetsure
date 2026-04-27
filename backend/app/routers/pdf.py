@@ -2,263 +2,282 @@ from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session, joinedload
 from uuid import UUID
-import io
+import io, base64
 from datetime import date
+from typing import Optional
 
 from reportlab.lib.pagesizes import A4
 from reportlab.lib import colors
 from reportlab.lib.units import mm
-from reportlab.platypus import (
-    SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, HRFlowable
-)
-from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, HRFlowable, Image as RLImage
+from reportlab.lib.styles import ParagraphStyle
 from reportlab.lib.enums import TA_CENTER, TA_RIGHT, TA_LEFT
+from reportlab.pdfbase import pdfmetrics
+from reportlab.pdfbase.ttfonts import TTFont
 
 from app.database import get_db
 from app.models.trip import Trip
 from app.models.user import User
 from app.services.auth_service import get_current_user
 
+# ── Register Unicode fonts (supports ₹) ───────────────────────────────────────
+_FONT_PATH = "/usr/share/fonts/truetype/dejavu/"
+try:
+    pdfmetrics.registerFont(TTFont("DJ",  _FONT_PATH + "DejaVuSans.ttf"))
+    pdfmetrics.registerFont(TTFont("DJB", _FONT_PATH + "DejaVuSans-Bold.ttf"))
+    FONT, FONTB = "DJ", "DJB"
+except Exception:
+    FONT, FONTB = "Helvetica", "Helvetica-Bold"
+
 router = APIRouter(prefix="/trips", tags=["PDF"])
 
-BRAND_BLUE  = colors.HexColor("#1E2D8E")
-BRAND_LIGHT = colors.HexColor("#e8eaf6")
-GRAY        = colors.HexColor("#888888")
-DARK        = colors.HexColor("#1a1a2e")
-RED         = colors.HexColor("#c62828")
-GREEN       = colors.HexColor("#2e7d32")
-WHITE       = colors.white
+# ── Colors ─────────────────────────────────────────────────────────────────────
+BLUE   = colors.HexColor("#1E2D8E")
+LBLUE  = colors.HexColor("#e8eaf6")
+GRAY   = colors.HexColor("#888888")
+LGRAY  = colors.HexColor("#f5f5f5")
+DARK   = colors.HexColor("#1a1a2e")
+GREEN  = colors.HexColor("#2e7d32")
+RED    = colors.HexColor("#c62828")
+WHITE  = colors.white
+BORDER = colors.HexColor("#e0e0e0")
+
+
+def P(text, font=None, size=9, color=DARK, align=TA_LEFT, **kw):
+    return Paragraph(str(text), ParagraphStyle(
+        "x", fontName=font or FONT, fontSize=size,
+        textColor=color, alignment=align,
+        leading=size * 1.3, **kw
+    ))
 
 
 def _fmt_date(d) -> str:
-    if not d:
-        return "—"
-    if isinstance(d, str):
-        return d
+    if not d: return "—"
+    if isinstance(d, str): return d
     return d.strftime("%d %b %Y")
 
-def _fmt_inr(amount) -> str:
-    if amount is None:
-        return "—"
+
+def _inr(amount) -> str:
+    if amount is None: return "—"
     return f"₹{float(amount):,.0f}"
 
 
-def build_trip_pdf(trip: Trip, org_name: str) -> bytes:
+def build_trip_pdf(trip: Trip, org_name: str, org_logo_b64: str,
+                   include_expense_types: list, show_profit: bool) -> bytes:
     buffer = io.BytesIO()
+    W_PAGE = A4[0]
+    W = W_PAGE - 36 * mm
+
     doc = SimpleDocTemplate(
-        buffer,
-        pagesize=A4,
+        buffer, pagesize=A4,
         leftMargin=18*mm, rightMargin=18*mm,
         topMargin=14*mm, bottomMargin=14*mm,
     )
-
-    W = A4[0] - 36*mm  # usable width
-    styles = getSampleStyleSheet()
-
-    # Custom styles
-    def style(name, **kw):
-        s = ParagraphStyle(name, **kw)
-        return s
-
-    S = {
-        "brand":   style("brand",   fontSize=22, fontName="Helvetica-Bold", textColor=WHITE),
-        "sub":     style("sub",     fontSize=9,  fontName="Helvetica",      textColor=colors.HexColor("#c5cae9")),
-        "title":   style("title",   fontSize=11, fontName="Helvetica-Bold", textColor=WHITE,     alignment=TA_RIGHT),
-        "docnum":  style("docnum",  fontSize=9,  fontName="Helvetica",      textColor=colors.HexColor("#c5cae9"), alignment=TA_RIGHT),
-        "section": style("section", fontSize=9,  fontName="Helvetica-Bold", textColor=BRAND_BLUE, spaceAfter=2),
-        "label":   style("label",   fontSize=8,  fontName="Helvetica",      textColor=GRAY),
-        "value":   style("value",   fontSize=9,  fontName="Helvetica-Bold", textColor=DARK),
-        "small":   style("small",   fontSize=8,  fontName="Helvetica",      textColor=GRAY),
-        "footer":  style("footer",  fontSize=7.5,fontName="Helvetica",      textColor=GRAY, alignment=TA_CENTER),
-        "total_l": style("total_l", fontSize=10, fontName="Helvetica-Bold", textColor=WHITE),
-        "total_r": style("total_r", fontSize=10, fontName="Helvetica-Bold", textColor=WHITE, alignment=TA_RIGHT),
-    }
-
     story = []
 
-    # ── Header banner ──────────────────────────────────────────────────────────
-    header_left = [
-        [Paragraph("FleetSure", S["brand"])],
-        [Paragraph(org_name or "Fleet Management", S["sub"])],
-    ]
-    header_right = [
-        [Paragraph("TRIP SHEET", S["title"])],
-        [Paragraph(
-            f"Doc No: {trip.doc_number or '—'}<br/>Date: {_fmt_date(trip.start_date)}",
-            S["docnum"]
-        )],
-    ]
-    header_table = Table(
-        [[
-            Table(header_left, colWidths=[W * 0.55]),
-            Table(header_right, colWidths=[W * 0.45]),
-        ]],
-        colWidths=[W * 0.55, W * 0.45],
+    # ── 1. HEADER — Org branding ───────────────────────────────────────────────
+    # Left: logo + company name
+    logo_cell = []
+    if org_logo_b64:
+        try:
+            img_data = base64.b64decode(org_logo_b64.split(",")[-1])
+            img_buf  = io.BytesIO(img_data)
+            logo_img = RLImage(img_buf, width=40, height=40)
+            logo_cell.append(logo_img)
+        except Exception:
+            pass
+
+    org_display = org_name or "Fleet Company"
+    header_left = Table(
+        [[P(org_display, font=FONTB, size=16, color=WHITE)],
+         [P("Transport & Logistics", size=8, color=colors.HexColor("#c5cae9"))]],
+        colWidths=[W * 0.55]
     )
-    header_table.setStyle(TableStyle([
-        ("BACKGROUND", (0,0), (-1,-1), BRAND_BLUE),
-        ("VALIGN",     (0,0), (-1,-1), "MIDDLE"),
-        ("LEFTPADDING",(0,0), (-1,-1), 12),
-        ("RIGHTPADDING",(0,0),(-1,-1), 12),
-        ("TOPPADDING", (0,0), (-1,-1), 12),
-        ("BOTTOMPADDING",(0,0),(-1,-1), 12),
-        ("ROUNDEDCORNERS", [6,6,6,6]),
-    ]))
-    story.append(header_table)
-    story.append(Spacer(1, 10))
+    header_right = Table(
+        [[P("TRIP SHEET", font=FONTB, size=13, color=WHITE, align=TA_RIGHT)],
+         [P(f"Doc: {trip.doc_number or '—'}   Date: {_fmt_date(trip.start_date)}",
+            size=8, color=colors.HexColor("#c5cae9"), align=TA_RIGHT)]],
+        colWidths=[W * 0.45]
+    )
 
-    # ── Route banner ───────────────────────────────────────────────────────────
-    route_data = [[
-        Paragraph(trip.origin.upper(), style("orig", fontSize=13, fontName="Helvetica-Bold", textColor=BRAND_BLUE)),
-        Paragraph("→", style("arr",  fontSize=16, fontName="Helvetica-Bold", textColor=GRAY, alignment=TA_CENTER)),
-        Paragraph(trip.destination.upper(), style("dest", fontSize=13, fontName="Helvetica-Bold", textColor=BRAND_BLUE, alignment=TA_RIGHT)),
-    ]]
-    route_table = Table(route_data, colWidths=[W*0.44, W*0.12, W*0.44])
-    route_table.setStyle(TableStyle([
-        ("BACKGROUND", (0,0), (-1,-1), BRAND_LIGHT),
-        ("VALIGN",     (0,0), (-1,-1), "MIDDLE"),
-        ("TOPPADDING", (0,0), (-1,-1), 10),
-        ("BOTTOMPADDING",(0,0),(-1,-1), 10),
-        ("LEFTPADDING",(0,0),(0,-1), 14),
-        ("RIGHTPADDING",(-1,0),(-1,-1), 14),
-        ("ROUNDEDCORNERS", [6,6,6,6]),
-    ]))
-    story.append(route_table)
-    story.append(Spacer(1, 12))
-
-    # ── Trip Details grid ──────────────────────────────────────────────────────
-    v = trip.vehicle
-    def cell(label, val):
-        return [Paragraph(label, S["label"]), Paragraph(str(val) if val else "—", S["value"])]
-
-    details = [
-        cell("Vehicle",     f"{v.registration_number} — {v.make} {v.model}" if v else "—"),
-        cell("Driver",      trip.driver_name),
-        cell("Driver Phone",trip.driver_phone or "—"),
-        cell("Start Date",  _fmt_date(trip.start_date)),
-        cell("End Date",    _fmt_date(trip.end_date)),
-        cell("Distance",    f"{trip.distance_km} km" if trip.distance_km else "—"),
-        cell("Material",    trip.material or "—"),
-        cell("Weight",      f"{trip.weight_tonnes} T" if trip.weight_tonnes else "—"),
-    ]
-
-    # 2-column layout
-    rows = []
-    for i in range(0, len(details), 2):
-        left  = details[i]
-        right = details[i+1] if i+1 < len(details) else ["", ""]
-        rows.append([left[0], left[1], Paragraph("", S["label"]), right[0], right[1]])
-
-    detail_table = Table(rows, colWidths=[W*0.18, W*0.30, W*0.04, W*0.18, W*0.30])
-    detail_table.setStyle(TableStyle([
-        ("VALIGN",      (0,0), (-1,-1), "TOP"),
-        ("TOPPADDING",  (0,0), (-1,-1), 4),
-        ("BOTTOMPADDING",(0,0),(-1,-1), 4),
-        ("LEFTPADDING", (0,0), (-1,-1), 0),
-        ("RIGHTPADDING",(0,0), (-1,-1), 4),
-    ]))
-    story.append(Paragraph("TRIP DETAILS", S["section"]))
-    story.append(HRFlowable(width=W, thickness=1, color=BRAND_LIGHT, spaceAfter=6))
-    story.append(detail_table)
-    story.append(Spacer(1, 12))
-
-    # ── Expenses table ─────────────────────────────────────────────────────────
-    story.append(Paragraph("EXPENSES", S["section"]))
-    story.append(HRFlowable(width=W, thickness=1, color=BRAND_LIGHT, spaceAfter=6))
-
-    if trip.expenses:
-        exp_rows = [[
-            Paragraph("Date",        style("eh", fontSize=8, fontName="Helvetica-Bold", textColor=WHITE)),
-            Paragraph("Type",        style("eh", fontSize=8, fontName="Helvetica-Bold", textColor=WHITE)),
-            Paragraph("Description", style("eh", fontSize=8, fontName="Helvetica-Bold", textColor=WHITE)),
-            Paragraph("Amount",      style("eh", fontSize=8, fontName="Helvetica-Bold", textColor=WHITE, alignment=TA_RIGHT)),
-        ]]
-        total_exp = 0
-        for e in sorted(trip.expenses, key=lambda x: x.date):
-            exp_rows.append([
-                Paragraph(_fmt_date(e.date),                  style("ed", fontSize=8, fontName="Helvetica", textColor=DARK)),
-                Paragraph(e.expense_type.replace("_"," ").title(), style("ed", fontSize=8, fontName="Helvetica", textColor=DARK)),
-                Paragraph(e.description or "—",               style("ed", fontSize=8, fontName="Helvetica", textColor=DARK)),
-                Paragraph(_fmt_inr(e.amount),                 style("ed", fontSize=8, fontName="Helvetica", textColor=DARK, alignment=TA_RIGHT)),
-            ])
-            total_exp += float(e.amount)
-
-        exp_table = Table(exp_rows, colWidths=[W*0.15, W*0.20, W*0.45, W*0.20])
-        exp_table.setStyle(TableStyle([
-            ("BACKGROUND",    (0,0), (-1,0),  BRAND_BLUE),
-            ("ROWBACKGROUNDS",(0,1), (-1,-1), [WHITE, BRAND_LIGHT]),
-            ("TOPPADDING",    (0,0), (-1,-1), 5),
-            ("BOTTOMPADDING", (0,0), (-1,-1), 5),
-            ("LEFTPADDING",   (0,0), (-1,-1), 6),
-            ("RIGHTPADDING",  (0,0), (-1,-1), 6),
-            ("GRID",          (0,0), (-1,-1), 0.3, colors.HexColor("#e0e0e0")),
-            ("ROUNDEDCORNERS",[4,4,4,4]),
+    if logo_cell:
+        left_content = Table([[logo_cell[0],
+                               Table([[P(org_display, font=FONTB, size=14, color=WHITE)],
+                                      [P("Transport & Logistics", size=8, color=colors.HexColor("#c5cae9"))]],
+                                     colWidths=[W*0.45])]],
+                             colWidths=[44, W*0.45])
+        left_content.setStyle(TableStyle([
+            ("VALIGN",(0,0),(-1,-1),"MIDDLE"),
+            ("LEFTPADDING",(0,0),(-1,-1),0),
+            ("RIGHTPADDING",(0,0),(-1,-1),6),
+            ("TOPPADDING",(0,0),(-1,-1),0),
+            ("BOTTOMPADDING",(0,0),(-1,-1),0),
         ]))
-        story.append(exp_table)
     else:
-        story.append(Paragraph("No expenses recorded for this trip.", S["small"]))
-        total_exp = 0
+        left_content = header_left
 
+    banner = Table([[left_content, header_right]], colWidths=[W*0.55, W*0.45])
+    banner.setStyle(TableStyle([
+        ("BACKGROUND",    (0,0),(-1,-1), BLUE),
+        ("VALIGN",        (0,0),(-1,-1), "MIDDLE"),
+        ("LEFTPADDING",   (0,0),(0,-1),  14),
+        ("RIGHTPADDING",  (-1,0),(-1,-1),14),
+        ("TOPPADDING",    (0,0),(-1,-1), 12),
+        ("BOTTOMPADDING", (0,0),(-1,-1), 12),
+    ]))
+    story.append(banner)
+    story.append(Spacer(1, 8))
+
+    # ── 2. ROUTE BANNER ───────────────────────────────────────────────────────
+    route = Table([[
+        P(trip.origin.upper(),      font=FONTB, size=14, color=BLUE),
+        P("→", size=16, color=GRAY, align=TA_CENTER),
+        P(trip.destination.upper(), font=FONTB, size=14, color=BLUE, align=TA_RIGHT),
+    ]], colWidths=[W*0.44, W*0.12, W*0.44])
+    route.setStyle(TableStyle([
+        ("BACKGROUND",    (0,0),(-1,-1), LBLUE),
+        ("TOPPADDING",    (0,0),(-1,-1), 10),
+        ("BOTTOMPADDING", (0,0),(-1,-1), 10),
+        ("LEFTPADDING",   (0,0),(0,-1),  14),
+        ("RIGHTPADDING",  (-1,0),(-1,-1),14),
+    ]))
+    story.append(route)
     story.append(Spacer(1, 14))
 
-    # ── Financial summary ──────────────────────────────────────────────────────
-    story.append(Paragraph("FINANCIAL SUMMARY", S["section"]))
-    story.append(HRFlowable(width=W, thickness=1, color=BRAND_LIGHT, spaceAfter=6))
+    # ── 3. TRIP DETAILS ────────────────────────────────────────────────────────
+    def lv(label, val):
+        return [P(label, size=8, color=GRAY), P(val or "—", font=FONTB, size=9)]
 
-    freight   = float(trip.freight_amount or 0)
-    advance   = float(trip.driver_advance or 0)
-    profit    = freight - total_exp
-
-    fin_rows = [
-        ["Freight Amount",  _fmt_inr(freight)],
-        ["Total Expenses",  _fmt_inr(total_exp)],
-        ["Driver Advance",  _fmt_inr(advance)],
+    v = trip.vehicle
+    details = [
+        lv("Vehicle No.",   v.registration_number if v else "—"),
+        lv("Vehicle",       f"{v.make} {v.model}" if v else "—"),
+        lv("Driver Name",   trip.driver_name),
+        lv("Driver Phone",  trip.driver_phone),
+        lv("Start Date",    _fmt_date(trip.start_date)),
+        lv("End Date",      _fmt_date(trip.end_date)),
+        lv("Distance",      f"{trip.distance_km} km" if trip.distance_km else None),
+        lv("Material",      trip.material),
+        lv("Weight",        f"{trip.weight_tonnes} Tonnes" if trip.weight_tonnes else None),
+        lv("Doc Number",    trip.doc_number),
     ]
-    fin_table = Table(fin_rows, colWidths=[W*0.65, W*0.35])
-    fin_table.setStyle(TableStyle([
-        ("FONTNAME",      (0,0), (-1,-1), "Helvetica"),
-        ("FONTSIZE",      (0,0), (-1,-1), 9),
-        ("TEXTCOLOR",     (0,0), (0,-1),  GRAY),
-        ("TEXTCOLOR",     (1,0), (1,-1),  DARK),
-        ("ALIGN",         (1,0), (1,-1),  "RIGHT"),
-        ("FONTNAME",      (1,0), (1,-1),  "Helvetica-Bold"),
-        ("TOPPADDING",    (0,0), (-1,-1), 4),
-        ("BOTTOMPADDING", (0,0), (-1,-1), 4),
-        ("LINEBELOW",     (0,-1),(-1,-1), 0.5, colors.HexColor("#e0e0e0")),
-    ]))
-    story.append(fin_table)
-    story.append(Spacer(1, 6))
+    # Filter out blank entries
+    details = [d for d in details if d[1].text != "—"]
 
-    # Net profit row
-    profit_color = GREEN if profit >= 0 else RED
-    profit_data = [[
-        Paragraph("NET PROFIT", style("pl", fontSize=11, fontName="Helvetica-Bold", textColor=WHITE)),
-        Paragraph(_fmt_inr(profit), style("pr", fontSize=11, fontName="Helvetica-Bold", textColor=WHITE, alignment=TA_RIGHT)),
+    # 2-column grid
+    rows = []
+    for i in range(0, len(details), 2):
+        l, r = details[i], (details[i+1] if i+1 < len(details) else [P(""), P("")])
+        rows.append([l[0], l[1], P(""), r[0], r[1]])
+
+    dtable = Table(rows, colWidths=[W*0.17, W*0.30, W*0.06, W*0.17, W*0.30])
+    dtable.setStyle(TableStyle([
+        ("VALIGN",        (0,0),(-1,-1), "TOP"),
+        ("TOPPADDING",    (0,0),(-1,-1), 3),
+        ("BOTTOMPADDING", (0,0),(-1,-1), 3),
+        ("LEFTPADDING",   (0,0),(-1,-1), 0),
+    ]))
+
+    story.append(P("TRIP DETAILS", font=FONTB, size=8, color=BLUE, spaceAfter=4))
+    story.append(HRFlowable(width=W, thickness=0.5, color=BORDER, spaceAfter=6))
+    story.append(dtable)
+    story.append(Spacer(1, 14))
+
+    # ── 4. CHARGES / EXPENSES ─────────────────────────────────────────────────
+    story.append(P("CHARGES", font=FONTB, size=8, color=BLUE, spaceAfter=4))
+    story.append(HRFlowable(width=W, thickness=0.5, color=BORDER, spaceAfter=6))
+
+    freight = float(trip.freight_amount or 0)
+    total_shown_exp = 0.0
+
+    # Header row
+    charge_rows = [[
+        P("Description", font=FONTB, size=8, color=WHITE),
+        P("Amount",      font=FONTB, size=8, color=WHITE, align=TA_RIGHT),
     ]]
-    profit_table = Table(profit_data, colWidths=[W*0.65, W*0.35])
-    profit_table.setStyle(TableStyle([
-        ("BACKGROUND",    (0,0), (-1,-1), profit_color),
-        ("TOPPADDING",    (0,0), (-1,-1), 8),
-        ("BOTTOMPADDING", (0,0), (-1,-1), 8),
-        ("LEFTPADDING",   (0,0), (-1,-1), 10),
-        ("RIGHTPADDING",  (0,0), (-1,-1), 10),
-        ("ROUNDEDCORNERS",[4,4,4,4]),
+
+    # Freight row
+    charge_rows.append([
+        P("Freight Charge", font=FONTB, size=9),
+        P(_inr(freight),    font=FONTB, size=9, align=TA_RIGHT),
+    ])
+
+    # Selected expenses
+    shown_exps = [e for e in (trip.expenses or [])
+                  if "all" in include_expense_types or e.expense_type in include_expense_types]
+    shown_exps.sort(key=lambda e: e.date)
+
+    for e in shown_exps:
+        label = e.expense_type.replace("_", " ").title()
+        if e.description:
+            label += f" — {e.description}"
+        charge_rows.append([
+            P(label,         size=9, color=DARK),
+            P(_inr(e.amount),size=9, align=TA_RIGHT),
+        ])
+        total_shown_exp += float(e.amount)
+
+    ctable = Table(charge_rows, colWidths=[W*0.75, W*0.25])
+    ctable.setStyle(TableStyle([
+        ("BACKGROUND",    (0,0),(-1,0),  BLUE),
+        ("ROWBACKGROUNDS",(0,1),(-1,-1), [WHITE, LGRAY]),
+        ("TOPPADDING",    (0,0),(-1,-1), 6),
+        ("BOTTOMPADDING", (0,0),(-1,-1), 6),
+        ("LEFTPADDING",   (0,0),(-1,-1), 8),
+        ("RIGHTPADDING",  (0,0),(-1,-1), 8),
+        ("LINEBELOW",     (0,0),(-1,-1), 0.3, BORDER),
     ]))
-    story.append(profit_table)
-    story.append(Spacer(1, 20))
+    story.append(ctable)
+    story.append(Spacer(1, 8))
 
-    # ── Notes ──────────────────────────────────────────────────────────────────
-    if trip.notes:
-        story.append(Paragraph("NOTES", S["section"]))
-        story.append(HRFlowable(width=W, thickness=1, color=BRAND_LIGHT, spaceAfter=6))
-        story.append(Paragraph(trip.notes, style("notes", fontSize=8.5, fontName="Helvetica", textColor=DARK)))
+    # Total amount row
+    total_amt = freight + total_shown_exp
+    total_row = Table([[
+        P("TOTAL AMOUNT", font=FONTB, size=11, color=WHITE),
+        P(_inr(total_amt), font=FONTB, size=11, color=WHITE, align=TA_RIGHT),
+    ]], colWidths=[W*0.75, W*0.25])
+    total_row.setStyle(TableStyle([
+        ("BACKGROUND",    (0,0),(-1,-1), BLUE),
+        ("TOPPADDING",    (0,0),(-1,-1), 10),
+        ("BOTTOMPADDING", (0,0),(-1,-1), 10),
+        ("LEFTPADDING",   (0,0),(-1,-1), 8),
+        ("RIGHTPADDING",  (0,0),(-1,-1), 8),
+    ]))
+    story.append(total_row)
+
+    # ── 5. NET PROFIT (optional — internal use) ────────────────────────────────
+    if show_profit:
+        all_exp = sum(float(e.amount) for e in (trip.expenses or []))
+        profit  = freight - all_exp
         story.append(Spacer(1, 14))
+        story.append(P("NET PROFIT (INTERNAL)", font=FONTB, size=8, color=BLUE, spaceAfter=4))
+        story.append(HRFlowable(width=W, thickness=0.5, color=BORDER, spaceAfter=6))
+        profit_row = Table([[
+            P("Net Profit", font=FONTB, size=11, color=WHITE),
+            P(_inr(profit),  font=FONTB, size=11, color=WHITE, align=TA_RIGHT),
+        ]], colWidths=[W*0.75, W*0.25])
+        profit_row.setStyle(TableStyle([
+            ("BACKGROUND",    (0,0),(-1,-1), GREEN if profit >= 0 else RED),
+            ("TOPPADDING",    (0,0),(-1,-1), 10),
+            ("BOTTOMPADDING", (0,0),(-1,-1), 10),
+            ("LEFTPADDING",   (0,0),(-1,-1), 8),
+            ("RIGHTPADDING",  (0,0),(-1,-1), 8),
+        ]))
+        story.append(profit_row)
 
-    # ── Footer ─────────────────────────────────────────────────────────────────
-    story.append(HRFlowable(width=W, thickness=0.5, color=BRAND_LIGHT, spaceAfter=6))
-    story.append(Paragraph(
+    # ── 6. NOTES ──────────────────────────────────────────────────────────────
+    if trip.notes:
+        story.append(Spacer(1, 14))
+        story.append(P("NOTES", font=FONTB, size=8, color=BLUE, spaceAfter=4))
+        story.append(HRFlowable(width=W, thickness=0.5, color=BORDER, spaceAfter=6))
+        story.append(P(trip.notes, size=8.5))
+
+    # ── 7. FOOTER ─────────────────────────────────────────────────────────────
+    story.append(Spacer(1, 24))
+    story.append(HRFlowable(width=W, thickness=0.5, color=BORDER, spaceAfter=6))
+    story.append(P(
         f"Generated by FleetSure · {date.today().strftime('%d %b %Y')} · This is a system-generated document.",
-        S["footer"]
+        size=7.5, color=GRAY, align=TA_CENTER
     ))
 
     doc.build(story)
@@ -269,6 +288,9 @@ def build_trip_pdf(trip: Trip, org_name: str) -> bytes:
 def download_trip_pdf(
     trip_id: UUID,
     org_name: str = "",
+    org_logo: str = "",          # base64 data URL
+    expense_types: str = "all",  # "all" or comma-separated: "fuel,toll"
+    show_profit: bool = False,   # include internal profit section
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -281,9 +303,17 @@ def download_trip_pdf(
     if not trip:
         raise HTTPException(404, "Trip not found")
 
-    pdf_bytes = build_trip_pdf(trip, org_name)
-    filename = f"tripsheet_{trip.origin.lower()}_{trip.destination.lower()}_{trip.start_date}.pdf"
+    include = ["all"] if expense_types == "all" else [t.strip() for t in expense_types.split(",")]
 
+    pdf_bytes = build_trip_pdf(
+        trip       = trip,
+        org_name   = org_name,
+        org_logo_b64 = org_logo,
+        include_expense_types = include,
+        show_profit = show_profit,
+    )
+
+    filename = f"tripsheet_{trip.origin}_{trip.destination}_{trip.start_date}.pdf".replace(" ", "_")
     return StreamingResponse(
         io.BytesIO(pdf_bytes),
         media_type="application/pdf",

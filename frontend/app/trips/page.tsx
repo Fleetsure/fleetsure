@@ -158,6 +158,11 @@ export default function TripsPage() {
   // Expense form (inside drawer)
   const [expForm, setExpForm]       = useState({ ...EMPTY_EXP });
   const [showExpForm, setShowExpForm] = useState(false);
+  const [pdfModal, setPdfModal]   = useState(false);
+  const [pdfOpts, setPdfOpts]     = useState({
+    showProfit: false,
+    expTypes: { all: true, fuel: false, toll: false, maintenance: false, driver_payment: false, loading: false, other: false }
+  });
   const [addingExp, setAddingExp]   = useState(false);
   const [expErr, setExpErr]         = useState("");
 
@@ -454,19 +459,7 @@ export default function TripsPage() {
                   <MessageCircle size={14} /> Share on WhatsApp
                 </button>
                 <button
-                  onClick={() => {
-                    const orgName = encodeURIComponent(localStorage.getItem("orgName") || "");
-                    const url = `${process.env.NEXT_PUBLIC_API_URL}/trips/${selTrip.id}/pdf?org_name=${orgName}`;
-                    const token = localStorage.getItem("token");
-                    fetch(url, { headers: { Authorization: `Bearer ${token}` } })
-                      .then(r => r.blob())
-                      .then(blob => {
-                        const a = document.createElement("a");
-                        a.href = URL.createObjectURL(blob);
-                        a.download = `tripsheet_${selTrip.origin}_${selTrip.destination}.pdf`;
-                        a.click();
-                      });
-                  }}
+                  onClick={() => setPdfModal(true)}
                   style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 14px", background: "#1E2D8E", color: "white", border: "none", borderRadius: 8, fontSize: 12.5, fontWeight: 700, cursor: "pointer" }}>
                   <FileDown size={14} /> Download PDF
                 </button>
@@ -785,6 +778,82 @@ export default function TripsPage() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* ── PDF Options Modal ─────────────────────────────────────────────── */}
+      {pdfModal && selTrip && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center" }}
+          onClick={() => setPdfModal(false)}>
+          <div onClick={e => e.stopPropagation()}
+            style={{ background: "white", borderRadius: 16, padding: 28, width: 420, boxShadow: "0 20px 60px rgba(0,0,0,0.25)" }}>
+            <div style={{ fontWeight: 800, fontSize: 16, color: "#1a1a2e", marginBottom: 4 }}>Download Trip Sheet PDF</div>
+            <div style={{ fontSize: 12.5, color: "#888", marginBottom: 20 }}>{selTrip.origin} → {selTrip.destination}</div>
+
+            {/* Expense types */}
+            <div style={{ fontWeight: 700, fontSize: 12, color: "#555", marginBottom: 10 }}>Include in PDF</div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 20 }}>
+              {[
+                { key: "all",            label: "All expenses" },
+                { key: "fuel",           label: "Fuel expenses only" },
+                { key: "toll",           label: "Toll / FASTag charges" },
+                { key: "maintenance",    label: "Maintenance / Repairs" },
+                { key: "driver_payment", label: "Driver payments" },
+                { key: "loading",        label: "Loading / Unloading" },
+                { key: "other",          label: "Other expenses" },
+              ].map(opt => (
+                <label key={opt.key} style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer", fontSize: 13 }}>
+                  <input type="checkbox"
+                    checked={!!(pdfOpts.expTypes as any)[opt.key]}
+                    onChange={e => setPdfOpts(p => ({ ...p, expTypes: { ...p.expTypes, [opt.key]: e.target.checked } }))}
+                    style={{ width: 16, height: 16, accentColor: "#1E2D8E" }} />
+                  {opt.label}
+                </label>
+              ))}
+            </div>
+
+            {/* Show profit toggle */}
+            <div style={{ borderTop: "1px solid #f0f0f5", paddingTop: 14, marginBottom: 20 }}>
+              <label style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer", fontSize: 13 }}>
+                <input type="checkbox"
+                  checked={pdfOpts.showProfit}
+                  onChange={e => setPdfOpts(p => ({ ...p, showProfit: e.target.checked }))}
+                  style={{ width: 16, height: 16, accentColor: "#1E2D8E" }} />
+                <div>
+                  <div style={{ fontWeight: 600 }}>Include net profit section</div>
+                  <div style={{ fontSize: 11, color: "#aaa" }}>Internal use only — don&apos;t share with customers</div>
+                </div>
+              </label>
+            </div>
+
+            {/* Actions */}
+            <div style={{ display: "flex", gap: 10 }}>
+              <button onClick={() => setPdfModal(false)}
+                style={{ flex: 1, padding: "10px 0", border: "1px solid #e0e0e0", borderRadius: 8, background: "white", fontSize: 13, fontWeight: 600, cursor: "pointer", color: "#555" }}>
+                Cancel
+              </button>
+              <button onClick={() => {
+                const orgName  = encodeURIComponent(localStorage.getItem("orgName") || "");
+                const orgLogo  = encodeURIComponent(localStorage.getItem("orgLogo") || "");
+                const selected = Object.entries(pdfOpts.expTypes).filter(([,v]) => v).map(([k]) => k);
+                const expTypes = encodeURIComponent(selected.join(",") || "none");
+                const url = `${process.env.NEXT_PUBLIC_API_URL}/trips/${selTrip.id}/pdf?org_name=${orgName}&org_logo=${orgLogo}&expense_types=${expTypes}&show_profit=${pdfOpts.showProfit}`;
+                const token = localStorage.getItem("token");
+                fetch(url, { headers: { Authorization: `Bearer ${token}` } })
+                  .then(r => r.blob())
+                  .then(blob => {
+                    const a = document.createElement("a");
+                    a.href = URL.createObjectURL(blob);
+                    a.download = `tripsheet_${selTrip.origin}_${selTrip.destination}.pdf`;
+                    a.click();
+                    setPdfModal(false);
+                  });
+              }}
+                style={{ flex: 2, padding: "10px 0", border: "none", borderRadius: 8, background: "#1E2D8E", color: "white", fontSize: 13, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
+                <FileDown size={14} /> Generate & Download
+              </button>
+            </div>
           </div>
         </div>
       )}
