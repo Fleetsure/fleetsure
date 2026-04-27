@@ -41,6 +41,7 @@ LGRAY  = colors.HexColor("#f5f5f5")
 DARK   = colors.HexColor("#1a1a2e")
 GREEN  = colors.HexColor("#2e7d32")
 RED    = colors.HexColor("#c62828")
+GOLD   = colors.HexColor("#F5A623")
 WHITE  = colors.white
 BORDER = colors.HexColor("#e0e0e0")
 
@@ -122,13 +123,22 @@ def build_trip_pdf(trip: Trip, org_name: str, org_logo_b64: str,
     banner.setStyle(TableStyle([
         ("BACKGROUND",    (0,0),(-1,-1), BLUE),
         ("VALIGN",        (0,0),(-1,-1), "MIDDLE"),
-        ("LEFTPADDING",   (0,0),(0,-1),  14),
-        ("RIGHTPADDING",  (-1,0),(-1,-1),14),
-        ("TOPPADDING",    (0,0),(-1,-1), 12),
-        ("BOTTOMPADDING", (0,0),(-1,-1), 12),
+        ("LEFTPADDING",   (0,0),(-1,-1), 16),
+        ("RIGHTPADDING",  (0,0),(-1,-1), 16),
+        ("TOPPADDING",    (0,0),(-1,-1), 14),
+        ("BOTTOMPADDING", (0,0),(-1,-1), 14),
+        ("ROUNDEDCORNERS",(0,0),(-1,-1), [8,8,8,8]),
     ]))
     story.append(banner)
-    story.append(Spacer(1, 8))
+    # Gold accent strip
+    accent = Table([[""]], colWidths=[W])
+    accent.setStyle(TableStyle([
+        ("BACKGROUND",    (0,0),(-1,-1), GOLD),
+        ("TOPPADDING",    (0,0),(-1,-1), 2),
+        ("BOTTOMPADDING", (0,0),(-1,-1), 2),
+    ]))
+    story.append(accent)
+    story.append(Spacer(1, 6))
 
     # ── 2. ROUTE BANNER ───────────────────────────────────────────────────────
     route = Table([[
@@ -138,10 +148,11 @@ def build_trip_pdf(trip: Trip, org_name: str, org_logo_b64: str,
     ]], colWidths=[W*0.44, W*0.12, W*0.44])
     route.setStyle(TableStyle([
         ("BACKGROUND",    (0,0),(-1,-1), LBLUE),
-        ("TOPPADDING",    (0,0),(-1,-1), 10),
-        ("BOTTOMPADDING", (0,0),(-1,-1), 10),
-        ("LEFTPADDING",   (0,0),(0,-1),  14),
-        ("RIGHTPADDING",  (-1,0),(-1,-1),14),
+        ("TOPPADDING",    (0,0),(-1,-1), 12),
+        ("BOTTOMPADDING", (0,0),(-1,-1), 12),
+        ("LEFTPADDING",   (0,0),(-1,-1), 16),
+        ("RIGHTPADDING",  (0,0),(-1,-1), 16),
+        ("ROUNDEDCORNERS",(0,0),(-1,-1), [8,8,8,8]),
     ]))
     story.append(route)
     story.append(Spacer(1, 14))
@@ -180,13 +191,13 @@ def build_trip_pdf(trip: Trip, org_name: str, org_logo_b64: str,
         ("LEFTPADDING",   (0,0),(-1,-1), 0),
     ]))
 
-    story.append(P("TRIP DETAILS", font=FONTB, size=8, color=BLUE, spaceAfter=4))
+    story.append(P("▌  TRIP DETAILS", font=FONTB, size=8, color=BLUE, spaceAfter=4))
     story.append(HRFlowable(width=W, thickness=0.5, color=BORDER, spaceAfter=6))
     story.append(dtable)
     story.append(Spacer(1, 14))
 
     # ── 4. CHARGES / EXPENSES ─────────────────────────────────────────────────
-    story.append(P("CHARGES", font=FONTB, size=8, color=BLUE, spaceAfter=4))
+    story.append(P("▌  CHARGES", font=FONTB, size=8, color=BLUE, spaceAfter=4))
     story.append(HRFlowable(width=W, thickness=0.5, color=BORDER, spaceAfter=6))
 
     freight = float(trip.freight_amount or 0)
@@ -223,11 +234,12 @@ def build_trip_pdf(trip: Trip, org_name: str, org_logo_b64: str,
     ctable.setStyle(TableStyle([
         ("BACKGROUND",    (0,0),(-1,0),  BLUE),
         ("ROWBACKGROUNDS",(0,1),(-1,-1), [WHITE, LGRAY]),
-        ("TOPPADDING",    (0,0),(-1,-1), 6),
-        ("BOTTOMPADDING", (0,0),(-1,-1), 6),
-        ("LEFTPADDING",   (0,0),(-1,-1), 8),
-        ("RIGHTPADDING",  (0,0),(-1,-1), 8),
-        ("LINEBELOW",     (0,0),(-1,-1), 0.3, BORDER),
+        ("TOPPADDING",    (0,0),(-1,-1), 8),
+        ("BOTTOMPADDING", (0,0),(-1,-1), 8),
+        ("LEFTPADDING",   (0,0),(-1,-1), 10),
+        ("RIGHTPADDING",  (0,0),(-1,-1), 10),
+        ("LINEBELOW",     (0,0),(-1,-2), 0.3, BORDER),
+        ("ROUNDEDCORNERS",(0,0),(-1,-1), [6,6,0,0]),
     ]))
     story.append(ctable)
     story.append(Spacer(1, 8))
@@ -240,10 +252,11 @@ def build_trip_pdf(trip: Trip, org_name: str, org_logo_b64: str,
     ]], colWidths=[W*0.75, W*0.25])
     total_row.setStyle(TableStyle([
         ("BACKGROUND",    (0,0),(-1,-1), BLUE),
-        ("TOPPADDING",    (0,0),(-1,-1), 10),
-        ("BOTTOMPADDING", (0,0),(-1,-1), 10),
-        ("LEFTPADDING",   (0,0),(-1,-1), 8),
-        ("RIGHTPADDING",  (0,0),(-1,-1), 8),
+        ("TOPPADDING",    (0,0),(-1,-1), 12),
+        ("BOTTOMPADDING", (0,0),(-1,-1), 12),
+        ("LEFTPADDING",   (0,0),(-1,-1), 10),
+        ("RIGHTPADDING",  (0,0),(-1,-1), 10),
+        ("ROUNDEDCORNERS",(0,0),(-1,-1), [0,0,6,6]),
     ]))
     story.append(total_row)
 
@@ -252,7 +265,7 @@ def build_trip_pdf(trip: Trip, org_name: str, org_logo_b64: str,
         all_exp = sum(float(e.amount) for e in (trip.expenses or []))
         profit  = freight - all_exp
         story.append(Spacer(1, 14))
-        story.append(P("NET PROFIT (INTERNAL)", font=FONTB, size=8, color=BLUE, spaceAfter=4))
+        story.append(P("▌  NET PROFIT (INTERNAL)", font=FONTB, size=8, color=BLUE, spaceAfter=4))
         story.append(HRFlowable(width=W, thickness=0.5, color=BORDER, spaceAfter=6))
         profit_row = Table([[
             P("Net Profit", font=FONTB, size=11, color=WHITE),
@@ -260,17 +273,18 @@ def build_trip_pdf(trip: Trip, org_name: str, org_logo_b64: str,
         ]], colWidths=[W*0.75, W*0.25])
         profit_row.setStyle(TableStyle([
             ("BACKGROUND",    (0,0),(-1,-1), GREEN if profit >= 0 else RED),
-            ("TOPPADDING",    (0,0),(-1,-1), 10),
-            ("BOTTOMPADDING", (0,0),(-1,-1), 10),
-            ("LEFTPADDING",   (0,0),(-1,-1), 8),
-            ("RIGHTPADDING",  (0,0),(-1,-1), 8),
+            ("TOPPADDING",    (0,0),(-1,-1), 12),
+            ("BOTTOMPADDING", (0,0),(-1,-1), 12),
+            ("LEFTPADDING",   (0,0),(-1,-1), 10),
+            ("RIGHTPADDING",  (0,0),(-1,-1), 10),
+            ("ROUNDEDCORNERS",(0,0),(-1,-1), [6,6,6,6]),
         ]))
         story.append(profit_row)
 
     # ── 6. NOTES ──────────────────────────────────────────────────────────────
     if trip.notes:
         story.append(Spacer(1, 14))
-        story.append(P("NOTES", font=FONTB, size=8, color=BLUE, spaceAfter=4))
+        story.append(P("▌  NOTES", font=FONTB, size=8, color=BLUE, spaceAfter=4))
         story.append(HRFlowable(width=W, thickness=0.5, color=BORDER, spaceAfter=6))
         story.append(P(trip.notes, size=8.5))
 
