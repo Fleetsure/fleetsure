@@ -335,10 +335,28 @@ export default function TripsPage() {
           {loading ? (
             <p style={{ color: "#aaa", textAlign: "center", padding: "32px 0" }}>Loading...</p>
           ) : filtered.length === 0 ? (
-            <div style={{ textAlign: "center", padding: "40px 0" }}>
-              <Route size={36} color="#ddd" style={{ margin: "0 auto 10px", display: "block" }} />
-              <p style={{ color: "#aaa", margin: "0 0 12px", fontSize: 13.5 }}>No trips found</p>
-              <button className="btn-primary" onClick={() => setShowForm(true)}>Log First Trip</button>
+            <div style={{ textAlign: "center", padding: "52px 20px" }}>
+              <div style={{
+                width: 72, height: 72, borderRadius: "50%",
+                background: filter !== "all" ? "#f5f5f5" : "#eef0fb",
+                display: "flex", alignItems: "center", justifyContent: "center",
+                margin: "0 auto 16px",
+              }}>
+                <Route size={32} color={filter !== "all" ? "#ccc" : "#1E2D8E"} style={{ opacity: filter !== "all" ? 1 : 0.5 }} />
+              </div>
+              <div style={{ fontSize: 15, fontWeight: 700, color: "var(--text-main)", marginBottom: 6 }}>
+                {filter !== "all" ? `No ${filter.replace("_", " ")} trips` : "Log your first trip"}
+              </div>
+              <div style={{ fontSize: 13, color: "#aaa", marginBottom: 20, maxWidth: 320, margin: "0 auto 20px" }}>
+                {filter !== "all"
+                  ? `No trips with status "${filter.replace("_", " ")}" found. Switch to All to see everything.`
+                  : "Log trips to track routes, freight income, expenses per trip and profitability."}
+              </div>
+              {filter === "all" && (
+                <button className="btn-primary" onClick={() => { setShowForm(true); setFormErr(""); }}>
+                  <Plus size={14} /> Log Trip
+                </button>
+              )}
             </div>
           ) : (
             <table>

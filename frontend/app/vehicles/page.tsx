@@ -245,12 +245,28 @@ export default function VehiclesPage() {
           {loading ? (
             <p style={{ color: "#aaa", textAlign: "center", padding: "32px 0" }}>Loading...</p>
           ) : filtered.length === 0 ? (
-            <div style={{ textAlign: "center", padding: "40px 0" }}>
-              <Truck size={36} color="#ddd" style={{ margin: "0 auto 10px", display: "block" }} />
-              <p style={{ color: "#aaa", margin: "0 0 12px", fontSize: 13.5 }}>
-                {search ? "No vehicles match your search" : "No vehicles yet"}
-              </p>
-              {!search && <button className="btn-primary" onClick={openAdd}>Add Your First Vehicle</button>}
+            <div style={{ textAlign: "center", padding: "52px 20px" }}>
+              <div style={{
+                width: 72, height: 72, borderRadius: "50%",
+                background: search ? "#f5f5f5" : "#eef0fb",
+                display: "flex", alignItems: "center", justifyContent: "center",
+                margin: "0 auto 16px",
+              }}>
+                <Truck size={32} color={search ? "#ccc" : "#1E2D8E"} style={{ opacity: search ? 1 : 0.5 }} />
+              </div>
+              <div style={{ fontSize: 15, fontWeight: 700, color: "var(--text-main)", marginBottom: 6 }}>
+                {search ? "No vehicles found" : "Add your first vehicle"}
+              </div>
+              <div style={{ fontSize: 13, color: "#aaa", marginBottom: 20, maxWidth: 300, margin: "0 auto 20px" }}>
+                {search
+                  ? `No vehicles match "${search}". Try a different registration number or name.`
+                  : "Add your trucks, trailers, or tankers to start tracking trips, expenses and compliance."}
+              </div>
+              {!search && (
+                <button className="btn-primary" onClick={openAdd}>
+                  <Plus size={14} /> Add Vehicle
+                </button>
+              )}
             </div>
           ) : (
             <table>

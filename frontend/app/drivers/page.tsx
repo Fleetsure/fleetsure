@@ -302,10 +302,24 @@ export default function DriversPage() {
           {loading ? (
             <p style={{ color: "#aaa", textAlign: "center", padding: "32px 0" }}>Loading...</p>
           ) : drivers.length === 0 ? (
-            <div style={{ textAlign: "center", padding: "40px 0" }}>
-              <Users size={36} color="#ddd" style={{ margin: "0 auto 10px", display: "block" }} />
-              <p style={{ color: "#aaa", margin: "0 0 12px", fontSize: 13.5 }}>No drivers added yet</p>
-              <button className="btn-primary" onClick={openAdd}>Add First Driver</button>
+            <div style={{ textAlign: "center", padding: "52px 20px" }}>
+              <div style={{
+                width: 72, height: 72, borderRadius: "50%",
+                background: "#eef0fb",
+                display: "flex", alignItems: "center", justifyContent: "center",
+                margin: "0 auto 16px",
+              }}>
+                <Users size={32} color="#1E2D8E" style={{ opacity: 0.5 }} />
+              </div>
+              <div style={{ fontSize: 15, fontWeight: 700, color: "var(--text-main)", marginBottom: 6 }}>
+                Add your first driver
+              </div>
+              <div style={{ fontSize: 13, color: "#aaa", marginBottom: 20, maxWidth: 320, margin: "0 auto 20px" }}>
+                Add drivers to assign them to trips, track payment ledgers and monitor licence expiry dates.
+              </div>
+              <button className="btn-primary" onClick={openAdd}>
+                <Plus size={14} /> Add Driver
+              </button>
             </div>
           ) : (
             <table>
