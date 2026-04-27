@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import AppShell from "@/components/AppShell";
+import GoogleAuthProvider from "@/components/GoogleAuthProvider";
 
 export const metadata: Metadata = {
   title: "FleetSure — Fleet Management Platform",
@@ -24,7 +25,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         `}} />
       </head>
       <body style={{ margin: 0, display: "flex", minHeight: "100vh" }}>
-        <AppShell>{children}</AppShell>
+        <GoogleAuthProvider><AppShell>{children}</AppShell></GoogleAuthProvider>
       </body>
     </html>
   );
