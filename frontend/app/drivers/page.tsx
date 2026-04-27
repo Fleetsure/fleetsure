@@ -1,8 +1,8 @@
 "use client";
 import { useEffect, useState } from "react";
 import Header from "@/components/Header";
-import { getDrivers, createDriver, updateDriver, dlLookup, getDriverLedger, addDriverPayment, deleteDriverPayment } from "@/lib/api";
-import { Plus, Users, X, Phone, Search, ChevronDown, ChevronRight, Edit2, Wallet, Trash2 } from "lucide-react";
+import { getDrivers, createDriver, updateDriver, getDriverLedger, addDriverPayment, deleteDriverPayment } from "@/lib/api";
+import { Plus, Users, X, Phone, ChevronDown, ChevronRight, Edit2, Wallet, Trash2 } from "lucide-react";
 
 // ── Driver Payment Ledger Modal ───────────────────────────────────────────────
 const PAYMENT_TYPES = ["advance", "salary", "bonus", "deduction", "settlement"];
@@ -169,9 +169,6 @@ export default function DriversPage() {
   const [expandedRow, setExpandedRow] = useState<string | null>(null);
   const [ledgerDriver, setLedgerDriver] = useState<any>(null);
 
-  // DL fetch state
-  const [fetchStatus, setFetchStatus] = useState<"idle" | "loading" | "success" | "demo" | "error">("idle");
-  const [fetchMsg, setFetchMsg] = useState("");
 
   const load = () => getDrivers().then(r => setDrivers(r.data)).finally(() => setLoading(false));
   useEffect(() => { load(); }, []);
@@ -179,8 +176,6 @@ export default function DriversPage() {
   const openAdd = () => {
     setEditingId(null);
     setForm({ ...EMPTY_FORM });
-    setFetchStatus("idle");
-    setFetchMsg("");
     setError("");
     setShowForm(true);
   };
@@ -195,48 +190,8 @@ export default function DriversPage() {
       transport_validity: d.transport_validity || "", issuing_rto: d.issuing_rto || "",
       badge_issue_date: d.badge_issue_date || "",
     });
-    setFetchStatus("idle");
-    setFetchMsg("");
     setError("");
     setShowForm(true);
-  };
-
-  const fetchFromParivahan = async () => {
-    if (!form.license_number || !form.dob) return;
-    setFetchStatus("loading");
-    setFetchMsg("");
-    try {
-      const res = await dlLookup(form.license_number, form.dob);
-      const { success, live, data, error: apiErr } = res.data;
-      if (!success) {
-        setFetchStatus("error");
-        setFetchMsg(apiErr || "DL not found in Parivahan database");
-        return;
-      }
-      // Map DL response → form fields
-      const lc = (data.license_class || "").toUpperCase();
-      const mappedClass = LICENSE_CLASSES.find(c => lc.includes(c)) || "HGMV";
-      setForm(prev => ({
-        ...prev,
-        name:               data.name          || prev.name,
-        father_name:        data.father_name   || prev.father_name,
-        address:            data.address       || prev.address,
-        dob:                data.dob           || prev.dob,
-        blood_group:        data.blood_group   || prev.blood_group,
-        license_class:      mappedClass,
-        license_expiry:     data.license_expiry || prev.license_expiry,
-        transport_validity: data.transport_validity || prev.transport_validity,
-        issuing_rto:        data.issuing_rto   || prev.issuing_rto,
-        badge_issue_date:   data.badge_issue_date || prev.badge_issue_date,
-      }));
-      setFetchStatus(live ? "success" : "demo");
-      setFetchMsg(live
-        ? "Details fetched from Parivahan (live data)"
-        : "Preview data — will use live Parivahan data in production");
-    } catch (err: any) {
-      setFetchStatus("error");
-      setFetchMsg(err.response?.data?.detail || err.message || "Fetch failed");
-    }
   };
 
   const handleSubmit = async (e: any) => {
@@ -270,8 +225,6 @@ export default function DriversPage() {
         : detail || "Something went wrong");
     } finally { setSaving(false); }
   };
-
-  const canFetch = form.license_number.trim().length >= 6 && form.dob.length === 10;
 
   return (
     <div>
@@ -403,7 +356,7 @@ export default function DriversPage() {
               <X size={18} />
             </button>
             <h2 style={{ margin: "0 0 4px", fontSize: 16, fontWeight: 700 }}>{editingId ? "Edit Driver" : "Add Driver"}</h2>
-            <p style={{ margin: "0 0 18px", fontSize: 12.5, color: "#888" }}>Enter the DL number and DOB, then fetch details from Parivahan automatically.</p>
+            <p style={{ margin: "0 0 18px", fontSize: 12.5, color: "#888" }}>Fill in the driver details manually.</p>
 
             {error && (
               <div style={{ background: "#fce4ec", color: "#b71c1c", padding: "8px 12px", borderRadius: 6, marginBottom: 14, fontSize: 13 }}>{error}</div>
@@ -411,62 +364,7 @@ export default function DriversPage() {
 
             <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 12 }}>
 
-              {/* ── Parivahan fetch section ── */}
-              <div style={{ background: "#f5f6ff", border: "1.5px solid #e0e3ff", borderRadius: 10, padding: "14px 16px" }}>
-                <div style={{ fontSize: 12.5, fontWeight: 700, color: "#1E2D8E", marginBottom: 10 }}>
-                  Fetch from Parivahan
-                </div>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 10 }}>
-                  <div>
-                    <label style={{ fontSize: 12, fontWeight: 600, color: "#555", display: "block", marginBottom: 4 }}>Driving Licence No. *</label>
-                    <input
-                      type="text" placeholder="MH1220210012345"
-                      value={form.license_number}
-                      onChange={e => { setForm(p => ({ ...p, license_number: e.target.value })); setFetchStatus("idle"); }}
-                      style={{ width: "100%", padding: "8px 10px", border: "1.5px solid #e8e8f0", borderRadius: 8, fontSize: 13, boxSizing: "border-box" }}
-                    />
-                  </div>
-                  <div>
-                    <label style={{ fontSize: 12, fontWeight: 600, color: "#555", display: "block", marginBottom: 4 }}>Date of Birth *</label>
-                    <input
-                      type="date"
-                      value={form.dob}
-                      onChange={e => { setForm(p => ({ ...p, dob: e.target.value })); setFetchStatus("idle"); }}
-                      style={{ width: "100%", padding: "8px 10px", border: "1.5px solid #e8e8f0", borderRadius: 8, fontSize: 13, boxSizing: "border-box" }}
-                    />
-                  </div>
-                </div>
-                <button type="button" onClick={fetchFromParivahan} disabled={!canFetch || fetchStatus === "loading"}
-                  style={{
-                    display: "flex", alignItems: "center", gap: 7, padding: "8px 16px",
-                    background: canFetch ? "#1E2D8E" : "#ccc", color: "#fff",
-                    border: "none", borderRadius: 8, cursor: canFetch ? "pointer" : "not-allowed",
-                    fontSize: 13, fontWeight: 600, transition: "background 0.2s",
-                  }}>
-                  <Search size={14} />
-                  {fetchStatus === "loading" ? "Fetching..." : "Fetch from Parivahan"}
-                </button>
-
-                {/* Status feedback */}
-                {fetchStatus === "success" && (
-                  <div style={{ marginTop: 10, background: "#e8f5e9", color: "#2e7d32", padding: "7px 12px", borderRadius: 7, fontSize: 12.5, fontWeight: 500 }}>
-                    ✓ {fetchMsg}
-                  </div>
-                )}
-                {fetchStatus === "demo" && (
-                  <div style={{ marginTop: 10, background: "#e8eaf6", color: "#3949ab", padding: "7px 12px", borderRadius: 7, fontSize: 12.5, fontWeight: 500 }}>
-                    ✓ {fetchMsg}
-                  </div>
-                )}
-                {fetchStatus === "error" && (
-                  <div style={{ marginTop: 10, background: "#fce4ec", color: "#b71c1c", padding: "7px 12px", borderRadius: 7, fontSize: 12.5 }}>
-                    ✗ {fetchMsg}
-                  </div>
-                )}
-              </div>
-
-              {/* ── Manual fields ── */}
-              <div style={{ fontSize: 12, fontWeight: 700, color: "#aaa", marginTop: 4, letterSpacing: "0.5px" }}>DRIVER DETAILS</div>
+              <div style={{ fontSize: 12, fontWeight: 700, color: "#aaa", letterSpacing: "0.5px" }}>DRIVER DETAILS</div>
 
               {[
                 { label: "Full Name *",     key: "name",           placeholder: "Ramesh Kumar" },

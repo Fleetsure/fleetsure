@@ -2,8 +2,7 @@
 import { useEffect, useState } from "react";
 import Header from "@/components/Header";
 import { getVehicles, createVehicle, updateVehicle } from "@/lib/api";
-import { Plus, Truck, X, Search, Zap, CheckCircle, AlertCircle, ChevronDown, ChevronUp, Shield, Wrench, Navigation, AlertTriangle } from "lucide-react";
-import { api } from "@/lib/api";
+import { Plus, Truck, X, AlertCircle, ChevronDown, ChevronUp, Wrench, Navigation, AlertTriangle } from "lucide-react";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -58,10 +57,6 @@ export default function VehiclesPage() {
   const [error, setError]           = useState("");
   const [search, setSearch]         = useState("");
 
-  // Vahan fetch state
-  const [fetching, setFetching]       = useState(false);
-  const [fetchStatus, setFetchStatus] = useState<"idle" | "success" | "demo" | "error">("idle");
-  const [fetchMsg, setFetchMsg]       = useState("");
 
   // Expanded compliance row
   const [expandedRow, setExpandedRow] = useState<string | null>(null);
@@ -72,7 +67,6 @@ export default function VehiclesPage() {
   const openAdd = () => {
     setForm({ ...EMPTY_FORM });
     setEditVehicle(null);
-    setFetchStatus("idle");
     setError("");
     setShowForm(true);
   };
@@ -90,63 +84,8 @@ export default function VehiclesPage() {
       status: v.status || "active",
     });
     setEditVehicle(v);
-    setFetchStatus("idle");
     setError("");
     setShowForm(true);
-  };
-
-  // ── Vahan Auto-Fetch ────────────────────────────────────────────────────────
-
-  const fetchFromVahan = async () => {
-    if (!form.registration_number) return;
-    setFetching(true);
-    setFetchStatus("idle");
-    setFetchMsg("");
-    try {
-      const resp = await api.get("/vahan/lookup", {
-        params: { reg: form.registration_number.toUpperCase().replace(/\s/g, "") }
-      });
-      const result = resp.data;
-
-      if (!result.success) {
-        setFetchStatus("error");
-        setFetchMsg(result.error || "Could not fetch vehicle details");
-        return;
-      }
-
-      const d = result.data;
-      setForm((prev: any) => ({
-        ...prev,
-        make:             d.make             || prev.make,
-        model:            d.model            || prev.model,
-        year:             d.year ? String(d.year) : prev.year,
-        vehicle_type:     d.vehicle_type     || prev.vehicle_type,
-        fuel_type:        d.fuel_type        || prev.fuel_type,
-        vehicle_class:    d.vehicle_class    || prev.vehicle_class,
-        chassis_number:   d.chassis_number   || prev.chassis_number,
-        engine_number:    d.engine_number    || prev.engine_number,
-        owner_name:       d.owner_name       || prev.owner_name,
-        rto_code:         d.rto_code         || prev.rto_code,
-        color:            d.color            || prev.color,
-        insurance_expiry: d.insurance_expiry || prev.insurance_expiry,
-        fitness_expiry:   d.fitness_expiry   || prev.fitness_expiry,
-        puc_expiry:       d.puc_expiry       || prev.puc_expiry,
-        permit_expiry:    d.permit_expiry    || prev.permit_expiry,
-      }));
-
-      if (d.is_demo) {
-        setFetchStatus("demo");
-        setFetchMsg(`Sample data loaded ✓  Enter reg number and save — live Vahan data will populate once connected.`);
-      } else {
-        setFetchStatus("success");
-        setFetchMsg(`Fetched from Vahan ✓${d.rto_name ? `  RTO: ${d.rto_name}` : ""}`);
-      }
-    } catch (e: any) {
-      setFetchStatus("error");
-      setFetchMsg(e?.response?.data?.detail || "Could not reach server. Is the backend running?");
-    } finally {
-      setFetching(false);
-    }
   };
 
   // ── Submit ──────────────────────────────────────────────────────────────────
@@ -357,7 +296,7 @@ export default function VehiclesPage() {
               {editVehicle ? "Edit Vehicle" : "Add Vehicle"}
             </h2>
             <p style={{ margin: "0 0 20px", fontSize: 12.5, color: "var(--text-muted)" }}>
-              Enter the registration number and click <strong>Fetch from Vahan</strong> to auto-fill details.
+              Fill in the vehicle details manually.
             </p>
 
             {error && (
@@ -368,52 +307,16 @@ export default function VehiclesPage() {
 
             <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
 
-              {/* ── Section 1: Registration + Vahan fetch ── */}
-              <div style={{ background: "var(--bg-subtle)", borderRadius: 10, padding: 14, border: "1.5px solid var(--border)" }}>
-                <div style={{ fontSize: 11, fontWeight: 700, color: "#1E2D8E", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 10 }}>
-                  🔍 Registration & Auto-Fetch
-                </div>
-                <div style={{ display: "flex", gap: 10, alignItems: "flex-end" }}>
-                  <div style={{ flex: 1 }}>
-                    <label style={labelStyle}>Registration Number *</label>
-                    <input
-                      required
-                      value={form.registration_number}
-                      onChange={e => set("registration_number", e.target.value.toUpperCase().replace(/\s/g, ""))}
-                      placeholder="MH12AB1234"
-                      style={{ ...inputStyle, fontFamily: "monospace", fontSize: 15, fontWeight: 700, letterSpacing: 1 }}
-                    />
-                  </div>
-                  <button
-                    type="button"
-                    onClick={fetchFromVahan}
-                    disabled={fetching || !form.registration_number}
-                    style={{
-                      display: "flex", alignItems: "center", gap: 7, padding: "9px 16px",
-                      background: fetching ? "#e8eaf6" : "#1E2D8E",
-                      color: fetching ? "#999" : "white",
-                      border: "none", borderRadius: 8, cursor: fetching ? "not-allowed" : "pointer",
-                      fontSize: 13, fontWeight: 600, whiteSpace: "nowrap", flexShrink: 0,
-                    }}>
-                    <Zap size={14} />
-                    {fetching ? "Fetching..." : "Fetch from Vahan"}
-                  </button>
-                </div>
-
-                {/* Fetch status banner */}
-                {fetchStatus !== "idle" && (
-                  <div style={{
-                    marginTop: 10, padding: "8px 12px", borderRadius: 7, fontSize: 12.5,
-                    display: "flex", alignItems: "center", gap: 8,
-                    background: fetchStatus === "success" ? "#e8f5e9" : fetchStatus === "demo" ? "#e8eaf6" : "#fce4ec",
-                    color:      fetchStatus === "success" ? "#2e7d32" : fetchStatus === "demo" ? "#1E2D8E"  : "#b71c1c",
-                  }}>
-                    {fetchStatus === "error"
-                      ? <AlertCircle size={14} style={{ flexShrink: 0 }} />
-                      : <CheckCircle size={14} style={{ flexShrink: 0 }} />}
-                    {fetchMsg}
-                  </div>
-                )}
+              {/* ── Registration Number ── */}
+              <div>
+                <label style={labelStyle}>Registration Number *</label>
+                <input
+                  required
+                  value={form.registration_number}
+                  onChange={e => set("registration_number", e.target.value.toUpperCase().replace(/\s/g, ""))}
+                  placeholder="MH12AB1234"
+                  style={{ ...inputStyle, fontFamily: "monospace", fontSize: 15, fontWeight: 700, letterSpacing: 1 }}
+                />
               </div>
 
               {/* ── Section 2: Basic Details ── */}
