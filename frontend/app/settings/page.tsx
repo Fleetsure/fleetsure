@@ -867,16 +867,12 @@ function IntegrationsSettings() {
           <div style={{ flex: 1 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
               <span style={{ fontSize: 15, fontWeight: 700, color: "var(--text-main)" }}>Vahan RC Lookup</span>
-              <span style={{ fontSize: 10, fontWeight: 700, padding: "2px 8px", borderRadius: 8, background: "#e8f5e9", color: "#2e7d32" }}>✓ Connected</span>
+              <span style={{ fontSize: 10, fontWeight: 700, padding: "2px 8px", borderRadius: 8, background: "#fff3e0", color: "#e65100" }}>Coming Soon</span>
             </div>
             <div style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 2 }}>
-              Auto-fills make, model, fuel type, insurance & PUC expiry from any registration number
+              Auto-fill make, model, fuel type, insurance & PUC expiry from any registration number
             </div>
           </div>
-        </div>
-        <div style={{ padding: "14px 20px", fontSize: 12.5, color: "var(--text-muted)", lineHeight: 1.6 }}>
-          Powered by <strong style={{ color: "var(--text-main)" }}>NAPIX</strong> — NIC API Exchange Platform (official Government of India / Parivahan data).
-          Just go to <strong>Vehicles → Add Vehicle</strong>, type any reg number, and click <strong>"Fetch from Vahan"</strong>.
         </div>
       </div>
 
