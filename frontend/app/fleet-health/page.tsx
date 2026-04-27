@@ -80,7 +80,7 @@ export default function FleetHealthPage() {
   const [sortAsc, setSortAsc]     = useState(true);
 
   useEffect(() => {
-    getVehicles().then(setVehicles).finally(() => setLoading(false));
+    getVehicles().then(res => setVehicles(res.data)).finally(() => setLoading(false));
   }, []);
 
   // Compute per-vehicle compliance
