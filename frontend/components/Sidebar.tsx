@@ -3,7 +3,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
   LayoutDashboard, Truck, Users, Route,
-  Wrench, Fuel, HeartPulse, ReceiptText,
+  Wrench, Fuel, HeartPulse, ReceiptText, Circle, PackageOpen, BarChart2,
   ShieldCheck, FileText, ChevronDown, ChevronUp, Settings,
   PlusCircle, UserCircle, LogOut, Building2
 } from "lucide-react";
@@ -18,9 +18,11 @@ const NAV = [
   {
     label: "EXPENSES", group: true,
     children: [
-      { label: "Services", href: "/expenses", icon: Wrench },
-      { label: "Fuel",     href: "/fuel",     icon: Fuel },
-      { label: "Tolls",    href: "/tolls",    icon: ReceiptText },
+      { label: "Services",      href: "/expenses",      icon: Wrench },
+      { label: "Fuel",          href: "/fuel",          icon: Fuel },
+      { label: "Tolls",         href: "/tolls",         icon: ReceiptText },
+      { label: "Tyres",         href: "/tyres",         icon: Circle },
+      { label: "Misc Expenses", href: "/misc-expenses", icon: PackageOpen },
     ]
   },
   {
@@ -32,6 +34,7 @@ const NAV = [
   },
   { label: "Parties",   href: "/parties",   icon: Building2 },
   { label: "Documents", href: "/documents", icon: FileText },
+  { label: "Reports",   href: "/reports",   icon: BarChart2 },
   { label: "Settings",  href: "/settings",  icon: Settings },
 ];
 

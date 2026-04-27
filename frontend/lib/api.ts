@@ -86,3 +86,13 @@ export const deleteDocument  = (id: string) => api.delete(`/documents/${id}`);
 export const getTollLogs  = (vehicle_id?: string) => api.get("/tolls/", { params: vehicle_id ? { vehicle_id } : {} });
 export const addTollLog   = (data: any) => api.post("/tolls/", data);
 export const deleteTollLog = (id: string) => api.delete(`/tolls/${id}`);
+
+// ── Tyres ─────────────────────────────────────────────────
+export const getTyreLogs  = (vehicle_id?: string) => api.get("/tyres/", { params: vehicle_id ? { vehicle_id } : {} });
+export const addTyreLog   = (data: any) => api.post("/tyres/", data);
+export const deleteTyreLog = (id: string) => api.delete(`/tyres/${id}`);
+
+// ── Misc Expenses ─────────────────────────────────────────
+export const getMiscExpenses  = (vehicle_id?: string) => api.get("/misc-expenses/", { params: vehicle_id ? { vehicle_id } : {} });
+export const addMiscExpense   = (data: any) => api.post("/misc-expenses/", data);
+export const deleteMiscExpense = (id: string) => api.delete(`/misc-expenses/${id}`);
