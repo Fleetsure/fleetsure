@@ -12,11 +12,12 @@ from app.models.fuel_log import FuelLog               # noqa: F401
 from app.models.driver_payment import DriverPayment   # noqa: F401
 from app.models.party import Party
 from app.models.insurance import InsurancePolicy  # noqa: F401
-from app.models.document import Document          # noqa: F401                    # noqa: F401
+from app.models.document import Document          # noqa: F401
+from app.models.toll_log import TollLog           # noqa: F401
 
 from app.database import engine, Base
 from app.routers import auth, vehicles, drivers, trips, expenses, vahan, dl, export
-from app.routers import fuel, driver_payments, parties, pnl, insurance, documents, pdf
+from app.routers import fuel, driver_payments, parties, pnl, insurance, documents, pdf, tolls
 
 
 @asynccontextmanager
@@ -56,6 +57,7 @@ app.include_router(vahan.router,           prefix=API_PREFIX)
 app.include_router(dl.router,              prefix=API_PREFIX)
 app.include_router(export.router,          prefix=API_PREFIX)
 app.include_router(pdf.router,             prefix=API_PREFIX)
+app.include_router(tolls.router,           prefix=API_PREFIX)
 
 
 @app.get("/health")
