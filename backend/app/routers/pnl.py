@@ -10,6 +10,8 @@ from app.models.vehicle import Vehicle
 from app.models.trip import Trip
 from app.models.expense import Expense
 from app.models.fuel_log import FuelLog
+from app.models.user import User
+from app.services.auth_service import get_current_user
 
 router = APIRouter(prefix="/pnl", tags=["P&L"])
 
@@ -34,19 +36,19 @@ class VehiclePnL(BaseModel):
 
 
 @router.get("/vehicles", response_model=List[VehiclePnL])
-def get_vehicle_pnl(db: Session = Depends(get_db)):
-    vehicles = db.query(Vehicle).all()
+def get_vehicle_pnl(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    vehicles = db.query(Vehicle).filter(Vehicle.owner_id == current_user.id).all()
     result = []
 
     for v in vehicles:
-        # All trips for this vehicle
-        all_trips = db.query(Trip).filter(Trip.vehicle_id == v.id).all()
+        all_trips = db.query(Trip).filter(Trip.vehicle_id == v.id, Trip.owner_id == current_user.id).all()
         completed = [t for t in all_trips if t.status == "completed"]
 
-        # Revenue from completed trips
         total_revenue = sum(float(t.freight_amount or 0) for t in completed)
 
-        # Trip expenses (fuel, tolls, etc. logged against trips)
         trip_ids = [t.id for t in all_trips]
         trip_expenses = Decimal("0")
         if trip_ids:
@@ -55,9 +57,9 @@ def get_vehicle_pnl(db: Session = Depends(get_db)):
             ).scalar()
             trip_expenses = Decimal(str(rows or 0))
 
-        # Fuel costs from FuelLog (standalone fill-ups)
         fuel_rows = db.query(func.sum(FuelLog.amount)).filter(
-            FuelLog.vehicle_id == v.id
+            FuelLog.vehicle_id == v.id,
+            FuelLog.owner_id == current_user.id,
         ).scalar()
         total_fuel = Decimal(str(fuel_rows or 0))
 
@@ -67,7 +69,7 @@ def get_vehicle_pnl(db: Session = Depends(get_db)):
 
         result.append(VehiclePnL(
             vehicle_id=str(v.id),
-            reg_number=v.reg_number,
+            reg_number=v.registration_number,
             make=v.make or "",
             model=v.model or "",
             total_trips=len(all_trips),
@@ -81,6 +83,5 @@ def get_vehicle_pnl(db: Session = Depends(get_db)):
             is_profitable=profit > 0,
         ))
 
-    # Sort by profit descending
     result.sort(key=lambda x: x.profit, reverse=True)
     return result

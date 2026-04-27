@@ -1,7 +1,7 @@
 from sqlalchemy.orm import Session, joinedload
 from fastapi import HTTPException, status
 from uuid import UUID
-from typing import List
+from typing import List, Optional
 
 from app.models.trip import Trip
 from app.models.vehicle import Vehicle, VehicleStatus
@@ -11,13 +11,16 @@ from app.schemas.trip import TripCreate, TripUpdate
 class TripService:
 
     @staticmethod
-    def create(db: Session, payload: TripCreate) -> Trip:
+    def create(db: Session, payload: TripCreate, owner_id: Optional[UUID] = None) -> Trip:
         """
         Create a trip.
-        - Validates vehicle exists and is not already in a trip.
+        - Validates vehicle exists (and belongs to owner) and is not already in a trip.
         - Updates vehicle status to IN_TRIP.
         """
-        vehicle = db.query(Vehicle).filter(Vehicle.id == payload.vehicle_id).first()
+        q = db.query(Vehicle).filter(Vehicle.id == payload.vehicle_id)
+        if owner_id is not None:
+            q = q.filter(Vehicle.owner_id == owner_id)
+        vehicle = q.first()
         if not vehicle:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
@@ -34,7 +37,7 @@ class TripService:
                 detail=f"Vehicle '{vehicle.registration_number}' is under maintenance."
             )
 
-        trip = Trip(**payload.model_dump())
+        trip = Trip(**payload.model_dump(), owner_id=owner_id)
         db.add(trip)
 
         # Mark vehicle as in-trip
@@ -45,21 +48,26 @@ class TripService:
         return trip
 
     @staticmethod
-    def get_all(db: Session, skip: int = 0, limit: int = 50) -> List[Trip]:
-        return db.query(Trip).offset(skip).limit(limit).all()
+    def get_all(db: Session, owner_id: Optional[UUID] = None, skip: int = 0, limit: int = 50) -> List[Trip]:
+        q = db.query(Trip)
+        if owner_id is not None:
+            q = q.filter(Trip.owner_id == owner_id)
+        return q.offset(skip).limit(limit).all()
 
     @staticmethod
-    def get_by_id(db: Session, trip_id: UUID) -> Trip:
+    def get_by_id(db: Session, trip_id: UUID, owner_id: Optional[UUID] = None) -> Trip:
         """Fetch trip with vehicle and expenses eagerly loaded."""
-        trip = (
+        q = (
             db.query(Trip)
             .options(
                 joinedload(Trip.vehicle),
                 joinedload(Trip.expenses)
             )
             .filter(Trip.id == trip_id)
-            .first()
         )
+        if owner_id is not None:
+            q = q.filter(Trip.owner_id == owner_id)
+        trip = q.first()
         if not trip:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
@@ -68,12 +76,15 @@ class TripService:
         return trip
 
     @staticmethod
-    def update(db: Session, trip_id: UUID, payload: TripUpdate) -> Trip:
+    def update(db: Session, trip_id: UUID, payload: TripUpdate, owner_id: Optional[UUID] = None) -> Trip:
         """
         Update trip fields.
         If status changes to COMPLETED or CANCELLED → set vehicle back to ACTIVE.
         """
-        trip = db.query(Trip).filter(Trip.id == trip_id).first()
+        q = db.query(Trip).filter(Trip.id == trip_id)
+        if owner_id is not None:
+            q = q.filter(Trip.owner_id == owner_id)
+        trip = q.first()
         if not trip:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,

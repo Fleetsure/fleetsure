@@ -1,15 +1,18 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from sqlalchemy import func
 from typing import List, Optional
 from uuid import UUID
-from datetime import date, timedelta
+from datetime import date
 from pydantic import BaseModel
+
 from app.database import get_db
 from app.models.insurance import InsurancePolicy, PolicyType
 from app.models.vehicle import Vehicle
+from app.models.user import User
+from app.services.auth_service import get_current_user
 
 router = APIRouter(prefix="/insurance", tags=["Insurance"])
+
 
 class PolicyCreate(BaseModel):
     vehicle_id: UUID
@@ -20,6 +23,7 @@ class PolicyCreate(BaseModel):
     expiry_date: date
     premium: Optional[float] = None
     notes: Optional[str] = None
+
 
 class PolicyResponse(BaseModel):
     id: str
@@ -32,11 +36,12 @@ class PolicyResponse(BaseModel):
     premium: Optional[float]
     notes: Optional[str]
     days_left: int
-    status: str           # active / expiring_soon / expired
+    status: str
     reg_number: Optional[str] = None
 
     class Config:
         from_attributes = True
+
 
 def enrich(p: InsurancePolicy, reg_map: dict) -> dict:
     today = date.today()
@@ -62,25 +67,43 @@ def enrich(p: InsurancePolicy, reg_map: dict) -> dict:
         "reg_number": reg_map.get(str(p.vehicle_id)),
     }
 
+
 @router.post("/", status_code=201)
-def create_policy(payload: PolicyCreate, db: Session = Depends(get_db)):
-    p = InsurancePolicy(**payload.model_dump())
-    db.add(p); db.commit(); db.refresh(p)
-    vehicles = {str(v.id): v.reg_number for v in db.query(Vehicle).all()}
+def create_policy(
+    payload: PolicyCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    p = InsurancePolicy(**payload.model_dump(), owner_id=current_user.id)
+    db.add(p)
+    db.commit()
+    db.refresh(p)
+    vehicles = {str(v.id): v.registration_number for v in db.query(Vehicle).filter(Vehicle.owner_id == current_user.id).all()}
     return enrich(p, vehicles)
 
+
 @router.get("/")
-def list_policies(vehicle_id: Optional[str] = None, db: Session = Depends(get_db)):
-    q = db.query(InsurancePolicy).order_by(InsurancePolicy.expiry_date)
+def list_policies(
+    vehicle_id: Optional[str] = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    q = db.query(InsurancePolicy).filter(InsurancePolicy.owner_id == current_user.id).order_by(InsurancePolicy.expiry_date)
     if vehicle_id:
         q = q.filter(InsurancePolicy.vehicle_id == vehicle_id)
     policies = q.all()
-    vehicles = {str(v.id): v.reg_number for v in db.query(Vehicle).all()}
+    vehicles = {str(v.id): v.registration_number for v in db.query(Vehicle).filter(Vehicle.owner_id == current_user.id).all()}
     return [enrich(p, vehicles) for p in policies]
 
+
 @router.delete("/{policy_id}", status_code=204)
-def delete_policy(policy_id: UUID, db: Session = Depends(get_db)):
-    p = db.query(InsurancePolicy).filter(InsurancePolicy.id == policy_id).first()
+def delete_policy(
+    policy_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    p = db.query(InsurancePolicy).filter(InsurancePolicy.id == policy_id, InsurancePolicy.owner_id == current_user.id).first()
     if not p:
         raise HTTPException(404, "Policy not found")
-    db.delete(p); db.commit()
+    db.delete(p)
+    db.commit()
