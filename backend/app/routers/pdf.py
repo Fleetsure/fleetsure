@@ -127,7 +127,7 @@ def build_trip_pdf(trip: Trip, org_name: str, org_logo_b64: str,
         ("RIGHTPADDING",  (0,0),(-1,-1), 16),
         ("TOPPADDING",    (0,0),(-1,-1), 14),
         ("BOTTOMPADDING", (0,0),(-1,-1), 14),
-        ("ROUNDEDCORNERS",(0,0),(-1,-1), [8,8,8,8]),
+        ("ROUNDEDCORNERS", [8,8,8,8]),
     ]))
     story.append(banner)
     # Gold accent strip
@@ -152,7 +152,7 @@ def build_trip_pdf(trip: Trip, org_name: str, org_logo_b64: str,
         ("BOTTOMPADDING", (0,0),(-1,-1), 12),
         ("LEFTPADDING",   (0,0),(-1,-1), 16),
         ("RIGHTPADDING",  (0,0),(-1,-1), 16),
-        ("ROUNDEDCORNERS",(0,0),(-1,-1), [8,8,8,8]),
+        ("ROUNDEDCORNERS", [8,8,8,8]),
     ]))
     story.append(route)
     story.append(Spacer(1, 14))
@@ -239,7 +239,7 @@ def build_trip_pdf(trip: Trip, org_name: str, org_logo_b64: str,
         ("LEFTPADDING",   (0,0),(-1,-1), 10),
         ("RIGHTPADDING",  (0,0),(-1,-1), 10),
         ("LINEBELOW",     (0,0),(-1,-2), 0.3, BORDER),
-        ("ROUNDEDCORNERS",(0,0),(-1,-1), [6,6,0,0]),
+        ("ROUNDEDCORNERS", [6,6,0,0]),
     ]))
     story.append(ctable)
     story.append(Spacer(1, 8))
@@ -256,7 +256,7 @@ def build_trip_pdf(trip: Trip, org_name: str, org_logo_b64: str,
         ("BOTTOMPADDING", (0,0),(-1,-1), 12),
         ("LEFTPADDING",   (0,0),(-1,-1), 10),
         ("RIGHTPADDING",  (0,0),(-1,-1), 10),
-        ("ROUNDEDCORNERS",(0,0),(-1,-1), [0,0,6,6]),
+        ("ROUNDEDCORNERS", [0,0,6,6]),
     ]))
     story.append(total_row)
 
@@ -277,7 +277,7 @@ def build_trip_pdf(trip: Trip, org_name: str, org_logo_b64: str,
             ("BOTTOMPADDING", (0,0),(-1,-1), 12),
             ("LEFTPADDING",   (0,0),(-1,-1), 10),
             ("RIGHTPADDING",  (0,0),(-1,-1), 10),
-            ("ROUNDEDCORNERS",(0,0),(-1,-1), [6,6,6,6]),
+            ("ROUNDEDCORNERS", [6,6,6,6]),
         ]))
         story.append(profit_row)
 
