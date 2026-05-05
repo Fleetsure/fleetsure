@@ -311,8 +311,6 @@ def build_trip_pdf(trip: Trip, org_name: str, org_logo_b64: str,
 @router.get("/{trip_id}/pdf")
 def download_trip_pdf(
     trip_id: UUID,
-    org_name: str = "",
-    org_logo: str = "",          # base64 data URL
     expense_types: str = "all",  # "all" or comma-separated: "fuel,toll"
     show_profit: bool = False,   # include internal profit section
     db: Session = Depends(get_db),
@@ -329,10 +327,11 @@ def download_trip_pdf(
 
     include = ["all"] if expense_types == "all" else [t.strip() for t in expense_types.split(",")]
 
+    # Read org name/logo directly from DB — no URL param needed
     pdf_bytes = build_trip_pdf(
         trip       = trip,
-        org_name   = org_name,
-        org_logo_b64 = org_logo,
+        org_name   = current_user.org_name or "",
+        org_logo_b64 = current_user.org_logo or "",
         include_expense_types = include,
         show_profit = show_profit,
     )

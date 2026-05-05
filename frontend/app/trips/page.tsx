@@ -851,22 +851,23 @@ export default function TripsPage() {
                 style={{ flex: 1, padding: "10px 0", border: "1px solid #e0e0e0", borderRadius: 8, background: "white", fontSize: 13, fontWeight: 600, cursor: "pointer", color: "#555" }}>
                 Cancel
               </button>
-              <button onClick={() => {
-                const orgName  = encodeURIComponent(localStorage.getItem("orgName") || "");
-                const orgLogo  = encodeURIComponent(localStorage.getItem("orgLogo") || "");
+              <button onClick={async () => {
                 const selected = Object.entries(pdfOpts.expTypes).filter(([,v]) => v).map(([k]) => k);
-                const expTypes = encodeURIComponent(selected.join(",") || "none");
-                const url = `${process.env.NEXT_PUBLIC_API_URL}/trips/${selTrip.id}/pdf?org_name=${orgName}&org_logo=${orgLogo}&expense_types=${expTypes}&show_profit=${pdfOpts.showProfit}`;
+                const expTypes = selected.join(",") || "none";
+                const url = `${process.env.NEXT_PUBLIC_API_URL}/trips/${selTrip.id}/pdf?expense_types=${encodeURIComponent(expTypes)}&show_profit=${pdfOpts.showProfit}`;
                 const token = localStorage.getItem("token");
-                fetch(url, { headers: { Authorization: `Bearer ${token}` } })
-                  .then(r => r.blob())
-                  .then(blob => {
-                    const a = document.createElement("a");
-                    a.href = URL.createObjectURL(blob);
-                    a.download = `tripsheet_${selTrip.origin}_${selTrip.destination}.pdf`;
-                    a.click();
-                    setPdfModal(false);
-                  });
+                try {
+                  const r = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+                  if (!r.ok) throw new Error(`Server error: ${r.status}`);
+                  const blob = await r.blob();
+                  const a = document.createElement("a");
+                  a.href = URL.createObjectURL(blob);
+                  a.download = `tripsheet_${selTrip.origin}_${selTrip.destination}.pdf`;
+                  a.click();
+                  setPdfModal(false);
+                } catch (err) {
+                  alert("Failed to generate PDF. Please try again.");
+                }
               }}
                 style={{ flex: 2, padding: "10px 0", border: "none", borderRadius: 8, background: "#1E2D8E", color: "white", fontSize: 13, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
                 <FileDown size={14} /> Generate & Download
