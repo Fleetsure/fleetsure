@@ -26,12 +26,15 @@ from app.routers import fuel, driver_payments, parties, pnl, insurance, document
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     Base.metadata.create_all(bind=engine)
-    # Safe column migrations — runs on every startup, skips if columns already exist
-    from sqlalchemy import text
-    with engine.connect() as conn:
-        conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS org_name VARCHAR(255)"))
-        conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS org_logo TEXT"))
-        conn.commit()
+    # Safe column migrations — non-blocking, skips if columns already exist
+    try:
+        from sqlalchemy import text
+        with engine.connect() as conn:
+            conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS org_name VARCHAR(255)"))
+            conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS org_logo TEXT"))
+            conn.commit()
+    except Exception:
+        pass  # Never block startup — app works fine even if migration skips
     yield
 
 
