@@ -1135,10 +1135,15 @@ function NotificationSettings() {
   const sendTestAlert = async () => {
     setTesting(true); setTestMsg("");
     try {
-      await fetch(`${API}/notifications/test/compliance`, { method: "POST", headers: headers() });
-      setTestMsg("✓ Test alert sent to your email!");
-    } catch { setTestMsg("Failed to send test."); }
-    finally { setTesting(false); setTimeout(() => setTestMsg(""), 4000); }
+      const r = await fetch(`${API}/notifications/test/compliance`, { method: "POST", headers: headers() });
+      const data = await r.json();
+      if (r.ok) {
+        setTestMsg("✓ Test email sent! Check your inbox.");
+      } else {
+        setTestMsg(`✗ Failed: ${data.detail || "Check Render logs"}`);
+      }
+    } catch { setTestMsg("✗ Network error — is backend running?"); }
+    finally { setTesting(false); setTimeout(() => setTestMsg(""), 6000); }
   };
 
   if (loading) return <p style={{ color: "#aaa", padding: "32px 0" }}>Loading...</p>;

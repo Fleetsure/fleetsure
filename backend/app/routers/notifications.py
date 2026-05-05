@@ -115,7 +115,21 @@ def test_compliance_email(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Manually trigger compliance check for current user only."""
-    from app.services.notification_service import check_compliance_and_notify
-    check_compliance_and_notify(db)
-    return {"status": "ok", "message": f"Test compliance alert triggered for {current_user.email}"}
+    """Send a sample compliance alert email directly to the logged-in user."""
+    from app.services.notification_service import send_email, _compliance_email_html
+
+    sample_alerts = [
+        {"reg": "KA01AB1234",  "doc_type": "Insurance",           "expiry_date": "15 May 2026", "days_left": 10},
+        {"reg": "KA01AB1234",  "doc_type": "PUC Certificate",     "expiry_date": "01 Jun 2026", "days_left": 27},
+        {"reg": "MH04CD5678",  "doc_type": "Fitness Certificate", "expiry_date": "30 Apr 2026", "days_left": -5},
+        {"reg": "Driver: Ramu","doc_type": "Driving License",     "expiry_date": "20 May 2026", "days_left": 15},
+    ]
+    html = _compliance_email_html(current_user.name or "Fleet Owner", sample_alerts)
+    sent = send_email(
+        to=current_user.email,
+        subject="[TEST] ⚠️ FleetSure Compliance Alert — Sample",
+        html=html,
+    )
+    if sent:
+        return {"status": "ok", "message": f"Test email sent to {current_user.email}"}
+    raise HTTPException(500, f"Failed to send email. Check RESEND_API_KEY in Render env vars.")
