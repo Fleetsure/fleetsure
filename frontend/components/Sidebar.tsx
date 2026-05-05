@@ -5,7 +5,7 @@ import {
   LayoutDashboard, Truck, Users, Route,
   Wrench, Fuel, HeartPulse, ReceiptText, Circle, PackageOpen, BarChart2,
   ShieldCheck, FileText, ChevronDown, ChevronUp, Settings,
-  PlusCircle, UserCircle, LogOut, Building2
+  PlusCircle, UserCircle, LogOut, Building2, Upload
 } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
 import Image from "next/image";
@@ -35,6 +35,7 @@ const NAV = [
   { label: "Parties",   href: "/parties",   icon: Building2 },
   { label: "Documents", href: "/documents", icon: FileText },
   { label: "Reports",   href: "/reports",   icon: BarChart2 },
+  { label: "Import Data", href: "/import",  icon: Upload },
   { label: "Settings",  href: "/settings",  icon: Settings },
 ];
 
