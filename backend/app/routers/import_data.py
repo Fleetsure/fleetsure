@@ -7,7 +7,7 @@ POST /import/confirm  — submit mapped data, insert records into DB
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, Tuple
 from pydantic import BaseModel
 import io
 import openpyxl
@@ -188,7 +188,7 @@ def safe_str(val) -> Optional[str]:
     return s if s and s.lower() not in ("none", "null", "nan") else None
 
 
-def parse_sheet_data(ws) -> tuple[List[str], List[Dict]]:
+def parse_sheet_data(ws) -> Tuple[List[str], List[Dict]]:
     """Extract headers + rows from an openpyxl worksheet."""
     all_rows = list(ws.iter_rows(values_only=True))
     if not all_rows:
