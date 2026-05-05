@@ -1095,49 +1095,54 @@ function Toggle({ on, onChange }: { on: boolean; onChange: () => void }) {
 
 // ─── Notification Settings panel ──────────────────────────────────────────────
 function NotificationSettings() {
-  const LS_KEY = "notifSettings";
-  const defaultSettings = () => {
-    const base: Record<string, any> = {
-      channel_email: true,
-      channel_whatsapp: false,
-      channel_mobile: false,
-      wa_number: "",
-    };
-    NOTIF_CATEGORIES.forEach(cat =>
-      cat.items.forEach(item => {
-        base[`${item.key}_email`]     = false;
-        base[`${item.key}_whatsapp`]  = false;
-      })
-    );
-    // Sensible defaults on
-    ["insurance_expiry","puc_expiry","fitness_expiry","permit_expiry","dl_expiry","fastag_low","trip_completed"].forEach(k => {
-      base[`${k}_email`]    = true;
-      base[`${k}_whatsapp`] = true;
-    });
-    ["trip_started","service_due","breakdown","monthly_expense"].forEach(k => {
-      base[`${k}_email`] = true;
-    });
-    return base;
-  };
+  const [s, setS] = useState({
+    phone:                      "",
+    email_compliance_alerts:    true,
+    email_monthly_summary:      true,
+    whatsapp_compliance_alerts: false,
+    whatsapp_monthly_summary:   false,
+    alert_days_before:          "30,15,7",
+  });
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving]   = useState(false);
+  const [saved, setSaved]     = useState(false);
+  const [testing, setTesting] = useState(false);
+  const [testMsg, setTestMsg] = useState("");
 
-  const [s, setS] = useState<Record<string, any>>(defaultSettings);
-  const [saved, setSaved] = useState(false);
+  const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1";
+  const headers = () => ({ "Content-Type": "application/json", Authorization: `Bearer ${localStorage.getItem("token") || ""}` });
 
   useEffect(() => {
-    const stored = localStorage.getItem(LS_KEY);
-    if (stored) setS(JSON.parse(stored));
+    fetch(`${API}/notifications/settings`, { headers: headers() })
+      .then(r => r.json())
+      .then(data => { setS(prev => ({ ...prev, ...data })); setLoading(false); })
+      .catch(() => setLoading(false));
   }, []);
 
-  const toggle = (key: string) => setS(prev => ({ ...prev, [key]: !prev[key] }));
+  const toggle = (key: string) => setS(prev => ({ ...prev, [key]: !(prev as any)[key] }));
   const set    = (key: string, val: any) => setS(prev => ({ ...prev, [key]: val }));
 
-  const save = () => {
-    localStorage.setItem(LS_KEY, JSON.stringify(s));
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2000);
+  const save = async () => {
+    setSaving(true);
+    try {
+      await fetch(`${API}/notifications/settings`, {
+        method: "PUT", headers: headers(), body: JSON.stringify(s),
+      });
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2500);
+    } finally { setSaving(false); }
   };
 
-  const channelActive = (ch: string) => s[`channel_${ch}`];
+  const sendTestAlert = async () => {
+    setTesting(true); setTestMsg("");
+    try {
+      await fetch(`${API}/notifications/test/compliance`, { method: "POST", headers: headers() });
+      setTestMsg("✓ Test alert sent to your email!");
+    } catch { setTestMsg("Failed to send test."); }
+    finally { setTesting(false); setTimeout(() => setTestMsg(""), 4000); }
+  };
+
+  if (loading) return <p style={{ color: "#aaa", padding: "32px 0" }}>Loading...</p>;
 
   return (
     <div>
@@ -1149,137 +1154,111 @@ function NotificationSettings() {
         <div style={{ fontSize: 13, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 12 }}>
           How You Get Notified
         </div>
-        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
 
-          {/* Email */}
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 16px", borderRadius: 10, border: "1.5px solid var(--border-input)", background: s.channel_email ? "var(--bg-hover)" : "var(--bg-card)" }}>
+        {/* ── Email ── */}
+        <div style={{ border: "1.5px solid var(--border-input)", borderRadius: 10, overflow: "hidden", marginBottom: 10 }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 16px", background: "var(--bg-card)" }}>
             <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
               <div style={{ width: 36, height: 36, borderRadius: 8, background: "#e8eaf6", display: "flex", alignItems: "center", justifyContent: "center" }}>
                 <Mail size={17} color="#1E2D8E" />
               </div>
               <div>
-                <div style={{ fontSize: 14, fontWeight: 600, color: "var(--text-main)" }}>Email</div>
-                <div style={{ fontSize: 12, color: "var(--text-muted)" }}>Alerts sent to your registered email</div>
+                <div style={{ fontSize: 14, fontWeight: 600, color: "var(--text-main)" }}>Email Notifications</div>
+                <div style={{ fontSize: 12, color: "var(--text-muted)" }}>Sent to your registered email address</div>
               </div>
             </div>
-            <Toggle on={s.channel_email} onChange={() => toggle("channel_email")} />
           </div>
-
-          {/* WhatsApp */}
-          <div style={{ border: "1.5px solid var(--border-input)", borderRadius: 10, overflow: "hidden", background: s.channel_whatsapp ? "var(--bg-hover)" : "var(--bg-card)" }}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 16px" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                <div style={{ width: 36, height: 36, borderRadius: 8, background: "#e8f5e9", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                  <MessageCircle size={17} color="#2e7d32" />
-                </div>
+          <div style={{ padding: "12px 16px", borderTop: "1px solid var(--border)", display: "flex", flexDirection: "column", gap: 10, background: "var(--bg-subtle)" }}>
+            {[
+              { key: "email_compliance_alerts", label: "Compliance Alerts", desc: "Insurance, PUC, fitness, permit, driver license expiry" },
+              { key: "email_monthly_summary",   label: "Monthly Expense Summary", desc: "Sent on the 1st of each month with full fleet breakdown" },
+            ].map(item => (
+              <div key={item.key} style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                 <div>
-                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                    <span style={{ fontSize: 14, fontWeight: 600, color: "var(--text-main)" }}>WhatsApp</span>
-                    <span style={{ fontSize: 10, fontWeight: 700, padding: "1px 6px", borderRadius: 8, background: "#e8f5e9", color: "#2e7d32" }}>Recommended</span>
-                  </div>
-                  <div style={{ fontSize: 12, color: "var(--text-muted)" }}>Instant alerts on WhatsApp — most fleet owners prefer this</div>
-                </div>
-              </div>
-              <Toggle on={s.channel_whatsapp} onChange={() => toggle("channel_whatsapp")} />
-            </div>
-            {s.channel_whatsapp && (
-              <div style={{ padding: "0 16px 14px", borderTop: "1px solid var(--border)" }}>
-                <label style={{ fontSize: 12, fontWeight: 600, color: "var(--text-muted)", display: "block", margin: "10px 0 6px" }}>WhatsApp Number</label>
-                <input
-                  type="tel"
-                  placeholder="+91 98765 43210"
-                  value={s.wa_number}
-                  onChange={e => set("wa_number", e.target.value)}
-                  style={{ width: "100%", maxWidth: 280, padding: "8px 12px", border: "1.5px solid var(--border-input)", borderRadius: 8, fontSize: 13.5, boxSizing: "border-box" }}
-                />
-              </div>
-            )}
-          </div>
-
-          {/* Mobile App */}
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 16px", borderRadius: 10, border: "1.5px solid var(--border-input)", opacity: 0.6 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-              <div style={{ width: 36, height: 36, borderRadius: 8, background: "var(--bg-subtle)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                <Smartphone size={17} color="#aaa" />
-              </div>
-              <div>
-                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                  <span style={{ fontSize: 14, fontWeight: 600, color: "var(--text-main)" }}>Mobile App Push</span>
-                  <span style={{ fontSize: 10, fontWeight: 700, padding: "1px 6px", borderRadius: 8, background: "#fff3e0", color: "#e65100" }}>Coming Soon</span>
-                </div>
-                <div style={{ fontSize: 12, color: "var(--text-muted)" }}>Push notifications on Android & iOS</div>
-              </div>
-            </div>
-            <Toggle on={false} onChange={() => {}} />
-          </div>
-
-        </div>
-      </div>
-
-      {/* ── What you get notified about ── */}
-      <div style={{ fontSize: 13, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 4 }}>
-        What You Get Notified About
-      </div>
-      <p style={{ fontSize: 12, color: "var(--text-muted)", margin: "0 0 16px" }}>
-        Toggle per channel. Channels must be enabled above to receive alerts.
-      </p>
-
-      {/* Column headers */}
-      <div style={{ display: "flex", alignItems: "center", padding: "6px 14px", marginBottom: 4 }}>
-        <div style={{ flex: 1 }} />
-        <div style={{ display: "flex", gap: 32, marginRight: 4 }}>
-          <span style={{ fontSize: 11, fontWeight: 700, color: s.channel_email ? "#1E2D8E" : "#bbb", width: 52, textAlign: "center" }}>Email</span>
-          <span style={{ fontSize: 11, fontWeight: 700, color: s.channel_whatsapp ? "#2e7d32" : "#bbb", width: 52, textAlign: "center" }}>WhatsApp</span>
-        </div>
-      </div>
-
-      <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-        {NOTIF_CATEGORIES.map(cat => (
-          <div key={cat.id} style={{ border: "1.5px solid var(--border-input)", borderRadius: 12, overflow: "hidden" }}>
-            {/* Category header */}
-            <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 16px", background: "var(--bg-subtle)", borderBottom: "1px solid var(--border)" }}>
-              <cat.icon size={15} color={cat.color} />
-              <span style={{ fontSize: 13, fontWeight: 700, color: cat.color }}>{cat.label}</span>
-            </div>
-
-            {/* Notification rows */}
-            {cat.items.map((item, idx) => (
-              <div key={item.key} style={{
-                display: "flex", alignItems: "center", padding: "11px 16px",
-                borderBottom: idx < cat.items.length - 1 ? "1px solid var(--border)" : "none",
-                background: "var(--bg-card)"
-              }}>
-                <div style={{ flex: 1 }}>
                   <div style={{ fontSize: 13, fontWeight: 500, color: "var(--text-main)" }}>{item.label}</div>
-                  <div style={{ fontSize: 11.5, color: "var(--text-muted)", marginTop: 2 }}>{item.desc}</div>
+                  <div style={{ fontSize: 11.5, color: "var(--text-muted)" }}>{item.desc}</div>
                 </div>
-                <div style={{ display: "flex", gap: 32, marginRight: 4 }}>
-                  {/* Email toggle */}
-                  <div style={{ width: 52, display: "flex", justifyContent: "center", opacity: s.channel_email ? 1 : 0.35 }}>
-                    <Toggle
-                      on={s[`${item.key}_email`]}
-                      onChange={() => s.channel_email && toggle(`${item.key}_email`)}
-                    />
-                  </div>
-                  {/* WhatsApp toggle */}
-                  <div style={{ width: 52, display: "flex", justifyContent: "center", opacity: s.channel_whatsapp ? 1 : 0.35 }}>
-                    <Toggle
-                      on={s[`${item.key}_whatsapp`]}
-                      onChange={() => s.channel_whatsapp && toggle(`${item.key}_whatsapp`)}
-                    />
-                  </div>
-                </div>
+                <Toggle on={(s as any)[item.key]} onChange={() => toggle(item.key)} />
               </div>
             ))}
           </div>
-        ))}
+        </div>
+
+        {/* ── WhatsApp ── */}
+        <div style={{ border: "1.5px solid var(--border-input)", borderRadius: 10, overflow: "hidden", marginBottom: 10 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "14px 16px", background: "var(--bg-card)" }}>
+            <div style={{ width: 36, height: 36, borderRadius: 8, background: "#e8f5e9", display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <MessageCircle size={17} color="#2e7d32" />
+            </div>
+            <div style={{ flex: 1 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <span style={{ fontSize: 14, fontWeight: 600, color: "var(--text-main)" }}>WhatsApp Notifications</span>
+                <span style={{ fontSize: 10, fontWeight: 700, padding: "1px 6px", borderRadius: 8, background: "#fff3e0", color: "#e65100" }}>Coming Soon</span>
+              </div>
+              <div style={{ fontSize: 12, color: "var(--text-muted)" }}>Requires AiSensy BSP setup — see Integrations tab</div>
+            </div>
+          </div>
+          <div style={{ padding: "12px 16px", borderTop: "1px solid var(--border)", background: "var(--bg-subtle)", opacity: 0.5 }}>
+            <div style={{ marginBottom: 10 }}>
+              <label style={{ fontSize: 12, fontWeight: 600, color: "var(--text-muted)", display: "block", marginBottom: 4 }}>WhatsApp Number (with country code)</label>
+              <input type="tel" placeholder="919876543210" value={s.phone || ""}
+                onChange={e => set("phone", e.target.value)}
+                disabled
+                style={{ width: "100%", maxWidth: 280, padding: "8px 12px", border: "1.5px solid var(--border-input)", borderRadius: 8, fontSize: 13.5, boxSizing: "border-box" }} />
+            </div>
+            {[
+              { key: "whatsapp_compliance_alerts", label: "Compliance Alerts" },
+              { key: "whatsapp_monthly_summary",   label: "Monthly Summary" },
+            ].map(item => (
+              <div key={item.key} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
+                <span style={{ fontSize: 13, color: "var(--text-main)" }}>{item.label}</span>
+                <Toggle on={false} onChange={() => {}} />
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* ── Alert threshold ── */}
+        <div style={{ border: "1.5px solid var(--border-input)", borderRadius: 10, padding: "14px 16px", background: "var(--bg-card)" }}>
+          <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text-main)", marginBottom: 4 }}>Alert Threshold (days before expiry)</div>
+          <div style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 10 }}>Send alerts when documents expire within these many days</div>
+          <div style={{ display: "flex", gap: 8 }}>
+            {["7", "15", "30", "60"].map(d => {
+              const active = s.alert_days_before.split(",").map(x => x.trim()).includes(d);
+              return (
+                <button key={d} type="button"
+                  onClick={() => {
+                    const curr = s.alert_days_before.split(",").map(x => x.trim()).filter(Boolean);
+                    const next = active ? curr.filter(x => x !== d) : [...curr, d];
+                    set("alert_days_before", next.sort((a, b) => parseInt(b) - parseInt(a)).join(","));
+                  }}
+                  style={{
+                    padding: "6px 14px", borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: "pointer",
+                    border: `1.5px solid ${active ? "#1E2D8E" : "var(--border-input)"}`,
+                    background: active ? "#eef0fb" : "var(--bg-subtle)",
+                    color: active ? "#1E2D8E" : "var(--text-muted)",
+                  }}>
+                  {d} days
+                </button>
+              );
+            })}
+          </div>
+        </div>
       </div>
 
-      <div style={{ marginTop: 28, display: "flex", gap: 10 }}>
-        <button className="btn-primary" onClick={save}>
-          {saved ? "✓ Saved!" : "Save Changes"}
+      {/* Test + Save */}
+      {testMsg && (
+        <div style={{ background: testMsg.startsWith("✓") ? "#e8f5e9" : "#fce4ec", color: testMsg.startsWith("✓") ? "#2e7d32" : "#b71c1c", padding: "10px 14px", borderRadius: 8, marginBottom: 14, fontSize: 13 }}>
+          {testMsg}
+        </div>
+      )}
+      <div style={{ marginTop: 24, display: "flex", gap: 10 }}>
+        <button className="btn-primary" onClick={save} disabled={saving}>
+          {saving ? "Saving..." : saved ? "✓ Saved!" : "Save Settings"}
         </button>
-        <button className="btn-outline">Cancel</button>
+        <button className="btn-outline" onClick={sendTestAlert} disabled={testing}>
+          {testing ? "Sending..." : "Send Test Email"}
+        </button>
       </div>
     </div>
   );
@@ -1302,12 +1281,37 @@ function SettingsInner() {
   const logoInputRef              = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
+    // Try localStorage first (fast), then fetch from backend to get fresh data
     setFormValues(prev => ({
       ...prev,
       org_name: localStorage.getItem("orgName") || "",
       name: localStorage.getItem("userName") || "",
     }));
     setOrgLogo(localStorage.getItem("orgLogo") || "");
+
+    // Fetch fresh profile from backend to stay in sync
+    const token = localStorage.getItem("token");
+    if (token) {
+      const apiBase = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1";
+      fetch(`${apiBase}/auth/me`, { headers: { Authorization: `Bearer ${token}` } })
+        .then(r => r.json())
+        .then(data => {
+          if (data.org_name) {
+            localStorage.setItem("orgName", data.org_name);
+            setFormValues(prev => ({ ...prev, org_name: data.org_name }));
+          }
+          if (data.org_logo) {
+            localStorage.setItem("orgLogo", data.org_logo);
+            setOrgLogo(data.org_logo);
+          }
+          if (data.name) {
+            localStorage.setItem("userName", data.name);
+            setFormValues(prev => ({ ...prev, name: data.name }));
+          }
+          window.dispatchEvent(new Event("orgSettingsUpdated"));
+        })
+        .catch(() => {}); // silent fail — localStorage fallback still works
+    }
   }, []);
 
   const content = CONTENT[active];
@@ -1317,7 +1321,24 @@ function SettingsInner() {
     items: s.items.filter(i => i.label.toLowerCase().includes(search.toLowerCase()))
   })).filter(s => s.items.length > 0);
 
-  const handleSave = () => {
+  const handleSave = async () => {
+    const token = localStorage.getItem("token");
+    const apiBase = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1";
+
+    // Persist to backend so data survives fresh logins
+    try {
+      await fetch(`${apiBase}/auth/me`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          name: formValues.name || undefined,
+          org_name: formValues.org_name || undefined,
+          org_logo: orgLogo || undefined,
+        }),
+      });
+    } catch (_) {} // silent fail — localStorage still updated below
+
+    // Always update localStorage + sidebar
     if (formValues.org_name !== undefined) localStorage.setItem("orgName", formValues.org_name);
     if (orgLogo)                           localStorage.setItem("orgLogo", orgLogo);
     if (formValues.name !== undefined)     localStorage.setItem("userName", formValues.name);

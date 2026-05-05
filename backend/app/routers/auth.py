@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.schemas.auth import RegisterRequest, LoginRequest, TokenResponse, UserResponse
+from app.schemas.auth import RegisterRequest, LoginRequest, TokenResponse, UserResponse, UpdateProfileRequest
 from app.services.auth_service import register, login, get_current_user
 from app.models.user import User
 
@@ -24,6 +24,20 @@ def login_user(payload: LoginRequest, db: Session = Depends(get_db)):
 @router.get("/me", response_model=UserResponse)
 def get_me(current_user: User = Depends(get_current_user)):
     """Get current logged-in user details."""
+    return current_user
+
+
+@router.put("/me", response_model=UserResponse)
+def update_me(
+    payload: UpdateProfileRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Update org name, logo, or display name."""
+    for field, value in payload.model_dump(exclude_none=True).items():
+        setattr(current_user, field, value)
+    db.commit()
+    db.refresh(current_user)
     return current_user
 
 
@@ -72,4 +86,5 @@ def google_login(payload: dict, db: Session = Depends(get_db)):
         db.add(user); db.commit(); db.refresh(user)
 
     token = _create_access_token(user.id)
-    return TokenResponse(access_token=token, user_id=user.id, name=user.name, email=user.email)
+    return TokenResponse(access_token=token, user_id=user.id, name=user.name, email=user.email,
+                         org_name=user.org_name, org_logo=user.org_logo)

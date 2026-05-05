@@ -7,6 +7,7 @@ import {
   TrendingDown, AlertTriangle, IndianRupee, BarChart2
 } from "lucide-react";
 import Link from "next/link";
+import OnboardingChecklist from "@/components/OnboardingChecklist";
 
 const GREETING_EMOJIS = ["🚀", "💪", "🌟", "⚡", "🔥", "✨", "🎯", "💼", "🏆", "😎"];
 
@@ -94,6 +95,21 @@ export default function Dashboard() {
     { label: "Add a driver",           done: drivers.length > 0,  href: "/drivers",  cta: "Add Driver" },
     { label: "Log your first trip",    done: trips.length > 0,    href: "/trips",    cta: "Log Trip" },
   ];
+
+  // Brand new user — show full onboarding screen
+  if (!loading && vehicles.length === 0) {
+    return (
+      <div style={{ flex: 1, overflowY: "auto" }}>
+        <Header title={`${getGreeting()}, ${userName} ${emoji}`} subtitle="Let's get your fleet set up" />
+        <OnboardingChecklist
+          userName={userName}
+          hasVehicles={false}
+          hasDrivers={drivers.length > 0}
+          hasTrips={trips.length > 0}
+        />
+      </div>
+    );
+  }
 
   return (
     <div>

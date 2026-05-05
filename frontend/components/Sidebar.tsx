@@ -81,6 +81,23 @@ export default function Sidebar() {
 
   useEffect(() => {
     loadOrgSettings();
+
+    // Always fetch fresh profile from backend on load to fix cross-account contamination
+    const token = localStorage.getItem("token");
+    if (token) {
+      const apiBase = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1";
+      fetch(`${apiBase}/auth/me`, { headers: { Authorization: `Bearer ${token}` } })
+        .then(r => r.ok ? r.json() : null)
+        .then(data => {
+          if (!data) return;
+          if (data.org_name !== undefined) localStorage.setItem("orgName", data.org_name || "");
+          if (data.org_logo !== undefined) localStorage.setItem("orgLogo", data.org_logo || "");
+          if (data.name)                   localStorage.setItem("userName", data.name);
+          loadOrgSettings();
+        })
+        .catch(() => {});
+    }
+
     window.addEventListener("orgSettingsUpdated", loadOrgSettings);
     window.addEventListener("storage", loadOrgSettings);
     return () => {

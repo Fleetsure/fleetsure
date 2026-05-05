@@ -14,6 +14,10 @@ class User(Base):
     google_id = Column(String(255), nullable=True, unique=True)
     is_active = Column(Boolean, default=True, nullable=False)
 
+    # Org settings (persisted so they survive fresh logins across browsers/devices)
+    org_name = Column(String(255), nullable=True)
+    org_logo = Column(String, nullable=True)   # base64 data URL
+
     # Timestamps
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)

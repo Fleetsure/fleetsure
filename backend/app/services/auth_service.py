@@ -56,7 +56,8 @@ def register(db: Session, payload: RegisterRequest) -> TokenResponse:
     db.refresh(user)
 
     token = _create_access_token(user.id)
-    return TokenResponse(access_token=token, user_id=user.id, name=user.name, email=user.email)
+    return TokenResponse(access_token=token, user_id=user.id, name=user.name, email=user.email,
+                         org_name=user.org_name, org_logo=user.org_logo)
 
 
 def login(db: Session, payload: LoginRequest) -> TokenResponse:
@@ -77,7 +78,8 @@ def login(db: Session, payload: LoginRequest) -> TokenResponse:
             detail="Account is inactive."
         )
     token = _create_access_token(user.id)
-    return TokenResponse(access_token=token, user_id=user.id, name=user.name, email=user.email)
+    return TokenResponse(access_token=token, user_id=user.id, name=user.name, email=user.email,
+                         org_name=user.org_name, org_logo=user.org_logo)
 
 
 # ── Auth dependency (inject into protected routes) ────────────────────────────

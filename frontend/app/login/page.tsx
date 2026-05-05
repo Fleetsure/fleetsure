@@ -20,16 +20,23 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [gLoading, setGLoading] = useState(false);
 
+  const storeSession = (data: any) => {
+    // Clear ALL stale data from any previous account before writing new session
+    localStorage.clear();
+    localStorage.setItem("token", data.access_token);
+    localStorage.setItem("userName", data.name);
+    localStorage.setItem("userId", data.user_id);
+    if (data.org_name) localStorage.setItem("orgName", data.org_name);
+    if (data.org_logo) localStorage.setItem("orgLogo", data.org_logo);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
     setLoading(true);
     try {
       const res = await login(form);
-      const { access_token, name, user_id } = res.data;
-      localStorage.setItem("token", access_token);
-      localStorage.setItem("userName", name);
-      localStorage.setItem("userId", user_id);
+      storeSession(res.data);
       router.push("/");
     } catch (err: any) {
       setError(err?.response?.data?.detail || "Invalid email or password.");
@@ -37,7 +44,6 @@ export default function LoginPage() {
       setLoading(false);
     }
   };
-
 
   const handleGoogleSuccess = async (credentialResponse: any) => {
     setGLoading(true);
@@ -47,10 +53,7 @@ export default function LoginPage() {
       const res = await axios.post(`${apiBase}/auth/google`, {
         credential: credentialResponse.credential,
       });
-      const { access_token, name, user_id } = res.data;
-      localStorage.setItem("token", access_token);
-      localStorage.setItem("userName", name);
-      localStorage.setItem("userId", user_id);
+      storeSession(res.data);
       router.push("/");
     } catch (err: any) {
       setError(err?.response?.data?.detail || "Google sign-in failed. Try again.");

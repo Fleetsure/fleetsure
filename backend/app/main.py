@@ -15,11 +15,12 @@ from app.models.insurance import InsurancePolicy  # noqa: F401
 from app.models.document import Document          # noqa: F401
 from app.models.toll_log import TollLog           # noqa: F401
 from app.models.tyre_log import TyreLog           # noqa: F401
-from app.models.misc_expense import MiscExpense   # noqa: F401
+from app.models.misc_expense import MiscExpense           # noqa: F401
+from app.models.notification_settings import NotificationSettings  # noqa: F401
 
 from app.database import engine, Base
 from app.routers import auth, vehicles, drivers, trips, expenses, vahan, dl, export
-from app.routers import fuel, driver_payments, parties, pnl, insurance, documents, pdf, tolls, tyres, misc_expenses
+from app.routers import fuel, driver_payments, parties, pnl, insurance, documents, pdf, tolls, tyres, misc_expenses, notifications
 
 
 @asynccontextmanager
@@ -62,6 +63,7 @@ app.include_router(pdf.router,             prefix=API_PREFIX)
 app.include_router(tolls.router,           prefix=API_PREFIX)
 app.include_router(tyres.router,           prefix=API_PREFIX)
 app.include_router(misc_expenses.router,   prefix=API_PREFIX)
+app.include_router(notifications.router,   prefix=API_PREFIX)
 
 
 @app.get("/health")
