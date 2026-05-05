@@ -76,6 +76,8 @@ def fuel_analytics(
 
         kmpl_values = []
         for i in range(1, len(logs)):
+            if not logs[i].odometer_km or not logs[i-1].odometer_km:
+                continue
             km_diff = float(logs[i].odometer_km) - float(logs[i-1].odometer_km)
             litres   = float(logs[i].litres)
             if km_diff > 0 and litres > 0:

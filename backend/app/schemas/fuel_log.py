@@ -7,8 +7,9 @@ from decimal import Decimal
 
 class FuelLogCreate(BaseModel):
     vehicle_id:   UUID
+    trip_id:      Optional[UUID] = None
     date:         date
-    odometer_km:  Decimal
+    odometer_km:  Optional[Decimal] = None
     litres:       Decimal
     amount:       Decimal
     fuel_station: Optional[str] = None
@@ -18,8 +19,9 @@ class FuelLogCreate(BaseModel):
 class FuelLogResponse(BaseModel):
     id:           UUID
     vehicle_id:   UUID
+    trip_id:      Optional[UUID] = None
     date:         date
-    odometer_km:  Decimal
+    odometer_km:  Optional[Decimal] = None
     litres:       Decimal
     amount:       Decimal
     fuel_station: Optional[str] = None
