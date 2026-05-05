@@ -4,7 +4,7 @@ import Header from "@/components/Header";
 import { getFuelLogs, addFuelLog, deleteFuelLog, getFuelAnalytics, getVehicles } from "@/lib/api";
 import { Fuel, Plus, X, AlertTriangle, TrendingDown, TrendingUp, Truck, Trash2 } from "lucide-react";
 
-const EMPTY = { vehicle_id: "", date: new Date().toISOString().slice(0, 10), odometer_km: "", litres: "", amount: "", fuel_station: "", notes: "" };
+const EMPTY = { vehicle_id: "", date: new Date().toISOString().slice(0, 10), odometer_km: "", litres: "", rate: "", amount: "", fuel_station: "", notes: "" };
 
 export default function FuelPage() {
   const [logs, setLogs]           = useState<any[]>([]);
@@ -28,10 +28,46 @@ export default function FuelPage() {
 
   const set = (k: string, v: string) => setForm((p: any) => ({ ...p, [k]: v }));
 
+  // Auto-calculate: litres × rate = amount, or amount ÷ litres = rate
+  const setLitres = (v: string) => {
+    const litres = parseFloat(v);
+    const rate   = parseFloat(form.rate);
+    const amount = parseFloat(form.amount);
+    if (!isNaN(litres) && !isNaN(rate) && rate > 0)
+      setForm((p: any) => ({ ...p, litres: v, amount: (litres * rate).toFixed(2) }));
+    else if (!isNaN(litres) && !isNaN(amount) && amount > 0)
+      setForm((p: any) => ({ ...p, litres: v, rate: (amount / litres).toFixed(2) }));
+    else
+      set("litres", v);
+  };
+
+  const setRate = (v: string) => {
+    const rate   = parseFloat(v);
+    const litres = parseFloat(form.litres);
+    if (!isNaN(rate) && !isNaN(litres) && litres > 0)
+      setForm((p: any) => ({ ...p, rate: v, amount: (litres * rate).toFixed(2) }));
+    else
+      set("rate", v);
+  };
+
+  const setAmount = (v: string) => {
+    const amount = parseFloat(v);
+    const litres = parseFloat(form.litres);
+    if (!isNaN(amount) && !isNaN(litres) && litres > 0)
+      setForm((p: any) => ({ ...p, amount: v, rate: (amount / litres).toFixed(2) }));
+    else
+      set("amount", v);
+  };
+
   const handleSubmit = async (e: any) => {
     e.preventDefault(); setSaving(true); setError("");
     try {
-      await addFuelLog({ ...form, odometer_km: parseFloat(form.odometer_km), litres: parseFloat(form.litres), amount: parseFloat(form.amount) });
+      await addFuelLog({
+        ...form,
+        odometer_km: form.odometer_km ? parseFloat(form.odometer_km) : null,
+        litres: parseFloat(form.litres),
+        amount: parseFloat(form.amount),
+      });
       setShowForm(false); setForm({ ...EMPTY }); load();
     } catch (err: any) {
       setError(err?.response?.data?.detail || "Failed to save");
@@ -188,9 +224,20 @@ export default function FuelPage() {
               </div>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
                 <div><label style={lbl}>Date *</label><input required type="date" value={form.date} onChange={e => set("date", e.target.value)} style={inp} /></div>
-                <div><label style={lbl}>Odometer (km) *</label><input required type="number" step="0.01" min="0" placeholder="54321" value={form.odometer_km} onChange={e => set("odometer_km", e.target.value)} style={inp} /></div>
-                <div><label style={lbl}>Litres filled *</label><input required type="number" step="0.01" min="0.1" placeholder="80.5" value={form.litres} onChange={e => set("litres", e.target.value)} style={inp} /></div>
-                <div><label style={lbl}>Total Amount (₹) *</label><input required type="number" step="0.01" min="1" placeholder="7500" value={form.amount} onChange={e => set("amount", e.target.value)} style={inp} /></div>
+                <div><label style={lbl}>Odometer (km)</label><input type="number" step="1" min="0" placeholder="54321 (optional)" value={form.odometer_km} onChange={e => set("odometer_km", e.target.value)} style={inp} /></div>
+                <div>
+                  <label style={lbl}>Litres filled *</label>
+                  <input required type="number" step="0.01" min="0.1" placeholder="80.5" value={form.litres} onChange={e => setLitres(e.target.value)} style={inp} />
+                </div>
+                <div>
+                  <label style={lbl}>Rate (₹/litre)</label>
+                  <input type="number" step="0.01" min="0" placeholder="93.50" value={form.rate || ""} onChange={e => setRate(e.target.value)} style={inp} />
+                </div>
+                <div style={{ gridColumn: "1 / -1" }}>
+                  <label style={lbl}>Total Amount (₹) *</label>
+                  <input required type="number" step="0.01" min="1" placeholder="7500" value={form.amount} onChange={e => setAmount(e.target.value)} style={{ ...inp, background: form.litres && form.rate ? "#f0f7ff" : undefined }} />
+                  {form.litres && form.rate && <div style={{ fontSize: 11, color: "#1E2D8E", marginTop: 3 }}>Auto-calculated: {form.litres} L × ₹{form.rate}/L</div>}
+                </div>
               </div>
               <div><label style={lbl}>Fuel Station</label><input placeholder="HP Petrol Pump, NH-48" value={form.fuel_station} onChange={e => set("fuel_station", e.target.value)} style={inp} /></div>
               <div><label style={lbl}>Notes</label><input placeholder="Any notes..." value={form.notes} onChange={e => set("notes", e.target.value)} style={inp} /></div>
