@@ -11,8 +11,9 @@ class FuelLog(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
 
     vehicle_id    = Column(UUID(as_uuid=True), ForeignKey("vehicles.id", ondelete="CASCADE"), nullable=False, index=True)
+    trip_id       = Column(UUID(as_uuid=True), nullable=True, index=True)
     date          = Column(Date, nullable=False)
-    odometer_km   = Column(Numeric(10, 2), nullable=False)   # reading at fill-up
+    odometer_km   = Column(Numeric(10, 2), nullable=True)   # optional
     litres        = Column(Numeric(8, 2), nullable=False)
     amount        = Column(Numeric(10, 2), nullable=False)   # total ₹ paid
     fuel_station  = Column(String(200), nullable=True)

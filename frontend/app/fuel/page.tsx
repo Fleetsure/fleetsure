@@ -1,68 +1,82 @@
 "use client";
 import { useEffect, useState } from "react";
 import Header from "@/components/Header";
-import { getFuelLogs, addFuelLog, deleteFuelLog, getFuelAnalytics, getVehicles } from "@/lib/api";
+import { getFuelLogs, addFuelLog, deleteFuelLog, getFuelAnalytics, getVehicles, getTrips } from "@/lib/api";
 import { Fuel, Plus, X, AlertTriangle, TrendingDown, TrendingUp, Truck, Trash2 } from "lucide-react";
 
-const EMPTY = { vehicle_id: "", date: new Date().toISOString().slice(0, 10), odometer_km: "", litres: "", rate: "", amount: "", fuel_station: "", notes: "" };
+const EMPTY = { vehicle_id: "", trip_id: "", date: new Date().toISOString().slice(0, 10), odometer_km: "", litres: "", rate: "", amount: "", fuel_station: "", notes: "" };
 
 export default function FuelPage() {
   const [logs, setLogs]           = useState<any[]>([]);
   const [analytics, setAnalytics] = useState<any[]>([]);
   const [vehicles, setVehicles]   = useState<any[]>([]);
+  const [trips, setTrips]         = useState<any[]>([]);
   const [loading, setLoading]     = useState(true);
   const [showForm, setShowForm]   = useState(false);
   const [form, setForm]           = useState<any>({ ...EMPTY });
+  // Track which fields were manually typed (vs auto-calculated)
+  const [manual, setManual]       = useState<Set<string>>(new Set());
   const [saving, setSaving]       = useState(false);
   const [error, setError]         = useState("");
   const [tab, setTab]             = useState<"log" | "analytics">("log");
 
   const load = async () => {
-    const [l, a, v] = await Promise.all([getFuelLogs(), getFuelAnalytics(), getVehicles()]);
+    const [l, a, v, t] = await Promise.all([getFuelLogs(), getFuelAnalytics(), getVehicles(), getTrips()]);
     setLogs(l.data);
     setAnalytics(a.data);
     setVehicles(v.data);
+    setTrips(t.data || []);
     setLoading(false);
   };
   useEffect(() => { load(); }, []);
 
   const set = (k: string, v: string) => setForm((p: any) => ({ ...p, [k]: v }));
 
-  // Auto-calculate: litres × rate = amount, or amount ÷ litres = rate
+  // Mark field as manually typed
+  const touch = (k: string) => setManual(prev => new Set([...prev, k]));
+  // Mark field as auto-calculated (not manual)
+  const untouch = (k: string) => setManual(prev => { const n = new Set(prev); n.delete(k); return n; });
+
   const setLitres = (v: string) => {
+    touch("litres");
     const litres = parseFloat(v);
     const rate   = parseFloat(form.rate);
     const amount = parseFloat(form.amount);
-    if (!isNaN(litres) && !isNaN(rate) && rate > 0)
+    if (!isNaN(litres) && litres > 0 && !isNaN(rate) && rate > 0 && manual.has("rate")) {
       setForm((p: any) => ({ ...p, litres: v, amount: (litres * rate).toFixed(2) }));
-    else if (!isNaN(litres) && !isNaN(amount) && amount > 0)
+      untouch("amount");
+    } else if (!isNaN(litres) && litres > 0 && !isNaN(amount) && amount > 0 && manual.has("amount")) {
       setForm((p: any) => ({ ...p, litres: v, rate: (amount / litres).toFixed(2) }));
-    else
-      set("litres", v);
+      untouch("rate");
+    } else { set("litres", v); }
   };
 
   const setRate = (v: string) => {
+    touch("rate");
     const rate   = parseFloat(v);
     const litres = parseFloat(form.litres);
     const amount = parseFloat(form.amount);
-    if (!isNaN(rate) && rate > 0 && !isNaN(litres) && litres > 0)
+    if (!isNaN(rate) && rate > 0 && !isNaN(litres) && litres > 0 && manual.has("litres")) {
       setForm((p: any) => ({ ...p, rate: v, amount: (litres * rate).toFixed(2) }));
-    else if (!isNaN(rate) && rate > 0 && !isNaN(amount) && amount > 0)
+      untouch("amount");
+    } else if (!isNaN(rate) && rate > 0 && !isNaN(amount) && amount > 0 && manual.has("amount")) {
       setForm((p: any) => ({ ...p, rate: v, litres: (amount / rate).toFixed(2) }));
-    else
-      set("rate", v);
+      untouch("litres");
+    } else { set("rate", v); }
   };
 
   const setAmount = (v: string) => {
+    touch("amount");
     const amount = parseFloat(v);
     const litres = parseFloat(form.litres);
     const rate   = parseFloat(form.rate);
-    if (!isNaN(amount) && amount > 0 && !isNaN(litres) && litres > 0)
+    if (!isNaN(amount) && amount > 0 && !isNaN(litres) && litres > 0 && manual.has("litres")) {
       setForm((p: any) => ({ ...p, amount: v, rate: (amount / litres).toFixed(2) }));
-    else if (!isNaN(amount) && amount > 0 && !isNaN(rate) && rate > 0)
+      untouch("rate");
+    } else if (!isNaN(amount) && amount > 0 && !isNaN(rate) && rate > 0 && manual.has("rate")) {
       setForm((p: any) => ({ ...p, amount: v, litres: (amount / rate).toFixed(2) }));
-    else
-      set("amount", v);
+      untouch("litres");
+    } else { set("amount", v); }
   };
 
   const handleSubmit = async (e: any) => {
@@ -74,7 +88,7 @@ export default function FuelPage() {
         litres: parseFloat(form.litres),
         amount: parseFloat(form.amount),
       });
-      setShowForm(false); setForm({ ...EMPTY }); load();
+      setShowForm(false); setForm({ ...EMPTY }); setManual(new Set()); load();
     } catch (err: any) {
       setError(err?.response?.data?.detail || "Failed to save");
     } finally { setSaving(false); }
@@ -226,6 +240,15 @@ export default function FuelPage() {
                 <select required value={form.vehicle_id} onChange={e => set("vehicle_id", e.target.value)} style={inp}>
                   <option value="">Select vehicle</option>
                   {vehicles.map(v => <option key={v.id} value={v.id}>{v.registration_number} — {v.make} {v.model}</option>)}
+                </select>
+              </div>
+              <div>
+                <label style={lbl}>Link to Trip <span style={{ fontWeight: 400, color: "var(--text-muted)" }}>(optional)</span></label>
+                <select value={form.trip_id} onChange={e => set("trip_id", e.target.value)} style={inp}>
+                  <option value="">No trip linked</option>
+                  {trips.filter((t: any) => !form.vehicle_id || t.vehicle_id === form.vehicle_id).map((t: any) => (
+                    <option key={t.id} value={t.id}>{t.origin} → {t.destination} ({t.start_date})</option>
+                  ))}
                 </select>
               </div>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
