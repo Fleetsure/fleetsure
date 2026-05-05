@@ -44,8 +44,11 @@ export default function FuelPage() {
   const setRate = (v: string) => {
     const rate   = parseFloat(v);
     const litres = parseFloat(form.litres);
-    if (!isNaN(rate) && !isNaN(litres) && litres > 0)
+    const amount = parseFloat(form.amount);
+    if (!isNaN(rate) && rate > 0 && !isNaN(litres) && litres > 0)
       setForm((p: any) => ({ ...p, rate: v, amount: (litres * rate).toFixed(2) }));
+    else if (!isNaN(rate) && rate > 0 && !isNaN(amount) && amount > 0)
+      setForm((p: any) => ({ ...p, rate: v, litres: (amount / rate).toFixed(2) }));
     else
       set("rate", v);
   };
@@ -53,8 +56,11 @@ export default function FuelPage() {
   const setAmount = (v: string) => {
     const amount = parseFloat(v);
     const litres = parseFloat(form.litres);
-    if (!isNaN(amount) && !isNaN(litres) && litres > 0)
+    const rate   = parseFloat(form.rate);
+    if (!isNaN(amount) && amount > 0 && !isNaN(litres) && litres > 0)
       setForm((p: any) => ({ ...p, amount: v, rate: (amount / litres).toFixed(2) }));
+    else if (!isNaN(amount) && amount > 0 && !isNaN(rate) && rate > 0)
+      setForm((p: any) => ({ ...p, amount: v, litres: (amount / rate).toFixed(2) }));
     else
       set("amount", v);
   };
