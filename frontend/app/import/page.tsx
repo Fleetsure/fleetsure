@@ -82,6 +82,73 @@ interface ImportResult {
   errors: string[];
 }
 
+function ResultsPanel({ results, onReset }: { results: ImportResult[]; onReset: () => void }) {
+  const [expanded, setExpanded] = useState<Record<number, boolean>>({});
+  const toggle = (i: number) => setExpanded(p => ({ ...p, [i]: !p[i] }));
+  const totalInserted = results.reduce((s, r) => s + r.inserted, 0);
+
+  return (
+    <div style={{ marginBottom: 24 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16 }}>
+        <div style={{ fontSize: 18, fontWeight: 700, color: "#1a1a2e" }}>Import Complete</div>
+        <div style={{ fontSize: 13, color: "#2e7d32", background: "#e8f5e9", padding: "4px 12px", borderRadius: 20, fontWeight: 600 }}>
+          {totalInserted} records added
+        </div>
+      </div>
+
+      {results.map((r, i) => {
+        const hasErrors = r.errors.length > 0;
+        const isExpanded = expanded[i];
+        const showToggle = r.errors.length > 5;
+        const visibleErrors = isExpanded ? r.errors : r.errors.slice(0, 5);
+
+        return (
+          <div key={i} style={{ background: "white", borderRadius: 12, padding: 20, marginBottom: 12, border: `1px solid ${hasErrors ? "#ffccbc" : "#c8e6c9"}` }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
+              {!hasErrors
+                ? <CheckCircle size={18} color="#2e7d32" />
+                : <AlertCircle size={18} color="#e65100" />
+              }
+              <span style={{ fontWeight: 700, fontSize: 15 }}>{ENTITY_LABELS[r.entity_type] || r.entity_type}</span>
+              <span style={{ color: "#888", fontSize: 13 }}>({r.sheet_name})</span>
+            </div>
+
+            <div style={{ display: "flex", gap: 20, fontSize: 13, flexWrap: "wrap" }}>
+              <span style={{ color: "#2e7d32", fontWeight: 600 }}>✓ {r.inserted} imported</span>
+              {r.skipped > 0 && <span style={{ color: "#666" }}>⟳ {r.skipped} skipped (already exist)</span>}
+              {r.errors.length > 0 && <span style={{ color: "#b71c1c" }}>✗ {r.errors.length} failed</span>}
+            </div>
+
+            {hasErrors && (
+              <div style={{ marginTop: 12, background: "#fff8f5", borderRadius: 8, padding: "10px 14px", border: "1px solid #ffe0d0" }}>
+                {visibleErrors.map((e, j) => (
+                  <div key={j} style={{ fontSize: 12, color: "#b71c1c", padding: "2px 0", display: "flex", gap: 6 }}>
+                    <span style={{ flexShrink: 0 }}>•</span>
+                    <span>{e}</span>
+                  </div>
+                ))}
+                {showToggle && (
+                  <button
+                    onClick={() => toggle(i)}
+                    style={{ marginTop: 8, fontSize: 12, color: "#1E2D8E", background: "none", border: "none", cursor: "pointer", padding: 0, fontWeight: 600 }}>
+                    {isExpanded ? "▲ Show less" : `▼ Show all ${r.errors.length} errors`}
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+        );
+      })}
+
+      <button
+        onClick={onReset}
+        style={{ marginTop: 8, padding: "10px 24px", background: "#1E2D8E", color: "white", border: "none", borderRadius: 8, fontWeight: 600, cursor: "pointer", fontSize: 14 }}>
+        Import Another File
+      </button>
+    </div>
+  );
+}
+
 export default function ImportPage() {
   const [dragging, setDragging] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -264,39 +331,7 @@ export default function ImportPage() {
         )}
 
         {/* ── Results ─────────────────────────────────────────────────────── */}
-        {results && (
-          <div style={{ marginBottom: 24 }}>
-            <div style={{ fontSize: 18, fontWeight: 700, color: "#1a1a2e", marginBottom: 16 }}>Import Complete</div>
-            {results.map((r, i) => (
-              <div key={i} style={{ background: "white", borderRadius: 12, padding: 20, marginBottom: 12, border: `1px solid ${r.errors.length ? "#ffccbc" : "#c8e6c9"}` }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
-                  {r.errors.length === 0
-                    ? <CheckCircle size={18} color="#2e7d32" />
-                    : <AlertCircle size={18} color="#e65100" />
-                  }
-                  <span style={{ fontWeight: 700, fontSize: 15 }}>{ENTITY_LABELS[r.entity_type] || r.entity_type}</span>
-                  <span style={{ color: "#888", fontSize: 13 }}>({r.sheet_name})</span>
-                </div>
-                <div style={{ display: "flex", gap: 24, fontSize: 14 }}>
-                  <span style={{ color: "#2e7d32", fontWeight: 600 }}>✓ {r.inserted} imported</span>
-                  {r.skipped > 0 && <span style={{ color: "#888" }}>⟳ {r.skipped} skipped (duplicates)</span>}
-                  {r.errors.length > 0 && <span style={{ color: "#b71c1c" }}>✗ {r.errors.length} errors</span>}
-                </div>
-                {r.errors.length > 0 && (
-                  <div style={{ marginTop: 10, background: "#fff8f5", borderRadius: 8, padding: "10px 14px", fontSize: 12, color: "#b71c1c" }}>
-                    {r.errors.slice(0, 5).map((e, j) => <div key={j}>• {e}</div>)}
-                    {r.errors.length > 5 && <div style={{ color: "#888" }}>…and {r.errors.length - 5} more errors</div>}
-                  </div>
-                )}
-              </div>
-            ))}
-            <button
-              onClick={() => { setPreviews([]); setResults(null); setColumnMaps({}); setEntityTypes({}); }}
-              style={{ marginTop: 8, padding: "10px 24px", background: "#1E2D8E", color: "white", border: "none", borderRadius: 8, fontWeight: 600, cursor: "pointer", fontSize: 14 }}>
-              Import Another File
-            </button>
-          </div>
-        )}
+        {results && <ResultsPanel results={results} onReset={() => { setPreviews([]); setResults(null); setColumnMaps({}); setEntityTypes({}); }} />}
 
         {/* ── Preview + column mapping ─────────────────────────────────────── */}
         {previews.length > 0 && !results && (

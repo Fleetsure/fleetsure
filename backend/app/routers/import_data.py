@@ -108,7 +108,15 @@ ENTITY_SIGNALS: Dict[str, List[str]] = {
     "vehicles": ["registration", "make", "model", "vehicle type", "chassis"],
     "drivers":  ["license", "dl", "licence", "blood group", "driving"],
     "trips":    ["origin", "destination", "freight", "loading", "unloading", "lr"],
-    "fuel":     ["litres", "liters", "fuel", "odometer", "pump", "bunk"],
+    "fuel":     ["litres", "liters", "odometer", "pump", "bunk", "fill date", "petrol pump"],
+}
+
+# Sheet name → entity type (checked BEFORE header analysis)
+SHEET_NAME_SIGNALS: Dict[str, List[str]] = {
+    "vehicles": ["vehicle", "truck", "fleet", "lorry", "bus", "trailor", "trailer"],
+    "drivers":  ["driver", "chauffeur", "operator", "staff"],
+    "trips":    ["trip", "journey", "route", "dispatch", "consignment", "shipment"],
+    "fuel":     ["fuel", "petrol", "diesel", "filling", "bunk", "refuel"],
 }
 
 
@@ -127,7 +135,14 @@ def match_header(header: str, field_map: Dict[str, List[str]]) -> str:
     return ""
 
 
-def detect_entity(headers: List[str]) -> str:
+def detect_entity(headers: List[str], sheet_name: str = "") -> str:
+    # 1. Sheet name is the strongest signal — check it first
+    sn = normalize(sheet_name)
+    for entity, kws in SHEET_NAME_SIGNALS.items():
+        if any(kw in sn for kw in kws):
+            return entity
+
+    # 2. Fall back to header keyword scoring
     header_text = " ".join(normalize(h) for h in headers if h)
     scores = {entity: sum(1 for kw in kws if kw in header_text)
               for entity, kws in ENTITY_SIGNALS.items()}
@@ -241,7 +256,7 @@ async def preview_import(
         reader = csv_mod.DictReader(io.StringIO(text))
         headers = reader.fieldnames or []
         rows = [dict(r) for r in reader]
-        entity_type = detect_entity(list(headers))
+        entity_type = detect_entity(list(headers), sheet_name="Sheet1")
         col_map = build_column_map(list(headers), entity_type)
         all_rows = [
             {h: str(r.get(h, "") if r.get(h) is not None else "") for h in headers}
@@ -268,7 +283,7 @@ async def preview_import(
         headers, rows = parse_sheet_data(ws)
         if not headers or not rows:
             continue
-        entity_type = detect_entity(headers)
+        entity_type = detect_entity(headers, sheet_name=sheet_name)
         col_map = build_column_map(headers, entity_type)
         all_rows = [
             {h: str(r.get(h, "") if r.get(h) is not None else "") for h in headers}
@@ -459,8 +474,7 @@ def _import_trips(sheet: ImportConfirmSheet, db: Session, user: User) -> ImportR
             Vehicle.owner_id == user.id
         ).first()
         if not vehicle:
-            errors.append(f"Row {i}: Vehicle '{reg}' not found — add vehicle first")
-            skipped += 1
+            errors.append(f"Row {i}: Vehicle '{reg}' not found — import Vehicles sheet first")
             continue
 
         freight = parse_num(_mapped(row, m, "freight_amount")) or Decimal("0")
@@ -515,8 +529,7 @@ def _import_fuel(sheet: ImportConfirmSheet, db: Session, user: User) -> ImportRe
             Vehicle.owner_id == user.id
         ).first()
         if not vehicle:
-            errors.append(f"Row {i}: Vehicle '{reg}' not found — add vehicle first")
-            skipped += 1
+            errors.append(f"Row {i}: Vehicle '{reg}' not found — import Vehicles sheet first")
             continue
 
         try:
