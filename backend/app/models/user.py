@@ -13,6 +13,7 @@ class User(Base):
     hashed_password = Column(String(255), nullable=True)   # null for Google-only users
     google_id = Column(String(255), nullable=True, unique=True)
     is_active = Column(Boolean, default=True, nullable=False)
+    phone = Column(String(20), nullable=True)
 
     # Org settings (persisted so they survive fresh logins across browsers/devices)
     org_name = Column(String(255), nullable=True)

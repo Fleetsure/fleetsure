@@ -32,6 +32,7 @@ async def lifespan(app: FastAPI):
         with engine.connect() as conn:
             conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS org_name VARCHAR(255)"))
             conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS org_logo TEXT"))
+            conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS phone VARCHAR(20)"))
             conn.commit()
     except Exception:
         pass  # Never block startup — app works fine even if migration skips

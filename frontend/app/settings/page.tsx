@@ -52,10 +52,9 @@ const CONTENT: any = {
   profile: {
     title: "User Profile",
     fields: [
-      { label: "Full Name",     key: "name",    type: "text",  placeholder: "Fleet Owner" },
-      { label: "Email Address", key: "email",   type: "email", placeholder: "owner@example.com" },
-      { label: "Phone Number",  key: "phone",   type: "tel",   placeholder: "+91 98765 43210" },
-      { label: "Company Name",  key: "company", type: "text",  placeholder: "My Transport Co." },
+      { label: "Full Name",    key: "name",  type: "text",  placeholder: "Fleet Owner" },
+      { label: "Email Address",key: "email", type: "email", placeholder: "owner@example.com" },
+      { label: "Phone Number", key: "phone", type: "tel",   placeholder: "+91 98765 43210" },
     ]
   },
   general: {
@@ -1281,36 +1280,35 @@ function SettingsInner() {
   const logoInputRef              = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    // Try localStorage first (fast), then fetch from backend to get fresh data
-    setFormValues(prev => ({
-      ...prev,
-      org_name: localStorage.getItem("orgName") || "",
-      name: localStorage.getItem("userName") || "",
-    }));
-    setOrgLogo(localStorage.getItem("orgLogo") || "");
-
-    // Fetch fresh profile from backend to stay in sync
+    // Always fetch fresh profile from backend
     const token = localStorage.getItem("token");
+    const apiBase = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1";
     if (token) {
-      const apiBase = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1";
       fetch(`${apiBase}/auth/me`, { headers: { Authorization: `Bearer ${token}` } })
         .then(r => r.json())
         .then(data => {
-          if (data.org_name) {
-            localStorage.setItem("orgName", data.org_name);
-            setFormValues(prev => ({ ...prev, org_name: data.org_name }));
-          }
-          if (data.org_logo) {
-            localStorage.setItem("orgLogo", data.org_logo);
-            setOrgLogo(data.org_logo);
-          }
-          if (data.name) {
-            localStorage.setItem("userName", data.name);
-            setFormValues(prev => ({ ...prev, name: data.name }));
-          }
+          setFormValues(prev => ({
+            ...prev,
+            name:     data.name     || "",
+            email:    data.email    || "",
+            phone:    data.phone    || "",
+            org_name: data.org_name || "",
+          }));
+          if (data.org_logo) setOrgLogo(data.org_logo);
+          if (data.org_name) localStorage.setItem("orgName", data.org_name);
+          if (data.org_logo) localStorage.setItem("orgLogo", data.org_logo);
+          if (data.name)     localStorage.setItem("userName", data.name);
           window.dispatchEvent(new Event("orgSettingsUpdated"));
         })
-        .catch(() => {}); // silent fail — localStorage fallback still works
+        .catch(() => {
+          // Fallback to localStorage if backend unreachable
+          setFormValues(prev => ({
+            ...prev,
+            name:     localStorage.getItem("userName") || "",
+            org_name: localStorage.getItem("orgName")  || "",
+          }));
+          setOrgLogo(localStorage.getItem("orgLogo") || "");
+        });
     }
   }, []);
 
@@ -1331,9 +1329,10 @@ function SettingsInner() {
         method: "PUT",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({
-          name: formValues.name || undefined,
+          name:     formValues.name     || undefined,
+          phone:    formValues.phone    || undefined,
           org_name: formValues.org_name || undefined,
-          org_logo: orgLogo || undefined,
+          org_logo: orgLogo             || undefined,
         }),
       });
     } catch (_) {} // silent fail — localStorage still updated below

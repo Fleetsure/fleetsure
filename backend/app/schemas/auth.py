@@ -29,6 +29,7 @@ class UserResponse(BaseModel):
     id: UUID
     name: str
     email: str
+    phone: Optional[str] = None
     is_active: bool
     created_at: datetime
     org_name: Optional[str] = None
@@ -39,5 +40,6 @@ class UserResponse(BaseModel):
 
 class UpdateProfileRequest(BaseModel):
     name: Optional[str] = None
+    phone: Optional[str] = None
     org_name: Optional[str] = None
     org_logo: Optional[str] = None
