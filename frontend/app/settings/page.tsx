@@ -1321,8 +1321,20 @@ function SettingsInner() {
 
   const filteredSections = SECTIONS.map(s => ({
     ...s,
-    items: s.items.filter(i => i.label.toLowerCase().includes(search.toLowerCase()))
+    items: s.items.filter(i =>
+      i.label.toLowerCase().includes(search.toLowerCase()) ||
+      i.desc.toLowerCase().includes(search.toLowerCase())
+    )
   })).filter(s => s.items.length > 0);
+
+  // Auto-navigate to first match when searching
+  useEffect(() => {
+    if (!search) return;
+    const allMatches = filteredSections.flatMap(s => s.items);
+    if (allMatches.length > 0 && !allMatches.find(i => i.id === active)) {
+      setActive(allMatches[0].id);
+    }
+  }, [search]);
 
   const handleSave = async () => {
     const token = localStorage.getItem("token");
