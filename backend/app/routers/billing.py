@@ -98,16 +98,20 @@ def get_billing_status(
     now = datetime.now(timezone.utc)
 
     days_left = None
-    if sub.status == "trial" and sub.trial_ends_at:
+    if sub.status in ("trial", "created") and sub.trial_ends_at:
+        # "created" = payment initiated but not completed; user still in trial period
         delta = sub.trial_ends_at - now
         days_left = max(0, delta.days)
     elif sub.current_period_end:
         delta = sub.current_period_end - now
         days_left = max(0, delta.days)
 
+    # For display: if payment not completed, show as trial still
+    display_plan = sub.plan if sub.status not in ("created",) else "trial"
+
     return BillingStatus(
-        plan=sub.plan,
-        plan_name=PLAN_NAMES.get(sub.plan, sub.plan.title()),
+        plan=display_plan,
+        plan_name=PLAN_NAMES.get(display_plan, display_plan.title()),
         status=sub.status,
         trial_ends_at=sub.trial_ends_at.isoformat() if sub.trial_ends_at else None,
         current_period_end=sub.current_period_end.isoformat() if sub.current_period_end else None,

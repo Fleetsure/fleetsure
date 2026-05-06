@@ -774,7 +774,11 @@ function BillingSettings() {
     ? "Subscription Cancelled — Access until period end"
     : status === "past_due"
     ? "Payment Overdue — Please update payment method"
-    : daysLeft !== undefined
+    : status === "created"
+    ? daysLeft != null
+      ? `Free Trial — ${daysLeft} day${daysLeft !== 1 ? "s" : ""} remaining (payment pending)`
+      : "Free Trial — Payment pending"
+    : daysLeft != null
     ? `Free Trial — ${daysLeft} day${daysLeft !== 1 ? "s" : ""} remaining`
     : "Free Trial — Explore all features. Upgrade anytime.";
 
