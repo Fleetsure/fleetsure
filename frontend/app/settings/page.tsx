@@ -741,7 +741,8 @@ function BillingSettings() {
 
   const handleUpgrade = async (planId: string) => {
     if (!planId || planId === "enterprise") {
-      window.open("mailto:support@fleetsure.co.in?subject=Enterprise Plan Enquiry", "_blank");
+      const msg = encodeURIComponent("Hi, I'm interested in the FleetSure Enterprise plan for my fleet. Please share more details.");
+      window.open(`https://wa.me/919606462535?text=${msg}`, "_blank");
       return;
     }
     setUpgrading(planId);
@@ -1400,14 +1401,12 @@ function SettingsInner() {
     )
   })).filter(s => s.items.length > 0);
 
-  // Auto-navigate to first match when searching
+  // Auto-navigate to first match as user types
   useEffect(() => {
-    if (!search) return;
+    if (!search.trim()) return;
     const allMatches = filteredSections.flatMap(s => s.items);
-    if (allMatches.length > 0 && !allMatches.find(i => i.id === active)) {
-      setActive(allMatches[0].id);
-    }
-  }, [search]);
+    if (allMatches.length > 0) setActive(allMatches[0].id);
+  }, [search]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleSave = async () => {
     const token = localStorage.getItem("token");
