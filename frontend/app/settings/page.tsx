@@ -723,8 +723,59 @@ const PLANS = [
 ];
 
 function BillingSettings() {
-  const [currentPlan] = useState("trial");
-  const [hoveredPlan, setHoveredPlan] = useState<string | null>(null);
+  const [hoveredPlan, setHoveredPlan]   = useState<string | null>(null);
+  const [upgrading, setUpgrading]       = useState<string | null>(null);
+  const [billingStatus, setBillingStatus] = useState<any>(null);
+  const [error, setError]               = useState("");
+
+  const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1";
+  const token = typeof window !== "undefined" ? localStorage.getItem("token") : "";
+
+  useEffect(() => {
+    if (!token) return;
+    fetch(`${API}/billing/status`, { headers: { Authorization: `Bearer ${token}` } })
+      .then(r => r.ok ? r.json() : null)
+      .then(d => { if (d) setBillingStatus(d); })
+      .catch(() => {});
+  }, []);
+
+  const handleUpgrade = async (planId: string) => {
+    if (!planId || planId === "enterprise") {
+      window.open("mailto:support@fleetsure.co.in?subject=Enterprise Plan Enquiry", "_blank");
+      return;
+    }
+    setUpgrading(planId);
+    setError("");
+    try {
+      const res = await fetch(`${API}/billing/subscribe/${planId}`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.detail || "Failed to create subscription");
+      if (data.short_url) {
+        window.open(data.short_url, "_blank");
+      }
+    } catch (e: any) {
+      setError(e.message || "Something went wrong");
+    } finally {
+      setUpgrading(null);
+    }
+  };
+
+  const currentPlan = billingStatus?.plan || "trial";
+  const daysLeft    = billingStatus?.days_left;
+  const status      = billingStatus?.status || "trial";
+
+  const bannerText = status === "active"
+    ? `${billingStatus?.plan_name} Plan — Active`
+    : status === "cancelled"
+    ? "Subscription Cancelled — Access until period end"
+    : status === "past_due"
+    ? "Payment Overdue — Please update payment method"
+    : daysLeft !== undefined
+    ? `Free Trial — ${daysLeft} day${daysLeft !== 1 ? "s" : ""} remaining`
+    : "Free Trial — Explore all features. Upgrade anytime.";
 
   return (
     <div>
@@ -737,40 +788,61 @@ function BillingSettings() {
       <div style={{
         display: "flex", alignItems: "center", justifyContent: "space-between",
         padding: "13px 18px", borderRadius: 12, marginBottom: 24,
-        background: "linear-gradient(135deg, #1E2D8E 0%, #3949ab 100%)",
+        background: status === "past_due"
+          ? "linear-gradient(135deg, #b71c1c 0%, #e53935 100%)"
+          : "linear-gradient(135deg, #1E2D8E 0%, #3949ab 100%)",
         color: "white",
       }}>
         <div>
           <div style={{ fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", opacity: 0.7, marginBottom: 2 }}>Current Plan</div>
-          <div style={{ fontSize: 15, fontWeight: 700 }}>Free Trial — Explore all features. Upgrade anytime.</div>
+          <div style={{ fontSize: 15, fontWeight: 700 }}>{bannerText}</div>
         </div>
-        <span style={{ fontSize: 11, fontWeight: 700, padding: "4px 12px", borderRadius: 8, background: "rgba(255,255,255,0.18)", color: "white", whiteSpace: "nowrap" }}>
-          Payment coming soon
-        </span>
+        {status === "active" && (
+          <span style={{ fontSize: 11, fontWeight: 700, padding: "4px 12px", borderRadius: 8, background: "rgba(255,255,255,0.18)", color: "white" }}>
+            ✓ Active
+          </span>
+        )}
       </div>
+
+      {error && (
+        <div style={{ background: "#fce4ec", borderRadius: 8, padding: "10px 14px", color: "#b71c1c", fontSize: 13, marginBottom: 16 }}>
+          {error}
+        </div>
+      )}
 
       {/* Plan cards — 4 in a row */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 14, marginBottom: 24 }}>
         {PLANS.map(plan => {
-          const isHovered = hoveredPlan === plan.id;
+          const isHovered   = hoveredPlan === plan.id;
+          const isCurrent   = currentPlan === plan.id;
+          const isUpgrading = upgrading === plan.id;
+
           return (
           <div
             key={plan.id}
             onMouseEnter={() => setHoveredPlan(plan.id)}
             onMouseLeave={() => setHoveredPlan(null)}
             style={{
-              border: `2px solid ${isHovered || plan.popular ? plan.color : plan.border}`,
+              border: `2px solid ${isCurrent ? plan.color : isHovered || plan.popular ? plan.color : plan.border}`,
               borderRadius: 14, padding: "18px 16px 16px",
-              background: isHovered ? plan.bg : "var(--bg-card)",
+              background: isCurrent ? plan.bg : isHovered ? plan.bg : "var(--bg-card)",
               position: "relative", cursor: "default",
-              transform: isHovered ? "translateY(-6px) scale(1.02)" : "translateY(0) scale(1)",
-              boxShadow: isHovered
-                ? `0 16px 40px ${plan.color}33`
-                : plan.popular ? `0 4px 16px ${plan.color}22` : "none",
+              transform: isHovered && !isCurrent ? "translateY(-6px) scale(1.02)" : "translateY(0) scale(1)",
+              boxShadow: isHovered ? `0 16px 40px ${plan.color}33` : plan.popular ? `0 4px 16px ${plan.color}22` : "none",
               transition: "all 0.2s ease",
               display: "flex", flexDirection: "column",
             }}>
-            {plan.popular && (
+            {isCurrent && (
+              <div style={{
+                position: "absolute", top: -11, left: "50%", transform: "translateX(-50%)",
+                background: plan.color, color: "white",
+                fontSize: 9.5, fontWeight: 700, padding: "3px 10px", borderRadius: 20,
+                letterSpacing: "0.06em", textTransform: "uppercase", whiteSpace: "nowrap",
+              }}>
+                Current Plan
+              </div>
+            )}
+            {!isCurrent && plan.popular && (
               <div style={{
                 position: "absolute", top: -11, left: "50%", transform: "translateX(-50%)",
                 background: plan.color, color: "white",
@@ -812,17 +884,18 @@ function BillingSettings() {
 
             {/* CTA */}
             <button
-              disabled
-              title="Payment integration coming soon — Razorpay setup in progress"
+              onClick={() => !isCurrent && handleUpgrade(plan.id)}
+              disabled={isCurrent || isUpgrading}
               style={{
                 width: "100%", padding: "8px 0", borderRadius: 8, fontSize: 12, fontWeight: 700,
                 border: `1.5px solid ${plan.color}`,
-                background: isHovered || plan.popular ? plan.color : "transparent",
-                color: isHovered || plan.popular ? "white" : plan.color,
-                cursor: "not-allowed",
+                background: isCurrent ? `${plan.color}22` : isHovered || plan.popular ? plan.color : "transparent",
+                color: isCurrent ? plan.color : isHovered || plan.popular ? "white" : plan.color,
+                cursor: isCurrent ? "default" : "pointer",
                 transition: "all 0.2s ease",
+                opacity: isUpgrading ? 0.7 : 1,
               }}>
-              {plan.price ? "Upgrade — Coming Soon" : "Contact Us"}
+              {isCurrent ? "Current Plan" : isUpgrading ? "Opening…" : plan.price ? `Upgrade to ${plan.name}` : "Contact Us"}
             </button>
           </div>
           );
