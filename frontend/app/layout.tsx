@@ -7,9 +7,9 @@ export const metadata: Metadata = {
   title: "FleetSure — Fleet Management Platform",
   description: "Track vehicles, trips, expenses and profitability.",
   icons: {
-    icon: "/icon.svg",
-    shortcut: "/icon.svg",
-    apple: "/icon.svg",
+    icon: "/icon.png",
+    shortcut: "/icon.png",
+    apple: "/icon.png",
   },
 };
 
