@@ -18,6 +18,7 @@ from app.database import get_db
 from app.models.vehicle import Vehicle, VehicleType, VehicleStatus
 from app.models.driver import Driver, DriverStatus, LicenseClass
 from app.models.trip import Trip, TripStatus
+from app.models.expense import Expense
 from app.models.fuel_log import FuelLog
 from app.models.user import User
 from app.services.auth_service import get_current_user
@@ -98,8 +99,13 @@ TRIP_FIELDS: Dict[str, List[str]] = {
     "weight_tonnes":    ["weight", "tonnes", "ton", "tons", "load", "weight tonnes"],
     "doc_number":       ["lr", "lr no", "lr number", "doc no", "consignment", "bill no",
                          "lorry receipt", "ship no", "ship number", "shipment no", "challan"],
-    "notes":            ["notes", "remarks", "comment", "comments", "toll", "toll charges",
-                         "fuel", "fuel cost", "other", "misc", "extra"],
+    "toll_amount":      ["toll", "toll charges", "toll cost", "toll amount", "toll fee",
+                         "fastag", "plaza", "naka"],
+    "fuel_litres":      ["fuel", "fuel litres", "fuel qty", "fuel quantity", "diesel qty",
+                         "petrol qty", "litre", "litres", "ltr"],
+    "fuel_amount":      ["fuel cost", "fuel amount", "fuel charges", "diesel cost", "petrol cost",
+                         "fuel expense", "fuel total"],
+    "notes":            ["notes", "remarks", "comment", "comments", "other", "misc", "extra"],
 }
 
 FUEL_FIELDS: Dict[str, List[str]] = {
@@ -487,6 +493,11 @@ def _import_trips(sheet: ImportConfirmSheet, db: Session, user: User) -> ImportR
 
         freight = parse_num(_mapped(row, m, "freight_amount")) or Decimal("0")
 
+        toll_amount  = parse_num(_mapped(row, m, "toll_amount"))
+        fuel_litres  = parse_num(_mapped(row, m, "fuel_litres"))
+        fuel_amount  = parse_num(_mapped(row, m, "fuel_amount"))
+        expense_date = parse_date(_mapped(row, m, "start_date")) or start_date
+
         try:
             t = Trip(
                 vehicle_id=vehicle.id,
@@ -507,7 +518,37 @@ def _import_trips(sheet: ImportConfirmSheet, db: Session, user: User) -> ImportR
                 owner_id=user.id,
             )
             db.add(t)
-            db.flush()
+            db.flush()  # get t.id before creating linked expenses
+
+            # Auto-create Toll expense if mapped
+            if toll_amount and toll_amount > 0:
+                db.add(Expense(
+                    trip_id=t.id,
+                    expense_type="toll",
+                    amount=toll_amount,
+                    description="Toll (imported)",
+                    date=expense_date,
+                ))
+
+            # Auto-create Fuel expense + FuelLog if mapped
+            if fuel_amount and fuel_amount > 0:
+                db.add(Expense(
+                    trip_id=t.id,
+                    expense_type="fuel",
+                    amount=fuel_amount,
+                    description="Fuel (imported)",
+                    date=expense_date,
+                ))
+                if fuel_litres and fuel_litres > 0:
+                    db.add(FuelLog(
+                        vehicle_id=vehicle.id,
+                        trip_id=t.id,
+                        date=expense_date,
+                        litres=fuel_litres,
+                        amount=fuel_amount,
+                        owner_id=user.id,
+                    ))
+
             inserted += 1
         except Exception as e:
             errors.append(f"Row {i}: {e}")
