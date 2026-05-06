@@ -21,6 +21,9 @@ bcrypt==4.0.1
 openpyxl==3.1.5
 python-multipart==0.0.20
 
+# Payments
+razorpay==1.4.2
+
 # Dev / testing (optional but useful)
 httpx==0.28.1
 pytest==8.3.4
