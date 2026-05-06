@@ -25,7 +25,7 @@ const ENTITY_COLORS: Record<string, string> = {
 const ENTITY_FIELDS: Record<string, string[]> = {
   vehicles: ["registration_number", "make", "model", "year", "vehicle_type", "fuel_type", "chassis_number", "engine_number"],
   drivers:  ["name", "phone", "alternate_phone", "license_number", "license_expiry", "address", "blood_group", "dob"],
-  trips:    ["registration_number", "driver_name", "driver_phone", "origin", "destination", "start_date", "end_date", "freight_amount", "material", "weight_tonnes", "doc_number", "notes"],
+  trips:    ["registration_number", "driver_name", "driver_phone", "origin", "destination", "start_date", "end_date", "freight_amount", "distance_km", "driver_advance", "material", "weight_tonnes", "doc_number", "notes"],
   fuel:     ["registration_number", "date", "litres", "amount", "odometer_km", "fuel_station", "notes"],
   unknown:  [],
 };
@@ -54,10 +54,12 @@ const FIELD_LABELS: Record<string, string> = {
   start_date: "Start Date",
   end_date: "End Date",
   freight_amount: "Freight Amount (₹)",
+  distance_km: "Distance (KM)",
+  driver_advance: "Driver Advance / Cash (₹)",
   material: "Material / Cargo",
   weight_tonnes: "Weight (Tonnes)",
-  doc_number: "LR / Doc No",
-  notes: "Notes",
+  doc_number: "LR / Doc No / Ship No",
+  notes: "Notes / Remarks",
   date: "Date",
   litres: "Litres",
   amount: "Amount (₹)",
