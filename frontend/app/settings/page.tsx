@@ -1401,12 +1401,7 @@ function SettingsInner() {
     )
   })).filter(s => s.items.length > 0);
 
-  // Auto-navigate to first match as user types
-  useEffect(() => {
-    if (!search.trim()) return;
-    const allMatches = filteredSections.flatMap(s => s.items);
-    if (allMatches.length > 0) setActive(allMatches[0].id);
-  }, [search]); // eslint-disable-line react-hooks/exhaustive-deps
+  // Auto-navigate handled directly in handleSearch below
 
   const handleSave = async () => {
     const token = localStorage.getItem("token");
@@ -1452,7 +1447,17 @@ function SettingsInner() {
         <div className="card" style={{ width: 260, flexShrink: 0, padding: "12px 8px", color: "var(--text-main)" }}>
           <div style={{ position: "relative", marginBottom: 12, padding: "0 6px" }}>
             <Search size={14} style={{ position: "absolute", left: 18, top: "50%", transform: "translateY(-50%)", color: "var(--text-muted)" }} />
-            <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search settings..."
+            <input value={search} onChange={e => {
+                const val = e.target.value;
+                setSearch(val);
+                if (val.trim()) {
+                  const q = val.toLowerCase();
+                  const match = SECTIONS.flatMap(s => s.items).find(i =>
+                    i.label.toLowerCase().includes(q) || i.desc.toLowerCase().includes(q)
+                  );
+                  if (match) setActive(match.id);
+                }
+              }} placeholder="Search settings..."
               style={{ width: "100%", padding: "7px 10px 7px 32px", border: "1.5px solid var(--border-input)", borderRadius: 8, fontSize: 13, boxSizing: "border-box" }} />
           </div>
 
