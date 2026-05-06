@@ -9,11 +9,18 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
   const [checked, setChecked] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 768);
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, []);
 
   useEffect(() => {
     const token = localStorage.getItem("token");
     const isPublic = PUBLIC_ROUTES.includes(pathname);
-
     if (!token && !isPublic) {
       router.replace("/login");
     } else {
@@ -21,7 +28,6 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     }
   }, [pathname]);
 
-  // Public pages: no sidebar
   if (PUBLIC_ROUTES.includes(pathname)) {
     return <>{children}</>;
   }
@@ -53,6 +59,8 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         overflow: "auto",
         background: "var(--bg-page)",
         color: "var(--text-main)",
+        // Push content above bottom nav on mobile
+        paddingBottom: isMobile ? 60 : 0,
       }}>
         {children}
       </main>
