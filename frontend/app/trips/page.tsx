@@ -142,6 +142,14 @@ export default function TripsPage() {
   const [vehicles, setVehicles] = useState<any[]>([]);
   const [loading, setLoading]   = useState(true);
   const [filter, setFilter]     = useState("all");
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 768);
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, []);
 
   // Log trip form
   const [showForm, setShowForm]   = useState(false);
@@ -292,10 +300,24 @@ export default function TripsPage() {
   return (
     <div>
       <Header title="Trips" subtitle={`${trips.length} total trips`} />
-      <div style={{ padding: "24px 28px" }}>
+      {/* Floating Log Trip button on mobile */}
+      {isMobile && (
+        <button
+          onClick={() => { setShowForm(true); setFormErr(""); }}
+          style={{
+            position: "fixed", bottom: 74, right: 16, zIndex: 990,
+            width: 56, height: 56, borderRadius: "50%",
+            background: "#1E2D8E", color: "white", border: "none",
+            boxShadow: "0 4px 16px rgba(30,45,142,0.4)",
+            fontSize: 28, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
+          }}>
+          +
+        </button>
+      )}
+      <div style={{ padding: isMobile ? "14px" : "24px 28px" }}>
 
         {/* Stats */}
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 14, marginBottom: 24 }}>
+        <div style={{ display: "grid", gridTemplateColumns: isMobile ? "repeat(2, 1fr)" : "repeat(4, 1fr)", gap: isMobile ? 10 : 14, marginBottom: isMobile ? 14 : 24 }}>
           {[
             { label: "Total Trips",  value: trips.length,                                         color: "#1E2D8E" },
             { label: "Planned",      value: trips.filter(t => t.status === "planned").length,      color: "#1565c0" },
@@ -303,32 +325,49 @@ export default function TripsPage() {
             { label: "Completed",    value: trips.filter(t => t.status === "completed").length,    color: "#2e7d32" },
           ].map(s => (
             <div key={s.label} className="stat-card" style={{ textAlign: "center" }}>
-              <div style={{ fontSize: 26, fontWeight: 700, color: s.color }}>{s.value}</div>
-              <div style={{ fontSize: 12.5, color: "#888", marginTop: 4 }}>{s.label}</div>
+              <div style={{ fontSize: isMobile ? 22 : 26, fontWeight: 700, color: s.color }}>{s.value}</div>
+              <div style={{ fontSize: 12, color: "#888", marginTop: 4 }}>{s.label}</div>
             </div>
           ))}
         </div>
 
-        {/* Filter tabs */}
-        <div style={{ display: "flex", gap: 8, marginBottom: 20, flexWrap: "wrap", alignItems: "center" }}>
-          {["all", "planned", "in_progress", "completed", "cancelled"].map(f => (
-            <button key={f} onClick={() => setFilter(f)}
-              style={{
-                padding: "6px 14px", borderRadius: 20, fontSize: 12.5, fontWeight: 600,
-                border: "none", cursor: "pointer",
-                background: filter === f ? (STATUS_CONFIG[f]?.color || "#1E2D8E") : "#f0f1fa",
-                color: filter === f ? "#fff" : "#666",
-              }}>
-              {f === "all"
-                ? `All (${trips.length})`
-                : `${f.replace("_", " ")} (${trips.filter(t => t.status === f).length})`}
+        {/* Filter tabs + Log Trip button */}
+        {isMobile ? (
+          <div style={{ marginBottom: 14 }}>
+            {/* Horizontally scrollable filter strip */}
+            <div style={{ display: "flex", gap: 8, overflowX: "auto", paddingBottom: 4, WebkitOverflowScrolling: "touch" as any, scrollbarWidth: "none" as any }}>
+              {["all", "planned", "in_progress", "completed", "cancelled"].map(f => (
+                <button key={f} onClick={() => setFilter(f)}
+                  style={{
+                    padding: "7px 14px", borderRadius: 20, fontSize: 12.5, fontWeight: 600,
+                    border: "none", cursor: "pointer", flexShrink: 0,
+                    background: filter === f ? (STATUS_CONFIG[f]?.color || "#1E2D8E") : "#f0f1fa",
+                    color: filter === f ? "#fff" : "#666",
+                  }}>
+                  {f === "all" ? `All (${trips.length})` : `${f.replace("_", " ")} (${trips.filter(t => t.status === f).length})`}
+                </button>
+              ))}
+            </div>
+          </div>
+        ) : (
+          <div style={{ display: "flex", gap: 8, marginBottom: 20, flexWrap: "wrap", alignItems: "center" }}>
+            {["all", "planned", "in_progress", "completed", "cancelled"].map(f => (
+              <button key={f} onClick={() => setFilter(f)}
+                style={{
+                  padding: "6px 14px", borderRadius: 20, fontSize: 12.5, fontWeight: 600,
+                  border: "none", cursor: "pointer",
+                  background: filter === f ? (STATUS_CONFIG[f]?.color || "#1E2D8E") : "#f0f1fa",
+                  color: filter === f ? "#fff" : "#666",
+                }}>
+                {f === "all" ? `All (${trips.length})` : `${f.replace("_", " ")} (${trips.filter(t => t.status === f).length})`}
+              </button>
+            ))}
+            <button className="btn-primary" style={{ marginLeft: "auto" }}
+              onClick={() => { setShowForm(true); setFormErr(""); }}>
+              <Plus size={15} /> Log Trip
             </button>
-          ))}
-          <button className="btn-primary" style={{ marginLeft: "auto" }}
-            onClick={() => { setShowForm(true); setFormErr(""); }}>
-            <Plus size={15} /> Log Trip
-          </button>
-        </div>
+          </div>
+        )}
 
         {/* Trips table */}
         <div className="card">
@@ -358,7 +397,46 @@ export default function TripsPage() {
                 </button>
               )}
             </div>
+          ) : isMobile ? (
+            // Mobile: trip cards
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              {filtered.map((t: any) => {
+                const veh = vehicleMap[t.vehicle_id];
+                const nextLabel = t.status === "planned" ? "Dispatch" : t.status === "in_progress" ? "Complete" : null;
+                const nextColor = t.status === "planned" ? "#e65100" : "#2e7d32";
+                return (
+                  <div key={t.id} onClick={() => openTrip(t)}
+                    style={{ padding: "14px", borderRadius: 12, border: "1.5px solid var(--border)", background: "var(--bg-card)", cursor: "pointer" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 }}>
+                      <div style={{ fontWeight: 700, fontSize: 14, color: "var(--text-main)", flex: 1, marginRight: 8 }}>
+                        <span style={{ color: "#1E2D8E" }}>{t.origin}</span>
+                        <span style={{ color: "#bbb", margin: "0 5px" }}>→</span>
+                        <span>{t.destination}</span>
+                      </div>
+                      <StatusBadge status={t.status} />
+                    </div>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                      <div style={{ fontSize: 12, color: "var(--text-muted)" }}>
+                        <div>{t.driver_name} · {veh?.registration_number || "—"}</div>
+                        <div style={{ marginTop: 2 }}>{t.start_date}</div>
+                      </div>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                        <span style={{ fontWeight: 800, fontSize: 15, color: "#1E2D8E" }}>{fmt(Number(t.freight_amount))}</span>
+                        {nextLabel && (
+                          <button onClick={e => { e.stopPropagation(); advanceStatus(t, e); }}
+                            disabled={statusBusy}
+                            style={{ padding: "6px 12px", background: nextColor, color: "#fff", border: "none", borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: "pointer" }}>
+                            {nextLabel}
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           ) : (
+            // Desktop: table
             <table>
               <thead>
                 <tr>

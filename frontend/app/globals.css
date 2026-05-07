@@ -184,3 +184,75 @@ tr:hover td { background: var(--bg-hover); }
 [data-theme="dark"] .badge-planned    { background: #0d2744; color: #7ab4f5; }
 [data-theme="dark"] .badge-in_progress{ background: #1e2b5e; color: #7c8ef0; }
 [data-theme="dark"] .badge-cancelled  { background: #3d1018; color: #f07; }
+
+/* ── Mobile responsive overrides ──────────────────────────────────────────── */
+@media (max-width: 767px) {
+  /* Hide scrollbar on horizontal scroll strips */
+  ::-webkit-scrollbar { display: none; }
+
+  /* All page-level content padding reduced */
+  main > div > div,
+  main > div > div > div:first-child {
+    max-width: 100%;
+  }
+
+  /* Tables: always scroll within container, never cause page scroll */
+  table {
+    min-width: 100%;
+    font-size: 12px;
+  }
+
+  /* Wrap table in overflow scroll */
+  .card table,
+  div table {
+    display: block;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    white-space: nowrap;
+    width: 100%;
+  }
+
+  /* Stat cards: ensure text doesn't overflow */
+  .stat-card {
+    min-width: 0;
+    overflow: hidden;
+  }
+
+  .stat-card .value {
+    font-size: 20px !important;
+  }
+
+  /* Cards: no horizontal overflow */
+  .card {
+    overflow: hidden;
+    min-width: 0;
+  }
+
+  /* Modals / drawers: full width on mobile */
+  div[style*="width: 420"],
+  div[style*="width:420"],
+  div[style*="width: 480"],
+  div[style*="width: 500"],
+  div[style*="width: 560"] {
+    width: 100% !important;
+    max-width: calc(100vw - 32px) !important;
+    margin: 16px auto !important;
+  }
+
+  /* Button rows: allow wrap */
+  div[style*="display: flex"][style*="gap"] > button {
+    flex-shrink: 0;
+  }
+
+  /* Input fields: full width */
+  input, select, textarea {
+    max-width: 100%;
+    box-sizing: border-box;
+  }
+
+  /* Forms in cards: stack on mobile */
+  .card form > div,
+  .card > div[style*="display: flex"][style*="gap: 16"] {
+    flex-wrap: wrap;
+  }
+}

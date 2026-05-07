@@ -47,6 +47,14 @@ export default function Dashboard() {
   const [loading, setLoading]   = useState(true);
   const [userName, setUserName] = useState("Fleet Owner");
   const [emoji, setEmoji]       = useState("🚀");
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 768);
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, []);
 
   useEffect(() => {
     const stored = localStorage.getItem("userName");
@@ -114,7 +122,7 @@ export default function Dashboard() {
   return (
     <div>
       <Header title={`${getGreeting()}, ${userName} ${emoji}`} subtitle="Here's your fleet overview" />
-      <div style={{ padding: "24px 28px" }}>
+      <div style={{ padding: isMobile ? "14px" : "24px 28px" }}>
 
         {/* Setup Guide */}
         {!setupSteps.every(s => s.done) && (
@@ -139,7 +147,7 @@ export default function Dashboard() {
         )}
 
         {/* Top Stats */}
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 16, marginBottom: 24 }}>
+        <div style={{ display: "grid", gridTemplateColumns: isMobile ? "repeat(2, 1fr)" : "repeat(4, 1fr)", gap: isMobile ? 10 : 16, marginBottom: isMobile ? 16 : 24 }}>
           {[
             { label: "Total Vehicles", value: vehicles.length, sub: `${activeVehicles} Active · ${inTripVehicles} On Trip`, icon: Truck },
             { label: "Total Drivers",  value: drivers.length,  sub: `${availDrivers} Available`,        icon: Users },
@@ -163,29 +171,28 @@ export default function Dashboard() {
         {pnlData.length > 0 && (
           <div className="card" style={{ marginBottom: 24 }}>
             {/* Section header */}
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 20 }}>
-              <div>
-                <h2 style={{ margin: "0 0 4px", fontSize: 15, fontWeight: 700, display: "flex", alignItems: "center", gap: 8 }}>
-                  <BarChart2 size={17} color="#1E2D8E" /> P&amp;L per Truck
-                </h2>
-                <p style={{ margin: 0, fontSize: 12, color: "#888" }}>Revenue, expenses and profit margin per vehicle</p>
+            <div style={{ marginBottom: 16 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+                <div>
+                  <h2 style={{ margin: "0 0 2px", fontSize: 15, fontWeight: 700, display: "flex", alignItems: "center", gap: 8 }}>
+                    <BarChart2 size={17} color="#1E2D8E" /> P&amp;L per Truck
+                  </h2>
+                  {!isMobile && <p style={{ margin: 0, fontSize: 12, color: "#888" }}>Revenue, expenses and profit margin per vehicle</p>}
+                </div>
               </div>
-              {/* Fleet summary pills */}
-              <div style={{ display: "flex", gap: 10 }}>
+              {/* Fleet summary pills — always wrap-friendly */}
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8 }}>
                 {[
                   { label: "Revenue",  value: fmt(fleetRevenue),  color: "#1565c0", bg: "#e3f2fd" },
                   { label: "Expenses", value: fmt(fleetExpenses), color: "#b71c1c", bg: "#fce4ec" },
                   { label: "Profit",   value: fmt(fleetProfit),   color: fleetProfit >= 0 ? "#2e7d32" : "#e53935", bg: fleetProfit >= 0 ? "#e8f5e9" : "#fce4ec" },
+                  { label: "Margin",   value: `${fleetMargin.toFixed(1)}%`, color: fleetMargin >= 15 ? "#2e7d32" : fleetMargin >= 0 ? "#e65100" : "#e53935", bg: fleetMargin >= 15 ? "#e8f5e9" : fleetMargin >= 0 ? "#fff3e0" : "#fce4ec" },
                 ].map(p => (
-                  <div key={p.label} style={{ textAlign: "center", padding: "8px 14px", borderRadius: 10, background: p.bg }}>
-                    <div style={{ fontSize: 15, fontWeight: 800, color: p.color }}>{p.value}</div>
+                  <div key={p.label} style={{ textAlign: "center", padding: isMobile ? "8px 4px" : "8px 14px", borderRadius: 10, background: p.bg }}>
+                    <div style={{ fontSize: isMobile ? 13 : 15, fontWeight: 800, color: p.color }}>{p.value}</div>
                     <div style={{ fontSize: 10, color: "#888", marginTop: 1 }}>{p.label}</div>
                   </div>
                 ))}
-                <div style={{ textAlign: "center", padding: "8px 14px", borderRadius: 10, background: fleetMargin >= 15 ? "#e8f5e9" : fleetMargin >= 0 ? "#fff3e0" : "#fce4ec" }}>
-                  <div style={{ fontSize: 15, fontWeight: 800, color: fleetMargin >= 15 ? "#2e7d32" : fleetMargin >= 0 ? "#e65100" : "#e53935" }}>{fleetMargin.toFixed(1)}%</div>
-                  <div style={{ fontSize: 10, color: "#888", marginTop: 1 }}>Margin</div>
-                </div>
               </div>
             </div>
 
@@ -275,7 +282,24 @@ export default function Dashboard() {
               <p style={{ margin: "0 0 12px", fontSize: 13.5, color: "#aaa" }}>No trips logged yet</p>
               <Link href="/trips"><button className="btn-primary">Log First Trip</button></Link>
             </div>
+          ) : isMobile ? (
+            // Mobile: card list
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              {trips.slice(0, 5).map((t: any) => (
+                <div key={t.id} style={{ padding: "12px 14px", borderRadius: 10, background: "var(--bg-subtle)", border: "1px solid var(--border)" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 6 }}>
+                    <div style={{ fontWeight: 700, fontSize: 14, color: "var(--text-main)" }}>{t.origin} → {t.destination}</div>
+                    <span className={`badge badge-${t.status}`} style={{ flexShrink: 0, marginLeft: 8 }}>{t.status.replace("_", " ")}</span>
+                  </div>
+                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: "var(--text-muted)" }}>
+                    <span>{t.driver_name} · {t.start_date}</span>
+                    <span style={{ fontWeight: 700, color: "#1E2D8E" }}>₹{Number(t.freight_amount).toLocaleString("en-IN")}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
           ) : (
+            // Desktop: table
             <table>
               <thead><tr><th>Route</th><th>Driver</th><th>Date</th><th>Revenue</th><th>Status</th></tr></thead>
               <tbody>
