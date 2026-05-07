@@ -19,6 +19,14 @@ export default function FuelPage() {
   const [saving, setSaving]       = useState(false);
   const [error, setError]         = useState("");
   const [tab, setTab]             = useState<"log" | "analytics">("log");
+  const [isMobile, setIsMobile]   = useState(false);
+
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 768);
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, []);
 
   const load = async () => {
     const [l, a, v, t] = await Promise.all([getFuelLogs(), getFuelAnalytics(), getVehicles(), getTrips()]);
@@ -109,7 +117,7 @@ export default function FuelPage() {
   return (
     <div>
       <Header title="Fuel" subtitle={`${logs.length} fill-up entries · ${anomalies.length} anomaly${anomalies.length !== 1 ? "s" : ""} detected`} />
-      <div style={{ padding: "24px 28px" }}>
+      <div style={{ padding: isMobile ? "14px" : "24px 28px" }}>
 
         {/* Anomaly banner */}
         {anomalies.length > 0 && (
@@ -127,7 +135,7 @@ export default function FuelPage() {
         )}
 
         {/* Stat cards */}
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 14, marginBottom: 22 }}>
+        <div style={{ display: "grid", gridTemplateColumns: isMobile ? "repeat(2, 1fr)" : "repeat(4, 1fr)", gap: 14, marginBottom: 22 }}>
           {[
             { label: "Total Fill-ups",   value: logs.length,                                                          color: "#1E2D8E", bg: "#eef0fb" },
             { label: "Total Litres",     value: `${logs.reduce((s, l) => s + parseFloat(l.litres || 0), 0).toFixed(0)} L`, color: "#0277bd", bg: "#e1f5fe" },
@@ -142,14 +150,14 @@ export default function FuelPage() {
         </div>
 
         {/* Tabs */}
-        <div style={{ display: "flex", gap: 4, marginBottom: 16 }}>
+        <div style={{ display: "flex", gap: 4, marginBottom: 16, flexWrap: "wrap" }}>
           {(["log", "analytics"] as const).map(t => (
             <button key={t} onClick={() => setTab(t)}
               style={{ padding: "7px 18px", borderRadius: 8, border: "1.5px solid", fontSize: 13, fontWeight: 600, cursor: "pointer",
                 background: tab === t ? "#1E2D8E" : "transparent",
                 color: tab === t ? "white" : "#1E2D8E",
                 borderColor: "#1E2D8E" }}>
-              {t === "log" ? "Fuel Log" : "Efficiency Analytics"}
+              {t === "log" ? "Fuel Log" : (isMobile ? "Analytics" : "Efficiency Analytics")}
             </button>
           ))}
           <div style={{ flex: 1 }} />
@@ -164,6 +172,30 @@ export default function FuelPage() {
                 <Fuel size={36} color="#ddd" style={{ margin: "0 auto 10px", display: "block" }} />
                 <p style={{ color: "#aaa", fontSize: 13.5 }}>No fuel entries yet. Add your first fill-up.</p>
                 <button className="btn-primary" style={{ marginTop: 10 }} onClick={() => setShowForm(true)}>Add Fill-up</button>
+              </div>
+            ) : isMobile ? (
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                {logs.map((l: any) => (
+                  <div key={l.id} style={{ padding: "12px 14px", borderRadius: 10, background: "var(--bg-subtle)", border: "1px solid var(--border)", display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontWeight: 700, fontSize: 13, color: "#1E2D8E", marginBottom: 3 }}>{vehicleName(l.vehicle_id)}</div>
+                      <div style={{ fontSize: 12, color: "var(--text-muted)" }}>
+                        {parseFloat(l.litres).toFixed(2)} L · ₹{(parseFloat(l.amount) / parseFloat(l.litres)).toFixed(1)}/L
+                        {l.fuel_station ? ` · ${l.fuel_station}` : ""}
+                      </div>
+                      <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 2 }}>
+                        {l.odometer_km ? `${parseFloat(l.odometer_km).toLocaleString("en-IN")} km` : "—"}
+                      </div>
+                    </div>
+                    <div style={{ textAlign: "right", flexShrink: 0, marginLeft: 12 }}>
+                      <div style={{ fontWeight: 700, fontSize: 15, color: "#1E2D8E" }}>₹{parseFloat(l.amount).toLocaleString("en-IN")}</div>
+                      <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 2 }}>{new Date(l.date).toLocaleDateString("en-IN")}</div>
+                      <button onClick={() => handleDelete(l.id)} style={{ background: "none", border: "none", cursor: "pointer", color: "#e53935", padding: "4px 0", marginTop: 4 }}>
+                        <Trash2 size={13} />
+                      </button>
+                    </div>
+                  </div>
+                ))}
               </div>
             ) : (
               <table>
@@ -194,34 +226,36 @@ export default function FuelPage() {
             analytics.length === 0 ? (
               <p style={{ textAlign: "center", padding: "48px 0", color: "#aaa" }}>No analytics yet — add at least 2 fill-ups per vehicle.</p>
             ) : (
-              <table>
-                <thead>
-                  <tr><th>Vehicle</th><th>Avg km/L</th><th>Last km/L</th><th>Total Litres</th><th>Total Spend</th><th>Fill-ups</th><th>Status</th></tr>
-                </thead>
-                <tbody>
-                  {analytics.map((a: any) => (
-                    <tr key={String(a.vehicle_id)}>
-                      <td style={{ fontWeight: 700, color: "#1E2D8E" }}>{a.registration_number}</td>
-                      <td>{a.avg_kmpl ?? "—"}</td>
-                      <td style={{ color: a.anomaly ? "#bf360c" : "inherit", fontWeight: a.anomaly ? 700 : 400 }}>{a.last_kmpl ?? "—"}</td>
-                      <td>{a.total_litres.toFixed(0)} L</td>
-                      <td>₹{a.total_spend.toLocaleString("en-IN")}</td>
-                      <td>{a.fill_count}</td>
-                      <td>
-                        {a.anomaly ? (
-                          <span style={{ display: "flex", alignItems: "center", gap: 5, color: "#bf360c", fontWeight: 700, fontSize: 12 }}>
-                            <TrendingDown size={13} /> {a.anomaly_pct}% drop — check driver
-                          </span>
-                        ) : (
-                          <span style={{ display: "flex", alignItems: "center", gap: 5, color: "#2e7d32", fontSize: 12 }}>
-                            <TrendingUp size={13} /> Normal
-                          </span>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+              <div style={{ overflowX: "auto" }}>
+                <table>
+                  <thead>
+                    <tr><th>Vehicle</th><th>Avg km/L</th><th>Last km/L</th><th>Total Litres</th><th>Total Spend</th><th>Fill-ups</th><th>Status</th></tr>
+                  </thead>
+                  <tbody>
+                    {analytics.map((a: any) => (
+                      <tr key={String(a.vehicle_id)}>
+                        <td style={{ fontWeight: 700, color: "#1E2D8E" }}>{a.registration_number}</td>
+                        <td>{a.avg_kmpl ?? "—"}</td>
+                        <td style={{ color: a.anomaly ? "#bf360c" : "inherit", fontWeight: a.anomaly ? 700 : 400 }}>{a.last_kmpl ?? "—"}</td>
+                        <td>{a.total_litres.toFixed(0)} L</td>
+                        <td>₹{a.total_spend.toLocaleString("en-IN")}</td>
+                        <td>{a.fill_count}</td>
+                        <td>
+                          {a.anomaly ? (
+                            <span style={{ display: "flex", alignItems: "center", gap: 5, color: "#bf360c", fontWeight: 700, fontSize: 12 }}>
+                              <TrendingDown size={13} /> {a.anomaly_pct}% drop — check driver
+                            </span>
+                          ) : (
+                            <span style={{ display: "flex", alignItems: "center", gap: 5, color: "#2e7d32", fontSize: 12 }}>
+                              <TrendingUp size={13} /> Normal
+                            </span>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             )
           )}
         </div>
@@ -230,7 +264,7 @@ export default function FuelPage() {
       {/* Add fill-up modal */}
       {showForm && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, padding: 20 }}>
-          <div className="card" style={{ width: "100%", maxWidth: 480, position: "relative" }}>
+          <div className="card" style={{ width: "100%", maxWidth: 480, position: "relative", maxHeight: "90vh", overflowY: "auto" }}>
             <button onClick={() => setShowForm(false)} style={{ position: "absolute", top: 16, right: 16, background: "none", border: "none", cursor: "pointer", color: "#888" }}><X size={18} /></button>
             <h2 style={{ margin: "0 0 20px", fontSize: 16, fontWeight: 700 }}>Add Fuel Fill-up</h2>
             {error && <div style={{ background: "#fce4ec", color: "#b71c1c", padding: "8px 12px", borderRadius: 8, marginBottom: 12, fontSize: 13 }}>{error}</div>}
@@ -251,36 +285,6 @@ export default function FuelPage() {
                   ))}
                 </select>
               </div>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+              <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 12 }}>
                 <div><label style={lbl}>Date *</label><input required type="date" value={form.date} onChange={e => set("date", e.target.value)} style={inp} /></div>
-                <div><label style={lbl}>Odometer (km)</label><input type="number" step="1" min="0" placeholder="54321 (optional)" value={form.odometer_km} onChange={e => set("odometer_km", e.target.value)} style={inp} /></div>
-                <div>
-                  <label style={lbl}>Litres filled *</label>
-                  <input required type="number" step="0.01" min="0.1" placeholder="80.5" value={form.litres} onChange={e => setLitres(e.target.value)} style={inp} />
-                </div>
-                <div>
-                  <label style={lbl}>Rate (₹/litre)</label>
-                  <input type="number" step="0.01" min="0" placeholder="93.50" value={form.rate || ""} onChange={e => setRate(e.target.value)} style={inp} />
-                </div>
-                <div style={{ gridColumn: "1 / -1" }}>
-                  <label style={lbl}>Total Amount (₹) *</label>
-                  <input required type="number" step="0.01" min="1" placeholder="7500" value={form.amount} onChange={e => setAmount(e.target.value)} style={{ ...inp, background: form.litres && form.rate ? "#f0f7ff" : undefined }} />
-                  {form.litres && form.rate && <div style={{ fontSize: 11, color: "#1E2D8E", marginTop: 3 }}>Auto-calculated: {form.litres} L × ₹{form.rate}/L</div>}
-                </div>
-              </div>
-              <div><label style={lbl}>Fuel Station</label><input placeholder="HP Petrol Pump, NH-48" value={form.fuel_station} onChange={e => set("fuel_station", e.target.value)} style={inp} /></div>
-              <div><label style={lbl}>Notes</label><input placeholder="Any notes..." value={form.notes} onChange={e => set("notes", e.target.value)} style={inp} /></div>
-              <div style={{ display: "flex", gap: 10, marginTop: 4 }}>
-                <button type="button" className="btn-outline" style={{ flex: 1 }} onClick={() => setShowForm(false)}>Cancel</button>
-                <button type="submit" className="btn-primary" style={{ flex: 1, justifyContent: "center" }} disabled={saving}>{saving ? "Saving..." : "Save Fill-up"}</button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-const lbl: React.CSSProperties = { fontSize: 12, fontWeight: 600, color: "var(--text-muted)", display: "block", marginBottom: 4 };
-const inp: React.CSSProperties = { width: "100%", padding: "8px 11px", border: "1.5px solid var(--border-input)", borderRadius: 8, fontSize: 13.5, background: "var(--bg-card)", color: "var(--text-main)", boxSizing: "border-box" };
+                <div><label style={lbl}>Odometer (km)</label><input type="number" step="1" min="0" placeholder="54321 (opt

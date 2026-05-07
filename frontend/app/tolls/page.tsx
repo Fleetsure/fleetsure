@@ -25,6 +25,14 @@ export default function TollsPage() {
   const [saving, setSaving]     = useState(false);
   const [error, setError]       = useState("");
   const [filterVehicle, setFilterVehicle] = useState("");
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 768);
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, []);
 
   const load = async () => {
     const [l, v, t] = await Promise.all([getTollLogs(), getVehicles(), getTrips()]);
@@ -81,10 +89,10 @@ export default function TollsPage() {
   return (
     <div>
       <Header title="Tolls" subtitle={`${logs.length} entries · ₹${totalSpend.toLocaleString("en-IN")} total spend`} />
-      <div style={{ padding: "24px 28px" }}>
+      <div style={{ padding: isMobile ? "14px" : "24px 28px" }}>
 
         {/* Stat cards */}
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 14, marginBottom: 24 }}>
+        <div style={{ display: "grid", gridTemplateColumns: isMobile ? "repeat(2, 1fr)" : "repeat(4, 1fr)", gap: 14, marginBottom: 24 }}>
           {[
             { label: "Total Entries",   value: logs.length,                                                     icon: <Route size={18} />,        color: "#1E2D8E", bg: "#eef0fb" },
             { label: "Total Spend",     value: `₹${totalSpend.toLocaleString("en-IN")}`,                        icon: <IndianRupee size={18} />,   color: "#2e7d32", bg: "#e8f5e9" },
@@ -104,9 +112,16 @@ export default function TollsPage() {
 
         {/* Table card */}
         <div className="card">
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16, gap: 12 }}>
+          <div style={{
+            display: "flex",
+            flexDirection: isMobile ? "column" : "row",
+            justifyContent: "space-between",
+            alignItems: isMobile ? "stretch" : "center",
+            marginBottom: 16,
+            gap: 10,
+          }}>
             <h2 style={{ margin: 0, fontSize: 15, fontWeight: 700 }}>Toll Entries</h2>
-            <div style={{ display: "flex", gap: 10, alignItems: "center", flex: 1, maxWidth: 340 }}>
+            <div style={{ display: "flex", gap: 8, alignItems: "center", flex: isMobile ? undefined : 1, maxWidth: isMobile ? undefined : 340 }}>
               <select
                 value={filterVehicle}
                 onChange={e => setFilterVehicle(e.target.value)}
@@ -114,10 +129,10 @@ export default function TollsPage() {
                 <option value="">All Vehicles</option>
                 {vehicles.map(v => <option key={v.id} value={v.id}>{v.registration_number}</option>)}
               </select>
+              <button className="btn-primary" onClick={() => { setForm({ ...EMPTY }); setError(""); setShowForm(true); }} style={{ whiteSpace: "nowrap" }}>
+                <Plus size={15} /> Add Toll
+              </button>
             </div>
-            <button className="btn-primary" onClick={() => { setForm({ ...EMPTY }); setError(""); setShowForm(true); }}>
-              <Plus size={15} /> Add Toll
-            </button>
           </div>
 
           {loading ? (
@@ -138,6 +153,38 @@ export default function TollsPage() {
                   <Plus size={14} /> Add Toll
                 </button>
               )}
+            </div>
+          ) : isMobile ? (
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              {filtered.map((l: any) => (
+                <div key={l.id} style={{ padding: "12px 14px", borderRadius: 10, background: "var(--bg-subtle)", border: "1px solid var(--border)", display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontWeight: 700, fontSize: 13, color: "#1E2D8E", marginBottom: 3 }}>{vehicleName(l.vehicle_id)}</div>
+                    <div style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 4 }}>
+                      {l.toll_plaza || (l.trip_id ? tripLabel(l.trip_id) : l.route) || "—"}
+                    </div>
+                    <span style={{
+                      fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 6,
+                      background: l.payment_mode === "fastag" ? "#e8f5e9" : "#fff3e0",
+                      color: l.payment_mode === "fastag" ? "#2e7d32" : "#e65100",
+                      display: "inline-flex", alignItems: "center", gap: 4,
+                    }}>
+                      {l.payment_mode === "fastag" ? <CreditCard size={10} /> : <Banknote size={10} />}
+                      {l.payment_mode === "fastag" ? "FASTag" : "Cash"}
+                    </span>
+                  </div>
+                  <div style={{ textAlign: "right", flexShrink: 0, marginLeft: 12 }}>
+                    <div style={{ fontWeight: 700, fontSize: 15, color: "#1E2D8E" }}>₹{parseFloat(l.amount).toLocaleString("en-IN")}</div>
+                    <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 2 }}>{new Date(l.date).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}</div>
+                    <button onClick={() => handleDelete(l.id)}
+                      style={{ background: "none", border: "none", cursor: "pointer", color: "#ccc", padding: "4px 0", marginTop: 4 }}
+                      onMouseEnter={e => (e.currentTarget.style.color = "#e53935")}
+                      onMouseLeave={e => (e.currentTarget.style.color = "#ccc")}>
+                      <Trash2 size={13} />
+                    </button>
+                  </div>
+                </div>
+              ))}
             </div>
           ) : (
             <table>
@@ -192,7 +239,7 @@ export default function TollsPage() {
       {/* ── Add Toll Modal ───────────────────────────────────────── */}
       {showForm && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, padding: 20 }}>
-          <div className="card" style={{ width: "100%", maxWidth: 480, position: "relative" }}>
+          <div className="card" style={{ width: "100%", maxWidth: 480, position: "relative", maxHeight: "90vh", overflowY: "auto" }}>
             <button onClick={() => setShowForm(false)}
               style={{ position: "absolute", top: 16, right: 16, background: "none", border: "none", cursor: "pointer", color: "#888" }}>
               <X size={18} />
@@ -205,7 +252,7 @@ export default function TollsPage() {
 
             <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
 
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+              <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 12 }}>
                 <div>
                   <label style={labelStyle}>Vehicle *</label>
                   <select required value={form.vehicle_id} onChange={e => set("vehicle_id", e.target.value)} style={inputStyle}>
@@ -219,64 +266,5 @@ export default function TollsPage() {
                 </div>
               </div>
 
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-                <div>
-                  <label style={labelStyle}>Amount (₹) *</label>
-                  <input type="number" required min="0" step="0.01" placeholder="e.g. 285" value={form.amount} onChange={e => set("amount", e.target.value)} style={inputStyle} />
-                </div>
-                <div>
-                  <label style={labelStyle}>Payment Mode *</label>
-                  <select value={form.payment_mode} onChange={e => set("payment_mode", e.target.value)} style={inputStyle}>
-                    <option value="cash">Cash</option>
-                    <option value="fastag">FASTag</option>
-                  </select>
-                </div>
-              </div>
-
-              <div>
-                <label style={labelStyle}>Toll Plaza Name</label>
-                <input type="text" placeholder="e.g. Khopoli Toll, Surat Toll" value={form.toll_plaza} onChange={e => set("toll_plaza", e.target.value)} style={inputStyle} />
-              </div>
-
-              <div>
-                <label style={labelStyle}>Route / Highway</label>
-                <input type="text" placeholder="e.g. NH48, Mumbai–Pune Expressway" value={form.route} onChange={e => set("route", e.target.value)} style={inputStyle} />
-              </div>
-
-              <div>
-                <label style={labelStyle}>Link to Trip (optional)</label>
-                <select value={form.trip_id} onChange={e => set("trip_id", e.target.value)} style={inputStyle}>
-                  <option value="">Not linked to a trip</option>
-                  {trips.filter(t => !form.vehicle_id || t.vehicle_id === form.vehicle_id).map(t => (
-                    <option key={t.id} value={t.id}>{t.origin} → {t.destination} ({new Date(t.start_date).toLocaleDateString("en-IN")})</option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label style={labelStyle}>Notes</label>
-                <input type="text" placeholder="Any additional info..." value={form.notes} onChange={e => set("notes", e.target.value)} style={inputStyle} />
-              </div>
-
-              <div style={{ display: "flex", gap: 10, marginTop: 4 }}>
-                <button type="button" className="btn-outline" style={{ flex: 1 }} onClick={() => setShowForm(false)}>Cancel</button>
-                <button type="submit" className="btn-primary" style={{ flex: 1, justifyContent: "center" }} disabled={saving}>
-                  {saving ? "Saving..." : "Add Toll"}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-const labelStyle: React.CSSProperties = {
-  fontSize: 12, fontWeight: 600, color: "var(--text-muted)", display: "block", marginBottom: 4,
-};
-const inputStyle: React.CSSProperties = {
-  width: "100%", padding: "8px 12px", border: "1.5px solid var(--border-input)",
-  borderRadius: 8, fontSize: 13.5, background: "var(--bg-card)", color: "var(--text-main)",
-  boxSizing: "border-box",
-};
+              <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 12 }}>
+                

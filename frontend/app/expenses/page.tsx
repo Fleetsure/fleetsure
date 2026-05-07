@@ -5,13 +5,21 @@ import { getTrips, getTripExpenses, addExpense } from "@/lib/api";
 import { Plus, Wrench, X } from "lucide-react";
 
 export default function ExpensesPage() {
-  const [trips, setTrips]         = useState<any[]>([]);
+  const [trips, setTrips]           = useState<any[]>([]);
   const [selectedTrip, setSelected] = useState("");
-  const [expenses, setExpenses]   = useState<any[]>([]);
-  const [showForm, setShowForm]   = useState(false);
-  const [saving, setSaving]       = useState(false);
-  const [error, setError]         = useState("");
-  const [form, setForm]           = useState({ expense_type: "fuel", amount: "", description: "", date: "" });
+  const [expenses, setExpenses]     = useState<any[]>([]);
+  const [showForm, setShowForm]     = useState(false);
+  const [saving, setSaving]         = useState(false);
+  const [error, setError]           = useState("");
+  const [form, setForm]             = useState({ expense_type: "fuel", amount: "", description: "", date: "" });
+  const [isMobile, setIsMobile]     = useState(false);
+
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 768);
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, []);
 
   useEffect(() => { getTrips().then(r => setTrips(r.data)); }, []);
 
@@ -40,7 +48,7 @@ export default function ExpensesPage() {
   return (
     <div>
       <Header title="Services & Expenses" subtitle="Track all trip expenses" />
-      <div style={{ padding: "24px 28px" }}>
+      <div style={{ padding: isMobile ? "14px" : "24px 28px" }}>
 
         {/* Trip selector */}
         <div className="card" style={{ marginBottom: 20 }}>
@@ -73,7 +81,14 @@ export default function ExpensesPage() {
             )}
 
             <div className="card">
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+              <div style={{
+                display: "flex",
+                flexDirection: isMobile ? "column" : "row",
+                justifyContent: "space-between",
+                alignItems: isMobile ? "stretch" : "center",
+                marginBottom: 16,
+                gap: 10,
+              }}>
                 <h2 style={{ margin: 0, fontSize: 15, fontWeight: 700 }}>Expense Entries</h2>
                 <button className="btn-primary" onClick={() => setShowForm(true)}><Plus size={15} />Add Expense</button>
               </div>
@@ -82,6 +97,25 @@ export default function ExpensesPage() {
                   <Wrench size={32} color="#ddd" style={{ margin: "0 auto 10px", display: "block" }} />
                   <p style={{ color: "#aaa", margin: "0 0 12px", fontSize: 13.5 }}>No expenses logged for this trip</p>
                   <button className="btn-primary" onClick={() => setShowForm(true)}>Add First Expense</button>
+                </div>
+              ) : isMobile ? (
+                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                  {expenses.map((e: any) => (
+                    <div key={e.id} style={{ padding: "12px 14px", borderRadius: 10, background: "var(--bg-subtle)", border: "1px solid var(--border)", display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ marginBottom: 4 }}>
+                          <span style={{ fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 6, background: `${typeColors[e.expense_type]}15`, color: typeColors[e.expense_type] || "#1E2D8E", textTransform: "capitalize" }}>
+                            {e.expense_type.replace("_", " ")}
+                          </span>
+                        </div>
+                        <div style={{ fontSize: 12, color: "var(--text-muted)" }}>{e.description || "—"}</div>
+                      </div>
+                      <div style={{ textAlign: "right", flexShrink: 0, marginLeft: 12 }}>
+                        <div style={{ fontWeight: 700, fontSize: 15, color: "#1E2D8E" }}>₹{Number(e.amount).toLocaleString("en-IN")}</div>
+                        <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 2 }}>{e.date}</div>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               ) : (
                 <table>
@@ -104,8 +138,8 @@ export default function ExpensesPage() {
       </div>
 
       {showForm && (
-        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000 }}>
-          <div className="card" style={{ width: 420, position: "relative" }}>
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, padding: 20 }}>
+          <div className="card" style={{ width: "100%", maxWidth: 480, position: "relative", maxHeight: "90vh", overflowY: "auto" }}>
             <button onClick={() => setShowForm(false)} style={{ position: "absolute", top: 16, right: 16, background: "none", border: "none", cursor: "pointer", color: "#888" }}><X size={18} /></button>
             <h2 style={{ margin: "0 0 20px", fontSize: 16, fontWeight: 700 }}>Add Expense</h2>
             {error && <div style={{ background: "#fce4ec", color: "#b71c1c", padding: "8px 12px", borderRadius: 6, marginBottom: 14, fontSize: 13 }}>{error}</div>}
@@ -115,33 +149,3 @@ export default function ExpensesPage() {
                 <select required value={form.expense_type} onChange={e => setForm(p => ({ ...p, expense_type: e.target.value }))}
                   style={{ width: "100%", padding: "8px 12px", border: "1.5px solid #e8e8f0", borderRadius: 8, fontSize: 13.5 }}>
                   {["fuel", "toll", "maintenance", "driver_payment", "loading_unloading", "police_challan", "other"].map(t => (
-                    <option key={t} value={t}>{t.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase())}</option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label style={{ fontSize: 12.5, fontWeight: 600, color: "#555", display: "block", marginBottom: 4 }}>Amount (₹) *</label>
-                <input type="number" required value={form.amount} onChange={e => setForm(p => ({ ...p, amount: e.target.value }))} placeholder="5000"
-                  style={{ width: "100%", padding: "8px 12px", border: "1.5px solid #e8e8f0", borderRadius: 8, fontSize: 13.5 }} />
-              </div>
-              <div>
-                <label style={{ fontSize: 12.5, fontWeight: 600, color: "#555", display: "block", marginBottom: 4 }}>Date *</label>
-                <input type="date" required value={form.date} onChange={e => setForm(p => ({ ...p, date: e.target.value }))}
-                  style={{ width: "100%", padding: "8px 12px", border: "1.5px solid #e8e8f0", borderRadius: 8, fontSize: 13.5 }} />
-              </div>
-              <div>
-                <label style={{ fontSize: 12.5, fontWeight: 600, color: "#555", display: "block", marginBottom: 4 }}>Description</label>
-                <input value={form.description} onChange={e => setForm(p => ({ ...p, description: e.target.value }))} placeholder="Optional note..."
-                  style={{ width: "100%", padding: "8px 12px", border: "1.5px solid #e8e8f0", borderRadius: 8, fontSize: 13.5 }} />
-              </div>
-              <div style={{ display: "flex", gap: 10, marginTop: 4 }}>
-                <button type="button" className="btn-outline" style={{ flex: 1 }} onClick={() => setShowForm(false)}>Cancel</button>
-                <button type="submit" className="btn-primary" style={{ flex: 1, justifyContent: "center" }} disabled={saving}>{saving ? "Saving..." : "Add Expense"}</button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
