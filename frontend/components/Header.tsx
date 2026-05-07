@@ -1,7 +1,10 @@
 "use client";
-import { Search, X, Truck, Users, Route, Building2, ArrowLeft } from "lucide-react";
+import { Search, X, Truck, Users, Route, Building2, ArrowLeft, Bell } from "lucide-react";
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
+import dynamic from "next/dynamic";
+
+const InsightsPanel = dynamic(() => import("@/components/InsightsPanel"), { ssr: false });
 
 const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1";
 
@@ -27,6 +30,8 @@ export default function Header({ title, subtitle }: { title: string; subtitle?: 
   const [cursor, setCursor]   = useState(-1);
   const [isMobile, setIsMobile] = useState(false);
   const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
+  const [insightsOpen, setInsightsOpen] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
   const wrapRef  = useRef<HTMLDivElement>(null);
 
@@ -232,43 +237,80 @@ export default function Header({ title, subtitle }: { title: string; subtitle?: 
             <h1 style={{ margin: 0, fontSize: 17, fontWeight: 700, color: "var(--text-main)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{title}</h1>
             {subtitle && <p style={{ margin: 0, fontSize: 12, color: "var(--text-muted)", marginTop: 1 }}>{subtitle}</p>}
           </div>
-          <button
-            onClick={() => { setMobileSearchOpen(true); fetchAll(); }}
-            style={{ background: "var(--bg-subtle)", border: "1px solid var(--border-input)", borderRadius: 10, padding: "8px 12px", cursor: "pointer", display: "flex", alignItems: "center", gap: 6, color: "var(--text-muted)", flexShrink: 0 }}>
-            <Search size={16} />
-            <span style={{ fontSize: 13 }}>Search</span>
-          </button>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
+            {/* Bell */}
+            <button
+              onClick={() => setInsightsOpen(true)}
+              style={{ position: "relative", background: "none", border: "none", cursor: "pointer", padding: 6, color: "var(--text-muted)" }}>
+              <Bell size={20} />
+              {unreadCount > 0 && (
+                <span style={{ position: "absolute", top: 2, right: 2, width: 16, height: 16, borderRadius: "50%", background: "#e53935", color: "white", fontSize: 9, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  {unreadCount > 9 ? "9+" : unreadCount}
+                </span>
+              )}
+            </button>
+            <button
+              onClick={() => { setMobileSearchOpen(true); fetchAll(); }}
+              style={{ background: "var(--bg-subtle)", border: "1px solid var(--border-input)", borderRadius: 10, padding: "8px 12px", cursor: "pointer", display: "flex", alignItems: "center", gap: 6, color: "var(--text-muted)" }}>
+              <Search size={16} />
+              <span style={{ fontSize: 13 }}>Search</span>
+            </button>
+          </div>
         </header>
+
+        {insightsOpen && (
+          <InsightsPanel onClose={() => setInsightsOpen(false)} onUnreadChange={setUnreadCount} />
+        )}
       </>
     );
   }
 
   // ── DESKTOP HEADER ────────────────────────────────────────────────────────────
   return (
-    <header style={{
-      background: "var(--bg-card)", borderBottom: "1px solid var(--border)",
-      padding: "14px 28px", display: "flex", alignItems: "center",
-      justifyContent: "space-between", position: "relative", zIndex: 100,
-    }}>
-      <div>
-        <h1 style={{ margin: 0, fontSize: 20, fontWeight: 700, color: "var(--text-main)" }}>{title}</h1>
-        {subtitle && <p style={{ margin: 0, fontSize: 13, color: "var(--text-muted)", marginTop: 2 }}>{subtitle}</p>}
-      </div>
-      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-        <div ref={wrapRef} style={{ position: "relative" }}>
-          <Search size={15} style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", color: "var(--text-muted)", zIndex: 1 }} />
-          <input ref={inputRef} value={query} placeholder="Search vehicles, drivers, trips…"
-            style={{ paddingLeft: 32, paddingRight: 12, paddingTop: 7, paddingBottom: 7, border: `1px solid ${open ? "#1E2D8E" : "var(--border-input)"}`, borderRadius: 8, fontSize: 13, width: open ? 280 : 220, color: "var(--text-main)", background: "var(--bg-subtle)", transition: "width 0.2s, border-color 0.15s", outline: "none" }}
-            onFocus={() => { setOpen(true); fetchAll(); }}
-            onChange={e => { setQuery(e.target.value); setOpen(true); }}
-            onKeyDown={handleKeyDown}
-          />
-          {open && <SearchDropdown />}
+    <>
+      <header style={{
+        background: "var(--bg-card)", borderBottom: "1px solid var(--border)",
+        padding: "14px 28px", display: "flex", alignItems: "center",
+        justifyContent: "space-between", position: "relative", zIndex: 100,
+      }}>
+        <div>
+          <h1 style={{ margin: 0, fontSize: 20, fontWeight: 700, color: "var(--text-main)" }}>{title}</h1>
+          {subtitle && <p style={{ margin: 0, fontSize: 13, color: "var(--text-muted)", marginTop: 2 }}>{subtitle}</p>}
         </div>
-        <button onClick={() => window.location.reload()} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text-muted)", padding: 6 }}>
-          ↺
-        </button>
-      </div>
-    </header>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <div ref={wrapRef} style={{ position: "relative" }}>
+            <Search size={15} style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", color: "var(--text-muted)", zIndex: 1 }} />
+            <input ref={inputRef} value={query} placeholder="Search vehicles, drivers, trips…"
+              style={{ paddingLeft: 32, paddingRight: 12, paddingTop: 7, paddingBottom: 7, border: `1px solid ${open ? "#1E2D8E" : "var(--border-input)"}`, borderRadius: 8, fontSize: 13, width: open ? 280 : 220, color: "var(--text-main)", background: "var(--bg-subtle)", transition: "width 0.2s, border-color 0.15s", outline: "none" }}
+              onFocus={() => { setOpen(true); fetchAll(); }}
+              onChange={e => { setQuery(e.target.value); setOpen(true); }}
+              onKeyDown={handleKeyDown}
+            />
+            {open && <SearchDropdown />}
+          </div>
+
+          {/* Bell — Insights */}
+          <button
+            onClick={() => setInsightsOpen(true)}
+            title="Fleet Intelligence"
+            style={{ position: "relative", background: "var(--bg-subtle)", border: "1px solid var(--border-input)", borderRadius: 8, padding: "7px 10px", cursor: "pointer", color: "var(--text-muted)", display: "flex", alignItems: "center" }}>
+            <Bell size={16} />
+            {unreadCount > 0 && (
+              <span style={{ position: "absolute", top: -4, right: -4, minWidth: 16, height: 16, borderRadius: "50%", background: "#e53935", color: "white", fontSize: 9, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", padding: "0 3px" }}>
+                {unreadCount > 9 ? "9+" : unreadCount}
+              </span>
+            )}
+          </button>
+
+          <button onClick={() => window.location.reload()} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text-muted)", padding: 6 }}>
+            ↺
+          </button>
+        </div>
+      </header>
+
+      {insightsOpen && (
+        <InsightsPanel onClose={() => setInsightsOpen(false)} onUnreadChange={setUnreadCount} />
+      )}
+    </>
   );
 }

@@ -96,3 +96,11 @@ export const deleteTyreLog = (id: string) => api.delete(`/tyres/${id}`);
 export const getMiscExpenses  = (vehicle_id?: string) => api.get("/misc-expenses/", { params: vehicle_id ? { vehicle_id } : {} });
 export const addMiscExpense   = (data: any) => api.post("/misc-expenses/", data);
 export const deleteMiscExpense = (id: string) => api.delete(`/misc-expenses/${id}`);
+
+
+// ── Operational Insights ──────────────────────────────────
+export const getInsights      = (include_dismissed = false) => api.get("/insights/", { params: { include_dismissed } });
+export const refreshInsights  = () => api.post("/insights/refresh");
+export const markInsightRead  = (id: string) => api.patch(`/insights/${id}/read`);
+export const markAllRead      = () => api.patch("/insights/read-all");
+export const dismissInsight   = (id: string) => api.patch(`/insights/${id}/dismiss`);

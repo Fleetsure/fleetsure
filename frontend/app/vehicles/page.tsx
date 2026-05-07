@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import Header from "@/components/Header";
-import { getVehicles, createVehicle, updateVehicle } from "@/lib/api";
+import { getVehicles, createVehicle, updateVehicle, getInsights } from "@/lib/api";
 import { Plus, Truck, X, Search, AlertCircle, CheckCircle, ChevronDown, ChevronUp, Wrench, Navigation, AlertTriangle } from "lucide-react";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -57,6 +57,7 @@ export default function VehiclesPage() {
   const [error, setError]           = useState("");
   const [search, setSearch]         = useState("");
   const [isMobile, setIsMobile]     = useState(false);
+  const [cpkMap, setCpkMap]         = useState<Record<string, number>>({});  // vehicle_id → cost/km
 
   useEffect(() => {
     const check = () => setIsMobile(window.innerWidth < 768);
@@ -69,7 +70,19 @@ export default function VehiclesPage() {
   const [expandedRow, setExpandedRow] = useState<string | null>(null);
 
   const load = () => getVehicles().then(r => setVehicles(r.data)).finally(() => setLoading(false));
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    load();
+    // Pull cost-per-km from insights (non-blocking)
+    getInsights().then(res => {
+      const map: Record<string, number> = {};
+      (res.data.insights || []).forEach((ins: any) => {
+        if (ins.insight_type === "cost_per_km" && ins.vehicle_id && ins.meta?.cost_per_km) {
+          map[ins.vehicle_id] = ins.meta.cost_per_km;
+        }
+      });
+      setCpkMap(map);
+    }).catch(() => {});
+  }, []);
 
   const openAdd = () => {
     setForm({ ...EMPTY_FORM });
@@ -235,6 +248,13 @@ export default function VehiclesPage() {
                       <td style={{ fontWeight: 700, color: "#1E2D8E" }}>
                         {v.registration_number}
                         {v.rto_code && <span style={{ fontSize: 10, color: "#aaa", marginLeft: 4 }}>({v.rto_code})</span>}
+                        {cpkMap[v.id] && (
+                          <div style={{ marginTop: 3 }}>
+                            <span style={{ fontSize: 10, fontWeight: 700, padding: "1px 6px", borderRadius: 5, background: cpkMap[v.id] >= 45 ? "#fce4ec" : cpkMap[v.id] >= 30 ? "#fff8e1" : "#e8f5e9", color: cpkMap[v.id] >= 45 ? "#b71c1c" : cpkMap[v.id] >= 30 ? "#e65100" : "#2e7d32" }}>
+                              ₹{cpkMap[v.id]}/km
+                            </span>
+                          </div>
+                        )}
                       </td>
                       <td>
                         <div style={{ fontWeight: 600 }}>{v.make} {v.model}</div>
