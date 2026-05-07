@@ -67,6 +67,7 @@ def detect_idle_vehicles(db: Session, owner_id: UUID) -> int:
             .first()
         )
 
+        no_trips = last_trip is None
         idle_days = _days_since(last_trip.end_date if last_trip else None)
 
         if idle_days >= IDLE_THRESHOLD_DAYS:
@@ -83,24 +84,27 @@ def detect_idle_vehicles(db: Session, owner_id: UUID) -> int:
             if active:
                 continue
 
-            if idle_days >= 9999:
-                body = "No trips recorded yet. Assign a trip to start tracking this vehicle."
+            if no_trips:
+                title = f"{v.registration_number}: no trips recorded yet"
+                body  = "This vehicle has no trips logged. Assign a trip to start tracking it."
                 severity = InsightSeverity.INFO
             elif idle_days >= 30:
-                body = f"Idle for {idle_days} days. Check if vehicle is operational or needs servicing."
+                title = f"{v.registration_number} idle for {idle_days} days"
+                body  = f"No completed trip in {idle_days} days. Check if the vehicle is operational or needs servicing."
                 severity = InsightSeverity.WARNING
             else:
-                body = f"No completed trip in {idle_days} days. Consider assigning a new trip."
+                title = f"{v.registration_number} idle for {idle_days} day{'s' if idle_days != 1 else ''}"
+                body  = "No completed trip recently. Consider assigning a new trip."
                 severity = InsightSeverity.INFO
 
             _create(
                 db, owner_id,
                 insight_type=InsightType.IDLE_VEHICLE,
                 severity=severity,
-                title=f"{v.registration_number} has been idle for {idle_days} day{'s' if idle_days != 1 else ''}",
+                title=title,
                 body=body,
                 vehicle_id=v.id,
-                meta={"registration_number": v.registration_number, "idle_days": idle_days},
+                meta={"registration_number": v.registration_number, "idle_days": idle_days if not no_trips else None},
             )
             count += 1
 
