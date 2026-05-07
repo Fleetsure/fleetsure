@@ -104,3 +104,7 @@ export const refreshInsights  = () => api.post("/insights/refresh");
 export const markInsightRead  = (id: string) => api.patch(`/insights/${id}/read`);
 export const markAllRead      = () => api.patch("/insights/read-all");
 export const dismissInsight   = (id: string) => api.patch(`/insights/${id}/dismiss`);
+
+// ── Suggestions (Phase 2) ─────────────────────────────────
+export const suggestVehicles   = (origin: string) => api.get("/suggestions/vehicles", { params: { origin } });
+export const driverFatigueCheck = (driver_id: string) => api.get("/suggestions/driver-fatigue", { params: { driver_id } });

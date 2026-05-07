@@ -26,6 +26,7 @@ from app.routers import fuel, driver_payments, parties, pnl, insurance, document
 from app.routers import import_data
 from app.routers import billing
 from app.routers import insights
+from app.routers import suggestions
 
 
 @asynccontextmanager
@@ -40,6 +41,7 @@ async def lifespan(app: FastAPI):
             conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS phone VARCHAR(20)"))
             conn.execute(text("ALTER TABLE fuel_logs ADD COLUMN IF NOT EXISTS trip_id UUID"))
             conn.execute(text("ALTER TABLE fuel_logs ALTER COLUMN odometer_km DROP NOT NULL"))
+            conn.execute(text("ALTER TABLE trips ADD COLUMN IF NOT EXISTS driver_id UUID"))
             conn.commit()
     except Exception:
         pass  # Never block startup — app works fine even if migration skips
@@ -84,6 +86,7 @@ app.include_router(notifications.router,   prefix=API_PREFIX)
 app.include_router(import_data.router,     prefix=API_PREFIX)
 app.include_router(billing.router,         prefix=API_PREFIX)
 app.include_router(insights.router,        prefix=API_PREFIX)
+app.include_router(suggestions.router,     prefix=API_PREFIX)
 
 
 @app.get("/health")

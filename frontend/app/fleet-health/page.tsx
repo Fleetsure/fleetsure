@@ -78,6 +78,14 @@ export default function FleetHealthPage() {
   const [loading, setLoading]   = useState(true);
   const [sortField, setSortField] = useState<string | null>(null);
   const [sortAsc, setSortAsc]     = useState(true);
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 768);
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, []);
 
   useEffect(() => {
     getVehicles().then(res => setVehicles(res.data)).finally(() => setLoading(false));
@@ -153,7 +161,7 @@ export default function FleetHealthPage() {
   return (
     <div>
       <Header title="Fleet Health" subtitle="Compliance status across your fleet" />
-      <div style={{ padding: "24px 28px", display: "flex", flexDirection: "column", gap: 20 }}>
+      <div style={{ padding: isMobile ? "14px" : "24px 28px", display: "flex", flexDirection: "column", gap: 20 }}>
 
         {/* Score + Stats */}
         <div className="card" style={{ display: "flex", alignItems: "center", gap: 28, flexWrap: "wrap" }}>
@@ -186,7 +194,7 @@ export default function FleetHealthPage() {
             </div>
           </div>
 
-          <div style={{ marginLeft: "auto", display: "flex", gap: 28, flexWrap: "wrap" }}>
+          <div style={{ marginLeft: isMobile ? 0 : "auto", display: "flex", gap: isMobile ? 16 : 28, flexWrap: "wrap", justifyContent: isMobile ? "flex-start" : undefined }}>
             <div style={{ textAlign: "center" }}>
               <div style={{ fontSize: 24, fontWeight: 800, color: "#c62828" }}>{expired}</div>
               <div style={{ fontSize: 12, color: "#aaa", marginTop: 2 }}>Expired</div>
@@ -240,11 +248,16 @@ export default function FleetHealthPage() {
 
         {/* Compliance table */}
         <div className="card" style={{ padding: 0, overflow: "hidden" }}>
-          <div style={{ padding: "16px 20px", borderBottom: "1px solid #f0f0f5", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-            <div style={{ fontWeight: 700, fontSize: 15 }}>Vehicle Compliance</div>
-            <div style={{ fontSize: 12, color: "#aaa" }}>
-              🟢 OK &nbsp; 🟡 Expiring ≤30 days &nbsp; 🔴 Expired &nbsp; ⬜ No date
+          <div style={{ padding: "16px 20px", borderBottom: "1px solid #f0f0f5", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 6 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <div style={{ fontWeight: 700, fontSize: 15 }}>Vehicle Compliance</div>
+              {isMobile && <div style={{ fontSize: 11, color: "#aaa" }}>← Scroll to see all</div>}
             </div>
+            {!isMobile && (
+              <div style={{ fontSize: 12, color: "#aaa" }}>
+                🟢 OK &nbsp; 🟡 Expiring ≤30 days &nbsp; 🔴 Expired &nbsp; ⬜ No date
+              </div>
+            )}
           </div>
 
           {vehicles.length === 0 ? (

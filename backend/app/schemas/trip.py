@@ -10,6 +10,7 @@ from app.schemas.vehicle import VehicleResponse
 
 class TripCreate(BaseModel):
     vehicle_id: UUID
+    driver_id: Optional[UUID] = None
     driver_name: str
     driver_phone: Optional[str] = None
     origin: str
@@ -58,6 +59,7 @@ class TripUpdate(BaseModel):
 class TripResponse(BaseModel):
     id: UUID
     vehicle_id: UUID
+    driver_id: Optional[UUID] = None
     driver_name: str
     driver_phone: Optional[str]
     origin: str

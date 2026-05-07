@@ -21,8 +21,9 @@ class Trip(Base):
     # Vehicle
     vehicle_id = Column(UUID(as_uuid=True), ForeignKey("vehicles.id", ondelete="RESTRICT"), nullable=False, index=True)
 
-    # Driver
-    driver_name = Column(String(150), nullable=False)
+    # Driver — driver_id links to drivers table (optional for backwards compat)
+    driver_id    = Column(UUID(as_uuid=True), nullable=True, index=True)
+    driver_name  = Column(String(150), nullable=False)
     driver_phone = Column(String(20), nullable=True)
 
     # Route

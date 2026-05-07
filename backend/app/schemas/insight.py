@@ -33,4 +33,5 @@ class RefreshResult(BaseModel):
     idle_vehicle_insights: int
     unrecorded_expense_insights: int
     cost_per_km_insights: int
+    fuel_anomaly_insights: int = 0
     total: int

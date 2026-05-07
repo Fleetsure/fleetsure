@@ -1,7 +1,7 @@
 """
-Operational Intelligence Engine — Phase 1
-Detects: idle vehicles, unrecorded expenses, cost-per-km anomalies.
-Called on-demand via POST /insights/refresh and at login.
+Operational Intelligence Engine — Phase 2
+Detects: idle vehicles, unrecorded expenses, cost-per-km anomalies, fuel anomalies.
+Called on-demand via POST /insights/refresh.
 """
 from __future__ import annotations
 
@@ -295,6 +295,87 @@ def compute_cost_per_km_insights(db: Session, owner_id: UUID) -> int:
 
 
 # ─────────────────────────────────────────────────────────────
+# 4. Fuel Anomaly Detection
+# ─────────────────────────────────────────────────────────────
+
+FUEL_ANOMALY_DROP = 0.75   # flag if latest km/L < 75% of vehicle average
+FUEL_MIN_LOGS    = 3       # need at least this many logs for a reliable baseline
+
+
+def detect_fuel_anomaly(db: Session, owner_id: UUID) -> int:
+    """
+    For each vehicle with enough fuel logs, compare the latest fill-up's
+    fuel efficiency (km/L) against the vehicle's historical average.
+    Flag if it drops more than 25%.
+    """
+    vehicles = (
+        db.query(Vehicle)
+        .filter(Vehicle.owner_id == owner_id, Vehicle.status == VehicleStatus.ACTIVE)
+        .all()
+    )
+
+    count = 0
+    for v in vehicles:
+        logs = (
+            db.query(FuelLog)
+            .filter(
+                FuelLog.vehicle_id == v.id,
+                FuelLog.owner_id == owner_id,
+                FuelLog.odometer_km.isnot(None),
+                FuelLog.litres > 0,
+            )
+            .order_by(FuelLog.odometer_km.asc())
+            .all()
+        )
+
+        if len(logs) < FUEL_MIN_LOGS:
+            continue
+
+        efficiencies = []
+        for i in range(1, len(logs)):
+            km_driven = float(logs[i].odometer_km) - float(logs[i - 1].odometer_km)
+            litres    = float(logs[i].litres)
+            if km_driven > 10 and litres > 0:   # sanity check
+                efficiencies.append((km_driven / litres, logs[i]))
+
+        if len(efficiencies) < FUEL_MIN_LOGS - 1:
+            continue
+
+        avg_kpl  = sum(e[0] for e in efficiencies) / len(efficiencies)
+        latest_kpl, latest_log = efficiencies[-1]
+
+        if avg_kpl <= 0:
+            continue
+
+        drop_pct = (avg_kpl - latest_kpl) / avg_kpl
+
+        if drop_pct >= (1 - FUEL_ANOMALY_DROP):   # ≥ 25% drop
+            severity = InsightSeverity.WARNING if drop_pct >= 0.40 else InsightSeverity.INFO
+            _create(
+                db, owner_id,
+                insight_type=InsightType.FUEL_ANOMALY,
+                severity=severity,
+                title=f"{v.registration_number}: fuel efficiency dropped {drop_pct * 100:.0f}%",
+                body=(
+                    f"Latest fill-up: {latest_kpl:.1f} km/L vs vehicle average {avg_kpl:.1f} km/L. "
+                    f"Possible causes: tyre pressure, engine issue, pump skimming, or route change. "
+                    f"Log date: {latest_log.date}."
+                ),
+                vehicle_id=v.id,
+                meta={
+                    "registration_number": v.registration_number,
+                    "latest_kpl": round(latest_kpl, 2),
+                    "avg_kpl": round(avg_kpl, 2),
+                    "drop_pct": round(drop_pct * 100, 1),
+                    "log_date": str(latest_log.date),
+                },
+            )
+            count += 1
+
+    return count
+
+
+# ─────────────────────────────────────────────────────────────
 # Orchestrator
 # ─────────────────────────────────────────────────────────────
 
@@ -313,12 +394,14 @@ def refresh_insights(db: Session, owner_id: UUID) -> dict:
     idle    = detect_idle_vehicles(db, owner_id)
     nudges  = check_unrecorded_expenses(db, owner_id)
     cpk     = compute_cost_per_km_insights(db, owner_id)
+    fuel    = detect_fuel_anomaly(db, owner_id)
 
     db.commit()
 
     return {
-        "idle_vehicle_insights": idle,
+        "idle_vehicle_insights":       idle,
         "unrecorded_expense_insights": nudges,
-        "cost_per_km_insights": cpk,
-        "total": idle + nudges + cpk,
+        "cost_per_km_insights":        cpk,
+        "fuel_anomaly_insights":       fuel,
+        "total":                       idle + nudges + cpk + fuel,
     }

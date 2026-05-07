@@ -31,6 +31,14 @@ export default function PartiesPage() {
   const [form, setForm]           = useState<any>(EMPTY);
   const [saving, setSaving]       = useState(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 768);
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, []);
 
   const load = () => {
     setLoading(true);
@@ -107,10 +115,10 @@ export default function PartiesPage() {
         title="Parties"
         subtitle={`${parties.length} contacts in your network`}
       />
-      <div style={{ padding: "24px 28px" }}>
+      <div style={{ padding: isMobile ? "14px" : "24px 28px" }}>
 
         {/* Stat cards */}
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 14, marginBottom: 24 }}>
+        <div style={{ display: "grid", gridTemplateColumns: isMobile ? "repeat(2, 1fr)" : "repeat(4, 1fr)", gap: 14, marginBottom: 24 }}>
           {(["all", ...PARTY_TYPES] as const).map(t => {
             const isAll = t === "all";
             const meta  = isAll ? null : TYPE_META[t];
@@ -147,8 +155,8 @@ export default function PartiesPage() {
         {/* Table card */}
         <div className="card">
           {/* Toolbar */}
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 18, gap: 12 }}>
-            <div style={{ position: "relative", flex: 1, maxWidth: 300 }}>
+          <div style={{ display: "flex", flexDirection: isMobile ? "column" : "row", justifyContent: "space-between", alignItems: isMobile ? "stretch" : "center", marginBottom: 18, gap: 12 }}>
+            <div style={{ position: "relative", flex: 1, maxWidth: isMobile ? undefined : 300 }}>
               <Search size={14} style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", color: "#aaa" }} />
               <input
                 placeholder="Search name or phone…"
@@ -157,7 +165,7 @@ export default function PartiesPage() {
                 style={{ ...inp, paddingLeft: 32, fontSize: 13 }}
               />
             </div>
-            <button className="btn-primary" onClick={openAdd}>
+            <button className="btn-primary" onClick={openAdd} style={{ justifyContent: isMobile ? "center" : undefined }}>
               <Plus size={15} /> Add Party
             </button>
           </div>
@@ -172,6 +180,42 @@ export default function PartiesPage() {
                 {search ? "No matches found" : "No parties added yet"}
               </p>
               {!search && <button className="btn-primary" onClick={openAdd}><Plus size={14} /> Add First Party</button>}
+            </div>
+          ) : isMobile ? (
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              {visible.map(p => {
+                const meta = TYPE_META[p.party_type as PartyType] || TYPE_META.customer;
+                const Icon = meta.icon;
+                const bal = parseFloat(p.opening_balance || 0);
+                return (
+                  <div key={p.id} style={{ padding: "12px 14px", borderRadius: 10, background: "var(--bg-subtle)", border: "1px solid var(--border)" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 6 }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
+                        <div style={{ width: 34, height: 34, borderRadius: 9, background: meta.bg, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                          <Icon size={15} color={meta.color} />
+                        </div>
+                        <div style={{ minWidth: 0 }}>
+                          <div style={{ fontWeight: 700, fontSize: 14, color: "var(--text-main)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.name}</div>
+                          <span style={{ fontSize: 11, fontWeight: 700, padding: "2px 7px", borderRadius: 99, background: meta.bg, color: meta.color }}>{meta.label}</span>
+                        </div>
+                      </div>
+                      <div style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0, marginLeft: 8 }}>
+                        {bal !== 0 && (
+                          <span style={{ fontWeight: 700, fontSize: 13, color: bal > 0 ? "#2e7d32" : "#e53935" }}>
+                            {bal > 0 ? "+" : "−"}₹{Math.abs(bal).toLocaleString("en-IN")}
+                          </span>
+                        )}
+                        <button onClick={() => openEdit(p)} style={{ background: "none", border: "none", cursor: "pointer", color: "#1E2D8E", padding: 4 }}><Edit2 size={14} /></button>
+                        <button onClick={() => handleDelete(p.id, p.name)} style={{ background: "none", border: "none", cursor: "pointer", color: "#e53935", padding: 4 }}><Trash2 size={14} /></button>
+                      </div>
+                    </div>
+                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: "var(--text-muted)" }}>
+                      <span>{p.phone ? <a href={`tel:${p.phone}`} style={{ color: "inherit", textDecoration: "none" }}>{p.phone}</a> : "—"}</span>
+                      <span>{p.gstin || "—"}</span>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           ) : (
             <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13.5 }}>

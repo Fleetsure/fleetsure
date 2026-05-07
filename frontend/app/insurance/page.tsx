@@ -46,6 +46,14 @@ export default function InsurancePage() {
   const [form, setForm]           = useState<any>(EMPTY);
   const [saving, setSaving]       = useState(false);
   const [filterType, setFilterType] = useState("all");
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 768);
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, []);
 
   const load = () => {
     Promise.all([getPolicies(), getVehicles()])
@@ -85,10 +93,10 @@ export default function InsurancePage() {
   return (
     <div>
       <Header title="Insurance & Renewals" subtitle="Track insurance, permits, and fitness certificates" />
-      <div style={{ padding: "24px 28px" }}>
+      <div style={{ padding: isMobile ? "14px" : "24px 28px" }}>
 
         {/* Stat cards */}
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 14, marginBottom: 24 }}>
+        <div style={{ display: "grid", gridTemplateColumns: isMobile ? "repeat(2, 1fr)" : "repeat(4, 1fr)", gap: 14, marginBottom: 24 }}>
           {[
             { label: "Total Policies", value: policies.length, color: "#1E2D8E", bg: "#e8eaf6" },
             { label: "Active",         value: active,          color: "#2e7d32", bg: "#e8f5e9" },
@@ -116,8 +124,8 @@ export default function InsurancePage() {
 
         <div className="card">
           {/* Toolbar */}
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 18, gap: 12, flexWrap: "wrap" }}>
-            <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+          <div style={{ display: "flex", flexDirection: isMobile ? "column" : "row", justifyContent: "space-between", alignItems: isMobile ? "stretch" : "center", marginBottom: 18, gap: 12 }}>
+            <div style={{ display: "flex", gap: 6, flexWrap: "wrap", overflowX: isMobile ? "auto" : undefined }}>
               {["all", ...POLICY_TYPES.map(t => t.value)].map(t => (
                 <button key={t} onClick={() => setFilterType(t)}
                   style={{
@@ -125,17 +133,18 @@ export default function InsurancePage() {
                     border: filterType === t ? `1.5px solid ${TYPE_COLOR[t] || "#1E2D8E"}` : "1.5px solid #e8e8f0",
                     background: filterType === t ? (TYPE_COLOR[t] ? TYPE_COLOR[t] + "18" : "#e8eaf6") : "white",
                     color: filterType === t ? (TYPE_COLOR[t] || "#1E2D8E") : "#888",
+                    whiteSpace: "nowrap",
                   }}>
                   {t === "all" ? "All" : POLICY_TYPES.find(p => p.value === t)?.label}
                 </button>
               ))}
             </div>
-            <button className="btn-primary" onClick={() => setShowForm(true)}>
+            <button className="btn-primary" onClick={() => setShowForm(true)} style={{ justifyContent: isMobile ? "center" : undefined }}>
               <Plus size={15} /> Add Record
             </button>
           </div>
 
-          {/* Table */}
+          {/* Table / Mobile cards */}
           {loading ? (
             <div style={{ textAlign: "center", padding: "40px 0", color: "#aaa" }}>Loading…</div>
           ) : visible.length === 0 ? (
@@ -143,6 +152,32 @@ export default function InsurancePage() {
               <ShieldCheck size={42} color="#e0e0e0" style={{ margin: "0 auto 12px", display: "block" }} />
               <p style={{ color: "#aaa", fontSize: 14, margin: "0 0 16px" }}>No records yet. Add your first policy.</p>
               <button className="btn-primary" onClick={() => setShowForm(true)}><Plus size={14} /> Add Record</button>
+            </div>
+          ) : isMobile ? (
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              {visible.map((p: any) => (
+                <div key={p.id} style={{ padding: "12px 14px", borderRadius: 10, background: "var(--bg-subtle)", border: "1px solid var(--border)" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 6 }}>
+                    <div>
+                      <div style={{ fontWeight: 700, fontSize: 14, color: "var(--text-main)" }}>{p.reg_number || "—"}</div>
+                      <span style={{ fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 99, background: (TYPE_COLOR[p.policy_type] || "#888") + "18", color: TYPE_COLOR[p.policy_type] || "#888" }}>
+                        {POLICY_TYPES.find(t => t.value === p.policy_type)?.label || p.policy_type}
+                      </span>
+                    </div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0, marginLeft: 8 }}>
+                      <StatusBadge status={p.status} days={p.days_left} />
+                      <button onClick={() => handleDelete(p.id)} style={{ background: "none", border: "none", cursor: "pointer", color: "#e53935", padding: 4 }}>
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
+                  </div>
+                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: "var(--text-muted)" }}>
+                    <span>{p.insurer || "—"}</span>
+                    <span style={{ fontWeight: 600 }}>Exp: {new Date(p.expiry_date).toLocaleDateString("en-IN")}</span>
+                  </div>
+                  {p.premium && <div style={{ fontSize: 12, color: "#888", marginTop: 2 }}>₹{Number(p.premium).toLocaleString("en-IN")}</div>}
+                </div>
+              ))}
             </div>
           ) : (
             <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13.5 }}>
@@ -200,7 +235,7 @@ export default function InsurancePage() {
                   {POLICY_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
                 </select>
               </div>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+              <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 12 }}>
                 <div>
                   <label style={lbl}>Policy / Certificate No.</label>
                   <input value={form.policy_number} onChange={e => set("policy_number", e.target.value)} placeholder="MH-123456" style={inp} />
@@ -210,7 +245,7 @@ export default function InsurancePage() {
                   <input value={form.insurer} onChange={e => set("insurer", e.target.value)} placeholder="HDFC Ergo, RTO…" style={inp} />
                 </div>
               </div>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+              <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 12 }}>
                 <div>
                   <label style={lbl}>Start Date</label>
                   <input type="date" value={form.start_date} onChange={e => set("start_date", e.target.value)} style={inp} />

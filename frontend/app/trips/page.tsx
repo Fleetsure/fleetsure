@@ -4,8 +4,9 @@ import Header from "@/components/Header";
 import {
   getTrips, createTrip, updateTrip,
   getVehicles, getDrivers, getTripDetail, addExpense,
+  suggestVehicles, driverFatigueCheck,
 } from "@/lib/api";
-import { Plus, X, Route, MessageCircle, FileDown } from "lucide-react";
+import { Plus, X, Route, MessageCircle, FileDown, Zap, AlertTriangle, CheckCircle, Clock } from "lucide-react";
 
 // ── WhatsApp trip sheet generator ─────────────────────────────────────────────
 function shareOnWhatsApp(trip: any, detail: any, vehicleReg: string) {
@@ -64,7 +65,7 @@ const STATUS_CONFIG: Record<string, { label: string; color: string; bg: string; 
 };
 
 const EMPTY_FORM = {
-  vehicle_id: "", driver_name: "", driver_phone: "",
+  vehicle_id: "", driver_id: "", driver_name: "", driver_phone: "",
   origin: "", destination: "", distance_km: "",
   start_date: new Date().toISOString().slice(0, 10),
   end_date: "", freight_amount: "",
@@ -140,9 +141,15 @@ function StatusStepper({ status }: { status: string }) {
 export default function TripsPage() {
   const [trips, setTrips]       = useState<any[]>([]);
   const [vehicles, setVehicles] = useState<any[]>([]);
+  const [drivers, setDrivers]   = useState<any[]>([]);
   const [loading, setLoading]   = useState(true);
   const [filter, setFilter]     = useState("all");
   const [isMobile, setIsMobile] = useState(false);
+
+  // Phase 2 — smart suggestions
+  const [vehicleSuggestions, setVehicleSuggestions] = useState<any[]>([]);
+  const [fatigueStatus, setFatigueStatus]           = useState<any>(null);
+  const [fatigueLoading, setFatigueLoading]         = useState(false);
 
   useEffect(() => {
     const check = () => setIsMobile(window.innerWidth < 768);
@@ -177,9 +184,44 @@ export default function TripsPage() {
   // ── Data loading ────────────────────────────────────────────────────────────
 
   const load = () =>
-    Promise.all([getTrips(), getVehicles()])
-      .then(([t, v]) => { setTrips(t.data); setVehicles(v.data); })
+    Promise.all([getTrips(), getVehicles(), getDrivers()])
+      .then(([t, v, d]) => { setTrips(t.data); setVehicles(v.data); setDrivers(d.data || []); })
       .finally(() => setLoading(false));
+
+  // Fetch vehicle suggestions when origin changes (debounced)
+  const handleOriginChange = (value: string) => {
+    setForm(p => ({ ...p, origin: value }));
+    if (value.trim().length < 3) { setVehicleSuggestions([]); return; }
+    const timer = setTimeout(() => {
+      suggestVehicles(value.trim())
+        .then(r => setVehicleSuggestions(r.data.suggestions || []))
+        .catch(() => {});
+    }, 600);
+    return () => clearTimeout(timer);
+  };
+
+  // Fetch fatigue status when driver changes
+  const handleDriverChange = (driverId: string) => {
+    const driver = drivers.find(d => d.id === driverId);
+    setForm(p => ({
+      ...p,
+      driver_id:    driverId,
+      driver_name:  driver?.name  || "",
+      driver_phone: driver?.phone || "",
+    }));
+    if (!driverId) { setFatigueStatus(null); return; }
+    setFatigueLoading(true);
+    driverFatigueCheck(driverId)
+      .then(r => setFatigueStatus(r.data))
+      .catch(() => setFatigueStatus(null))
+      .finally(() => setFatigueLoading(false));
+  };
+
+  // Apply a vehicle suggestion to the form
+  const applySuggestion = (s: any) => {
+    setForm(p => ({ ...p, vehicle_id: s.vehicle_id }));
+    setVehicleSuggestions([]);
+  };
 
   useEffect(() => { load(); }, []);
 
@@ -265,6 +307,7 @@ export default function TripsPage() {
     try {
       await createTrip({
         ...form,
+        driver_id:      form.driver_id      || null,
         distance_km:    form.distance_km    ? parseFloat(form.distance_km)    : null,
         weight_tonnes:  form.weight_tonnes  ? parseFloat(form.weight_tonnes)  : null,
         driver_advance: form.driver_advance ? parseFloat(form.driver_advance) : 0,
@@ -275,6 +318,8 @@ export default function TripsPage() {
       });
       setShowForm(false);
       setForm({ ...EMPTY_FORM });
+      setVehicleSuggestions([]);
+      setFatigueStatus(null);
       load();
     } catch (err: any) {
       const d = err.response?.data?.detail;
@@ -753,7 +798,7 @@ export default function TripsPage() {
       {showForm && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000 }}>
           <div className="card" style={{ width: 540, position: "relative", maxHeight: "92vh", overflowY: "auto" }}>
-            <button onClick={() => setShowForm(false)}
+            <button onClick={() => { setShowForm(false); setVehicleSuggestions([]); setFatigueStatus(null); }}
               style={{ position: "absolute", top: 16, right: 16, background: "none", border: "none", cursor: "pointer", color: "#aaa" }}>
               <X size={18} />
             </button>
@@ -782,34 +827,104 @@ export default function TripsPage() {
               </div>
 
               {/* Driver */}
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-                {[
-                  { label: "Driver Name *", key: "driver_name", placeholder: "Ramesh Kumar", required: true },
-                  { label: "Driver Phone",  key: "driver_phone", placeholder: "9876543210",  required: false },
-                ].map(f => (
-                  <div key={f.key}>
-                    <label style={{ fontSize: 12, fontWeight: 600, color: "#555", display: "block", marginBottom: 4 }}>{f.label}</label>
-                    <input required={f.required} value={(form as any)[f.key]} placeholder={f.placeholder}
-                      onChange={e => setForm(p => ({ ...p, [f.key]: e.target.value }))}
-                      style={{ width: "100%", padding: "8px 12px", border: "1.5px solid #e8e8f0", borderRadius: 8, fontSize: 13.5, boxSizing: "border-box" }} />
+              <div>
+                <label style={{ fontSize: 12, fontWeight: 600, color: "#555", display: "block", marginBottom: 4 }}>Driver</label>
+                <div style={{ position: "relative" }}>
+                  <select value={form.driver_id} onChange={e => handleDriverChange(e.target.value)}
+                    style={{ width: "100%", padding: "8px 12px", border: "1.5px solid #e8e8f0", borderRadius: 8, fontSize: 13.5, boxSizing: "border-box", appearance: "auto" }}>
+                    <option value="">— Select driver (or type name below) —</option>
+                    {drivers.map((d: any) => (
+                      <option key={d.id} value={d.id}>{d.name}{d.phone ? ` · ${d.phone}` : ""}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Fatigue badge */}
+                {fatigueLoading && (
+                  <div style={{ marginTop: 6, fontSize: 12, color: "#888" }}>Checking driver status…</div>
+                )}
+                {!fatigueLoading && fatigueStatus && (() => {
+                  const cfg: Record<string, { bg: string; color: string; icon: React.ReactNode }> = {
+                    available: { bg: "#e8f5e9", color: "#2e7d32", icon: <CheckCircle size={12} /> },
+                    caution:   { bg: "#fff8e1", color: "#f57f17", icon: <AlertTriangle size={12} /> },
+                    blocked:   { bg: "#fce4ec", color: "#b71c1c", icon: <AlertTriangle size={12} /> },
+                    on_trip:   { bg: "#e3f2fd", color: "#1565c0", icon: <Clock size={12} /> },
+                  };
+                  const c = cfg[fatigueStatus.status] ?? cfg.available;
+                  return (
+                    <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 6, padding: "5px 10px", background: c.bg, borderRadius: 6, width: "fit-content" }}>
+                      <span style={{ color: c.color, display: "flex" }}>{c.icon}</span>
+                      <span style={{ fontSize: 11.5, fontWeight: 600, color: c.color, textTransform: "capitalize" }}>
+                        {fatigueStatus.status.replace("_", " ")} — {fatigueStatus.reason}
+                      </span>
+                    </div>
+                  );
+                })()}
+
+                {/* Manual name/phone fallback if no driver selected from list */}
+                {!form.driver_id && (
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginTop: 8 }}>
+                    {[
+                      { label: "Driver Name *", key: "driver_name", placeholder: "Ramesh Kumar", required: true },
+                      { label: "Driver Phone",  key: "driver_phone", placeholder: "9876543210",  required: false },
+                    ].map(f => (
+                      <div key={f.key}>
+                        <label style={{ fontSize: 11, fontWeight: 600, color: "#888", display: "block", marginBottom: 3 }}>{f.label}</label>
+                        <input required={f.required} value={(form as any)[f.key]} placeholder={f.placeholder}
+                          onChange={e => setForm(p => ({ ...p, [f.key]: e.target.value }))}
+                          style={{ width: "100%", padding: "7px 10px", border: "1.5px solid #e8e8f0", borderRadius: 8, fontSize: 13, boxSizing: "border-box" }} />
+                      </div>
+                    ))}
                   </div>
-                ))}
+                )}
               </div>
 
               {/* Route */}
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-                {[
-                  { label: "From *", key: "origin",      placeholder: "Mumbai" },
-                  { label: "To *",   key: "destination", placeholder: "Delhi" },
-                ].map(f => (
-                  <div key={f.key}>
-                    <label style={{ fontSize: 12, fontWeight: 600, color: "#555", display: "block", marginBottom: 4 }}>{f.label}</label>
-                    <input required value={(form as any)[f.key]} placeholder={f.placeholder}
-                      onChange={e => setForm(p => ({ ...p, [f.key]: e.target.value }))}
-                      style={{ width: "100%", padding: "8px 12px", border: "1.5px solid #e8e8f0", borderRadius: 8, fontSize: 13.5, boxSizing: "border-box" }} />
-                  </div>
-                ))}
+                {/* Origin — smart suggestions */}
+                <div>
+                  <label style={{ fontSize: 12, fontWeight: 600, color: "#555", display: "block", marginBottom: 4 }}>From *</label>
+                  <input required value={form.origin} placeholder="Mumbai"
+                    onChange={e => handleOriginChange(e.target.value)}
+                    style={{ width: "100%", padding: "8px 12px", border: "1.5px solid #e8e8f0", borderRadius: 8, fontSize: 13.5, boxSizing: "border-box" }} />
+                </div>
+                {/* Destination */}
+                <div>
+                  <label style={{ fontSize: 12, fontWeight: 600, color: "#555", display: "block", marginBottom: 4 }}>To *</label>
+                  <input required value={form.destination} placeholder="Delhi"
+                    onChange={e => setForm(p => ({ ...p, destination: e.target.value }))}
+                    style={{ width: "100%", padding: "8px 12px", border: "1.5px solid #e8e8f0", borderRadius: 8, fontSize: 13.5, boxSizing: "border-box" }} />
+                </div>
               </div>
+
+              {/* Smart vehicle suggestions */}
+              {vehicleSuggestions.length > 0 && (
+                <div style={{ background: "#f0f4ff", border: "1.5px solid #c5cef9", borderRadius: 10, padding: "10px 12px" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8 }}>
+                    <Zap size={13} color="#1E2D8E" />
+                    <span style={{ fontSize: 11.5, fontWeight: 700, color: "#1E2D8E" }}>
+                      Vehicles near {form.origin} — reduce empty run
+                    </span>
+                  </div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                    {vehicleSuggestions.map((s: any) => (
+                      <div key={s.vehicle_id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: "white", borderRadius: 8, padding: "8px 10px", border: "1px solid #dde3fa" }}>
+                        <div>
+                          <div style={{ fontSize: 13, fontWeight: 700, color: "#1a1a2e" }}>{s.registration_number}</div>
+                          <div style={{ fontSize: 11, color: "#777", marginTop: 2 }}>
+                            Last trip: {s.last_trip_from} → {s.last_trip_to} · {s.idle_days}d ago
+                            {s.last_driver_name ? ` · ${s.last_driver_name}` : ""}
+                          </div>
+                        </div>
+                        <button type="button" onClick={() => applySuggestion(s)}
+                          style={{ fontSize: 12, fontWeight: 700, color: "#1E2D8E", background: "#eef0fb", border: "none", borderRadius: 6, padding: "5px 12px", cursor: "pointer", whiteSpace: "nowrap" }}>
+                          Use this
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               {/* LR / Material */}
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
@@ -868,7 +983,7 @@ export default function TripsPage() {
               </div>
 
               <div style={{ display: "flex", gap: 10, marginTop: 4 }}>
-                <button type="button" className="btn-outline" style={{ flex: 1 }} onClick={() => setShowForm(false)}>Cancel</button>
+                <button type="button" className="btn-outline" style={{ flex: 1 }} onClick={() => { setShowForm(false); setVehicleSuggestions([]); setFatigueStatus(null); }}>Cancel</button>
                 <button type="submit" className="btn-primary" style={{ flex: 1, justifyContent: "center" }} disabled={saving}>
                   {saving ? "Saving…" : "Log Trip"}
                 </button>
