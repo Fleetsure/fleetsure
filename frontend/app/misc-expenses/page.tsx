@@ -258,4 +258,55 @@ export default function MiscExpensesPage() {
                   <label style={lbl}>Date *</label>
                   <input type="date" required value={form.date} onChange={e => set("date", e.target.value)} style={inp} />
                 </div>
-        
+              </div>
+
+              <div>
+                <label style={lbl}>Amount (₹) *</label>
+                <input type="number" required min="0" step="0.01" placeholder="e.g. 500" value={form.amount} onChange={e => set("amount", e.target.value)} style={inp} />
+              </div>
+
+              <div>
+                <label style={lbl}>Description</label>
+                <input type="text" placeholder="e.g. Overloading fine at Nashik checkpost" value={form.description} onChange={e => set("description", e.target.value)} style={inp} />
+              </div>
+
+              <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 12 }}>
+                <div>
+                  <label style={lbl}>Vehicle (optional)</label>
+                  <select value={form.vehicle_id} onChange={e => set("vehicle_id", e.target.value)} style={inp}>
+                    <option value="">Not vehicle-specific</option>
+                    {vehicles.map(v => <option key={v.id} value={v.id}>{v.registration_number}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label style={lbl}>Link to Trip (optional)</label>
+                  <select value={form.trip_id} onChange={e => set("trip_id", e.target.value)} style={inp}>
+                    <option value="">Not linked to trip</option>
+                    {trips.filter(t => !form.vehicle_id || t.vehicle_id === form.vehicle_id).map(t => (
+                      <option key={t.id} value={t.id}>{t.origin} → {t.destination}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label style={lbl}>Notes</label>
+                <input type="text" placeholder="Any additional info..." value={form.notes} onChange={e => set("notes", e.target.value)} style={inp} />
+              </div>
+
+              <div style={{ display: "flex", gap: 10, marginTop: 4 }}>
+                <button type="button" className="btn-outline" style={{ flex: 1 }} onClick={() => setShowForm(false)}>Cancel</button>
+                <button type="submit" className="btn-primary" style={{ flex: 1, justifyContent: "center" }} disabled={saving}>
+                  {saving ? "Saving..." : "Add Expense"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+const lbl: React.CSSProperties = { fontSize: 12, fontWeight: 600, color: "var(--text-muted)", display: "block", marginBottom: 4 };
+const inp: React.CSSProperties = { width: "100%", padding: "8px 12px", border: "1.5px solid var(--border-input)", borderRadius: 8, fontSize: 13.5, background: "var(--bg-card)", color: "var(--text-main)", boxSizing: "border-box" };

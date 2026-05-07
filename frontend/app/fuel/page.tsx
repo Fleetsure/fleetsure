@@ -287,4 +287,34 @@ export default function FuelPage() {
               </div>
               <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 12 }}>
                 <div><label style={lbl}>Date *</label><input required type="date" value={form.date} onChange={e => set("date", e.target.value)} style={inp} /></div>
-                <div><label style={lbl}>Odometer (km)</label><input type="number" step="1" min="0" placeholder="54321 (opt
+                <div><label style={lbl}>Odometer (km)</label><input type="number" step="1" min="0" placeholder="54321 (optional)" value={form.odometer_km} onChange={e => set("odometer_km", e.target.value)} style={inp} /></div>
+                <div>
+                  <label style={lbl}>Litres filled *</label>
+                  <input required type="number" step="0.01" min="0.1" placeholder="80.5" value={form.litres} onChange={e => setLitres(e.target.value)} style={inp} />
+                </div>
+                <div>
+                  <label style={lbl}>Rate (₹/litre)</label>
+                  <input type="number" step="0.01" min="0" placeholder="93.50" value={form.rate || ""} onChange={e => setRate(e.target.value)} style={inp} />
+                </div>
+                <div style={{ gridColumn: isMobile ? "1" : "1 / -1" }}>
+                  <label style={lbl}>Total Amount (₹) *</label>
+                  <input required type="number" step="0.01" min="1" placeholder="7500" value={form.amount} onChange={e => setAmount(e.target.value)} style={{ ...inp, background: form.litres && form.rate ? "#f0f7ff" : undefined }} />
+                  {form.litres && form.rate && <div style={{ fontSize: 11, color: "#1E2D8E", marginTop: 3 }}>Auto-calculated: {form.litres} L × ₹{form.rate}/L</div>}
+                </div>
+              </div>
+              <div><label style={lbl}>Fuel Station</label><input placeholder="HP Petrol Pump, NH-48" value={form.fuel_station} onChange={e => set("fuel_station", e.target.value)} style={inp} /></div>
+              <div><label style={lbl}>Notes</label><input placeholder="Any notes..." value={form.notes} onChange={e => set("notes", e.target.value)} style={inp} /></div>
+              <div style={{ display: "flex", gap: 10, marginTop: 4 }}>
+                <button type="button" className="btn-outline" style={{ flex: 1 }} onClick={() => setShowForm(false)}>Cancel</button>
+                <button type="submit" className="btn-primary" style={{ flex: 1, justifyContent: "center" }} disabled={saving}>{saving ? "Saving..." : "Save Fill-up"}</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+const lbl: React.CSSProperties = { fontSize: 12, fontWeight: 600, color: "var(--text-muted)", display: "block", marginBottom: 4 };
+const inp: React.CSSProperties = { width: "100%", padding: "8px 11px", border: "1.5px solid var(--border-input)", borderRadius: 8, fontSize: 13.5, background: "var(--bg-card)", color: "var(--text-main)", boxSizing: "border-box" };

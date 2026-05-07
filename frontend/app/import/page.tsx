@@ -1,5 +1,5 @@
 "use client";
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import Header from "@/components/Header";
 import { Upload, FileSpreadsheet, CheckCircle, AlertCircle, ChevronDown, X, ArrowRight, Loader2 } from "lucide-react";
 
@@ -165,6 +165,14 @@ export default function ImportPage() {
   const [results, setResults] = useState<ImportResult[] | null>(null);
   const [error, setError] = useState("");
   const fileRef = useRef<HTMLInputElement>(null);
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 768);
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, []);
 
   const token = typeof window !== "undefined" ? localStorage.getItem("token") : "";
 
@@ -278,7 +286,7 @@ export default function ImportPage() {
     <div style={{ flex: 1, display: "flex", flexDirection: "column", background: "#f8f9ff", minHeight: "100vh" }}>
       <Header title="Import Data" subtitle="Upload Excel or CSV to bulk-import vehicles, drivers, trips, or fuel logs" />
 
-      <div style={{ flex: 1, padding: "24px 32px", maxWidth: 1200, margin: "0 auto", width: "100%" }}>
+      <div style={{ flex: 1, padding: isMobile ? "14px" : "24px 32px", maxWidth: 1200, margin: "0 auto", width: "100%" }}>
 
         {/* ── Upload zone ─────────────────────────────────────────────────── */}
         {!previews.length && !loading && (
@@ -291,7 +299,7 @@ export default function ImportPage() {
               border: `2.5px dashed ${dragging ? "#1E2D8E" : "#c5cae9"}`,
               borderRadius: 16,
               background: dragging ? "#f0f3ff" : "white",
-              padding: "64px 32px",
+              padding: isMobile ? "40px 20px" : "64px 32px",
               display: "flex",
               flexDirection: "column",
               alignItems: "center",
@@ -364,7 +372,7 @@ export default function ImportPage() {
             )}
 
             {currentSheet && (
-              <div style={{ display: "grid", gridTemplateColumns: "320px 1fr", gap: 20 }}>
+              <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "320px 1fr", gap: 20 }}>
 
                 {/* ── Left panel: settings ────────────────────────────────── */}
                 <div>

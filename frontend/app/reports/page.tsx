@@ -20,6 +20,14 @@ export default function ReportsPage() {
   const [selected, setSelected] = useState<string[]>(EXPORT_TYPES.map(t => t.key));
   const [format, setFormat]     = useState<"xlsx" | "csv">("xlsx");
   const [downloading, setDownloading] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 768);
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, []);
 
   // Summary counts
   const [counts, setCounts] = useState<Record<string, number>>({});
@@ -82,9 +90,9 @@ export default function ReportsPage() {
   return (
     <div>
       <Header title="Reports & Export" subtitle="Download your fleet data as Excel or CSV" />
-      <div style={{ padding: "24px 28px" }}>
+      <div style={{ padding: isMobile ? "14px" : "24px 28px" }}>
 
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 340px", gap: 24, alignItems: "start" }}>
+        <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 340px", gap: isMobile ? 16 : 24, alignItems: "start" }}>
 
           {/* Left — data selector */}
           <div className="card">

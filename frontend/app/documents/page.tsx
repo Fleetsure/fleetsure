@@ -36,6 +36,14 @@ export default function DocumentsPage() {
   const [search, setSearch]     = useState("");
   const [filterVehicle, setFilterVehicle] = useState("");
   const fileRef = useRef<HTMLInputElement>(null);
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 768);
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, []);
 
   const load = () => {
     Promise.all([getDocuments(), getVehicles()])
@@ -108,10 +116,10 @@ export default function DocumentsPage() {
   return (
     <div>
       <Header title="Documents" subtitle="RC books, insurance papers, permits — all in one place" />
-      <div style={{ padding: "24px 28px" }}>
+      <div style={{ padding: isMobile ? "14px" : "24px 28px" }}>
 
         {/* Stat cards */}
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 14, marginBottom: 24 }}>
+        <div style={{ display: "grid", gridTemplateColumns: isMobile ? "repeat(2, 1fr)" : "repeat(4, 1fr)", gap: isMobile ? 10 : 14, marginBottom: isMobile ? 16 : 24 }}>
           {DOC_TYPES.slice(0, 4).map(t => {
             const count = docs.filter(d => d.doc_type === t).length;
             return (
@@ -125,19 +133,19 @@ export default function DocumentsPage() {
 
         <div className="card">
           {/* Toolbar */}
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 18, gap: 12, flexWrap: "wrap" }}>
-            <div style={{ display: "flex", gap: 10, flex: 1, flexWrap: "wrap" }}>
-              <div style={{ position: "relative", minWidth: 200 }}>
+          <div style={{ display: "flex", flexDirection: isMobile ? "column" : "row", justifyContent: "space-between", alignItems: isMobile ? "stretch" : "center", marginBottom: 18, gap: 10 }}>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              <div style={{ position: "relative", flex: 1, minWidth: isMobile ? 0 : 200 }}>
                 <Search size={13} style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", color: "#aaa" }} />
                 <input placeholder="Search documents…" value={search} onChange={e => setSearch(e.target.value)}
-                  style={{ ...inp, paddingLeft: 30, fontSize: 13, maxWidth: 220 }} />
+                  style={{ ...inp, paddingLeft: 30, fontSize: 13, width: "100%" }} />
               </div>
-              <select value={filterVehicle} onChange={e => setFilterVehicle(e.target.value)} style={{ ...inp, maxWidth: 180, fontSize: 13 }}>
+              <select value={filterVehicle} onChange={e => setFilterVehicle(e.target.value)} style={{ ...inp, flex: 1, fontSize: 13 }}>
                 <option value="">All Vehicles</option>
                 {vehicles.map(v => <option key={v.id} value={v.id}>{v.reg_number}</option>)}
               </select>
             </div>
-            <button className="btn-primary" onClick={() => setShowForm(true)}>
+            <button className="btn-primary" onClick={() => setShowForm(true)} style={{ justifyContent: isMobile ? "center" : undefined }}>
               <Upload size={15} /> Upload Document
             </button>
           </div>
@@ -224,7 +232,7 @@ export default function DocumentsPage() {
                 <label style={lbl}>Document Name *</label>
                 <input required value={form.name} onChange={e => set("name", e.target.value)} placeholder="e.g. Insurance Policy 2025-26" style={inp} />
               </div>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+              <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 12 }}>
                 <div>
                   <label style={lbl}>Type *</label>
                   <select required value={form.doc_type} onChange={e => set("doc_type", e.target.value)} style={inp}>

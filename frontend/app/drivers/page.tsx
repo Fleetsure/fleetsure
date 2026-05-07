@@ -168,6 +168,14 @@ export default function DriversPage() {
   const [error, setError] = useState("");
   const [expandedRow, setExpandedRow] = useState<string | null>(null);
   const [ledgerDriver, setLedgerDriver] = useState<any>(null);
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 768);
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, []);
 
 
   const load = () => getDrivers().then(r => setDrivers(r.data)).finally(() => setLoading(false));
@@ -229,10 +237,10 @@ export default function DriversPage() {
   return (
     <div>
       <Header title="Drivers" subtitle={`${drivers.length} drivers in your fleet`} />
-      <div style={{ padding: "24px 28px" }}>
+      <div style={{ padding: isMobile ? "14px" : "24px 28px" }}>
 
         {/* Stats */}
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 14, marginBottom: 24 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: isMobile ? 10 : 14, marginBottom: isMobile ? 16 : 24 }}>
           {[
             { label: "Total Drivers", value: drivers.length },
             { label: "Available",     value: drivers.filter(d => d.status === "available").length },
@@ -249,7 +257,7 @@ export default function DriversPage() {
         <div className="card">
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
             <h2 style={{ margin: 0, fontSize: 15, fontWeight: 700 }}>All Drivers</h2>
-            <button className="btn-primary" onClick={openAdd}><Plus size={15} />Add Driver</button>
+            <button className="btn-primary" onClick={openAdd}><Plus size={15} />{isMobile ? "Add" : "Add Driver"}</button>
           </div>
 
           {loading ? (
@@ -273,6 +281,35 @@ export default function DriversPage() {
               <button className="btn-primary" onClick={openAdd}>
                 <Plus size={14} /> Add Driver
               </button>
+            </div>
+          ) : isMobile ? (
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              {drivers.map((d: any) => (
+                <div key={d.id} style={{ padding: "12px 14px", borderRadius: 10, background: "var(--bg-subtle)", border: "1px solid var(--border)" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 6 }}>
+                    <div>
+                      <div style={{ fontWeight: 700, fontSize: 14, color: "var(--text-main)", marginBottom: 3 }}>{d.name}</div>
+                      <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "var(--text-muted)" }}>
+                        <Phone size={11} color="#aaa" />
+                        <a href={`tel:${d.phone}`} style={{ color: "inherit", textDecoration: "none" }}>{d.phone}</a>
+                      </div>
+                    </div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0, marginLeft: 8 }}>
+                      <span className={`badge badge-${d.status}`} style={{ fontSize: 10 }}>{d.status.replace("_", " ")}</span>
+                    </div>
+                  </div>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 8 }}>
+                    <div style={{ fontSize: 12, color: "var(--text-muted)" }}>
+                      {d.license_number ? <span>DL: {d.license_number}</span> : <span style={{ color: "#ccc" }}>No license</span>}
+                      {d.license_expiry && <> · <Badge dateStr={d.license_expiry} /></>}
+                    </div>
+                    <div style={{ display: "flex", gap: 4 }}>
+                      <button onClick={() => openEdit(d)} style={{ background: "none", border: "none", cursor: "pointer", color: "#1E2D8E", padding: 4 }}><Edit2 size={14} /></button>
+                      <button onClick={() => setLedgerDriver(d)} style={{ background: "none", border: "none", cursor: "pointer", color: "#2e7d32", padding: 4 }} title="Ledger"><Wallet size={14} /></button>
+                    </div>
+                  </div>
+                </div>
+              ))}
             </div>
           ) : (
             <table>
@@ -349,8 +386,8 @@ export default function DriversPage() {
 
       {/* Add / Edit Modal */}
       {showForm && (
-        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000 }}>
-          <div className="card" style={{ width: 500, position: "relative", maxHeight: "92vh", overflowY: "auto" }}>
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, padding: 16 }}>
+          <div className="card" style={{ width: "100%", maxWidth: 500, position: "relative", maxHeight: "92vh", overflowY: "auto" }}>
             <button onClick={() => setShowForm(false)}
               style={{ position: "absolute", top: 16, right: 16, background: "none", border: "none", cursor: "pointer", color: "#888" }}>
               <X size={18} />

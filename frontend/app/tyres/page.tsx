@@ -271,4 +271,58 @@ export default function TyresPage() {
                 <div>
                   <label style={lbl}>Type *</label>
                   <select value={form.tyre_type} onChange={e => set("tyre_type", e.target.value)} style={inp}>
-   
+                    {TYRE_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label style={lbl}>Amount (₹) *</label>
+                  <input type="number" required min="0" step="0.01" placeholder="e.g. 12000" value={form.amount} onChange={e => set("amount", e.target.value)} style={inp} />
+                </div>
+              </div>
+
+              <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 12 }}>
+                <div>
+                  <label style={lbl}>Brand</label>
+                  <select value={form.tyre_brand} onChange={e => set("tyre_brand", e.target.value)} style={inp}>
+                    <option value="">Select brand</option>
+                    {TYRE_BRANDS.map(b => <option key={b} value={b}>{b}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label style={lbl}>Tyre Count</label>
+                  <input type="number" min="1" max="20" value={form.tyre_count} onChange={e => set("tyre_count", e.target.value)} style={inp} />
+                </div>
+              </div>
+
+              <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 12 }}>
+                <div>
+                  <label style={lbl}>Position</label>
+                  <input type="text" placeholder="Front Left, All Rear..." value={form.tyre_position} onChange={e => set("tyre_position", e.target.value)} style={inp} />
+                </div>
+                <div>
+                  <label style={lbl}>Odometer (km)</label>
+                  <input type="number" min="0" placeholder="e.g. 142500" value={form.odometer_km} onChange={e => set("odometer_km", e.target.value)} style={inp} />
+                </div>
+              </div>
+
+              <div>
+                <label style={lbl}>Notes</label>
+                <input type="text" placeholder="Any additional info..." value={form.notes} onChange={e => set("notes", e.target.value)} style={inp} />
+              </div>
+
+              <div style={{ display: "flex", gap: 10, marginTop: 4 }}>
+                <button type="button" className="btn-outline" style={{ flex: 1 }} onClick={() => setShowForm(false)}>Cancel</button>
+                <button type="submit" className="btn-primary" style={{ flex: 1, justifyContent: "center" }} disabled={saving}>
+                  {saving ? "Saving..." : "Add Entry"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+const lbl: React.CSSProperties = { fontSize: 12, fontWeight: 600, color: "var(--text-muted)", display: "block", marginBottom: 4 };
+const inp: React.CSSProperties = { width: "100%", padding: "8px 12px", border: "1.5px solid var(--border-input)", borderRadius: 8, fontSize: 13.5, background: "var(--bg-card)", color: "var(--text-main)", boxSizing: "border-box" };

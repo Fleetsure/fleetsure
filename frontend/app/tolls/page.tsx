@@ -267,4 +267,63 @@ export default function TollsPage() {
               </div>
 
               <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 12 }}>
-                
+                <div>
+                  <label style={labelStyle}>Amount (₹) *</label>
+                  <input type="number" required min="0" step="0.01" placeholder="e.g. 285" value={form.amount} onChange={e => set("amount", e.target.value)} style={inputStyle} />
+                </div>
+                <div>
+                  <label style={labelStyle}>Payment Mode *</label>
+                  <select value={form.payment_mode} onChange={e => set("payment_mode", e.target.value)} style={inputStyle}>
+                    <option value="cash">Cash</option>
+                    <option value="fastag">FASTag</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label style={labelStyle}>Toll Plaza Name</label>
+                <input type="text" placeholder="e.g. Khopoli Toll, Surat Toll" value={form.toll_plaza} onChange={e => set("toll_plaza", e.target.value)} style={inputStyle} />
+              </div>
+
+              <div>
+                <label style={labelStyle}>Route / Highway</label>
+                <input type="text" placeholder="e.g. NH48, Mumbai–Pune Expressway" value={form.route} onChange={e => set("route", e.target.value)} style={inputStyle} />
+              </div>
+
+              <div>
+                <label style={labelStyle}>Link to Trip (optional)</label>
+                <select value={form.trip_id} onChange={e => set("trip_id", e.target.value)} style={inputStyle}>
+                  <option value="">Not linked to a trip</option>
+                  {trips.filter(t => !form.vehicle_id || t.vehicle_id === form.vehicle_id).map(t => (
+                    <option key={t.id} value={t.id}>{t.origin} → {t.destination} ({new Date(t.start_date).toLocaleDateString("en-IN")})</option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label style={labelStyle}>Notes</label>
+                <input type="text" placeholder="Any additional info..." value={form.notes} onChange={e => set("notes", e.target.value)} style={inputStyle} />
+              </div>
+
+              <div style={{ display: "flex", gap: 10, marginTop: 4 }}>
+                <button type="button" className="btn-outline" style={{ flex: 1 }} onClick={() => setShowForm(false)}>Cancel</button>
+                <button type="submit" className="btn-primary" style={{ flex: 1, justifyContent: "center" }} disabled={saving}>
+                  {saving ? "Saving..." : "Add Toll"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+const labelStyle: React.CSSProperties = {
+  fontSize: 12, fontWeight: 600, color: "var(--text-muted)", display: "block", marginBottom: 4,
+};
+const inputStyle: React.CSSProperties = {
+  width: "100%", padding: "8px 12px", border: "1.5px solid var(--border-input)",
+  borderRadius: 8, fontSize: 13.5, background: "var(--bg-card)", color: "var(--text-main)",
+  boxSizing: "border-box",
+};

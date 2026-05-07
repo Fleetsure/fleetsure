@@ -149,3 +149,33 @@ export default function ExpensesPage() {
                 <select required value={form.expense_type} onChange={e => setForm(p => ({ ...p, expense_type: e.target.value }))}
                   style={{ width: "100%", padding: "8px 12px", border: "1.5px solid #e8e8f0", borderRadius: 8, fontSize: 13.5 }}>
                   {["fuel", "toll", "maintenance", "driver_payment", "loading_unloading", "police_challan", "other"].map(t => (
+                    <option key={t} value={t}>{t.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase())}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label style={{ fontSize: 12.5, fontWeight: 600, color: "#555", display: "block", marginBottom: 4 }}>Amount (₹) *</label>
+                <input type="number" required value={form.amount} onChange={e => setForm(p => ({ ...p, amount: e.target.value }))} placeholder="5000"
+                  style={{ width: "100%", padding: "8px 12px", border: "1.5px solid #e8e8f0", borderRadius: 8, fontSize: 13.5 }} />
+              </div>
+              <div>
+                <label style={{ fontSize: 12.5, fontWeight: 600, color: "#555", display: "block", marginBottom: 4 }}>Date *</label>
+                <input type="date" required value={form.date} onChange={e => setForm(p => ({ ...p, date: e.target.value }))}
+                  style={{ width: "100%", padding: "8px 12px", border: "1.5px solid #e8e8f0", borderRadius: 8, fontSize: 13.5 }} />
+              </div>
+              <div>
+                <label style={{ fontSize: 12.5, fontWeight: 600, color: "#555", display: "block", marginBottom: 4 }}>Description</label>
+                <input value={form.description} onChange={e => setForm(p => ({ ...p, description: e.target.value }))} placeholder="Optional note..."
+                  style={{ width: "100%", padding: "8px 12px", border: "1.5px solid #e8e8f0", borderRadius: 8, fontSize: 13.5 }} />
+              </div>
+              <div style={{ display: "flex", gap: 10, marginTop: 4 }}>
+                <button type="button" className="btn-outline" style={{ flex: 1 }} onClick={() => setShowForm(false)}>Cancel</button>
+                <button type="submit" className="btn-primary" style={{ flex: 1, justifyContent: "center" }} disabled={saving}>{saving ? "Saving..." : "Add Expense"}</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}

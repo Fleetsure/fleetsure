@@ -1,13 +1,22 @@
 "use client";
+import { useState, useEffect } from "react";
 import Header from "@/components/Header";
 import { CreditCard, Link2 } from "lucide-react";
 
 export default function FASTagPage() {
+  const [isMobile, setIsMobile] = useState(false);
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 768);
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, []);
+
   return (
     <div>
       <Header title="FASTag Management" subtitle="Track FASTag balances and transactions" />
-      <div style={{ padding: "24px 28px" }}>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 14, marginBottom: 24 }}>
+      <div style={{ padding: isMobile ? "14px" : "24px 28px" }}>
+        <div style={{ display: "grid", gridTemplateColumns: isMobile ? "repeat(2, 1fr)" : "repeat(4, 1fr)", gap: isMobile ? 10 : 14, marginBottom: isMobile ? 16 : 24 }}>
           {["Linked Vehicles", "Total Balance", "Low Balance", "Total Recharged"].map(label => (
             <div key={label} className="stat-card" style={{ textAlign: "center" }}>
               <div style={{ fontSize: 24, fontWeight: 700, color: "#1E2D8E" }}>0</div>
