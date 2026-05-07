@@ -1,4 +1,5 @@
 "use client";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { CheckCircle, Circle, Truck, Users, Route, IndianRupee, ArrowRight } from "lucide-react";
 
@@ -19,6 +20,14 @@ type Props = {
 };
 
 export default function OnboardingChecklist({ userName, hasVehicles, hasDrivers, hasTrips }: Props) {
+  const [isMobile, setIsMobile] = useState(false);
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 768);
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, []);
+
   const steps: Step[] = [
     {
       icon: Truck,
@@ -58,11 +67,11 @@ export default function OnboardingChecklist({ userName, hasVehicles, hasDrivers,
   const pct = Math.round((completed / steps.length) * 100);
 
   return (
-    <div style={{ padding: "28px 28px" }}>
+    <div style={{ padding: isMobile ? "14px" : "28px" }}>
       {/* Welcome header */}
       <div className="card" style={{
         background: "linear-gradient(135deg, #1E2D8E 0%, #2d3eb5 100%)",
-        color: "white", marginBottom: 20, padding: "28px 28px",
+        color: "white", marginBottom: 20, padding: isMobile ? "20px 18px" : "28px",
       }}>
         <div style={{ fontSize: 22, fontWeight: 800, marginBottom: 6 }}>
           Welcome to FleetSure, {userName}! 👋
@@ -86,7 +95,7 @@ export default function OnboardingChecklist({ userName, hasVehicles, hasDrivers,
       </div>
 
       {/* Steps */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+      <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 12 }}>
         {steps.map((step, i) => (
           <div key={i} className="card" style={{
             display: "flex", gap: 14, alignItems: "flex-start",

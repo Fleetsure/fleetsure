@@ -727,6 +727,14 @@ function BillingSettings() {
   const [upgrading, setUpgrading]       = useState<string | null>(null);
   const [billingStatus, setBillingStatus] = useState<any>(null);
   const [error, setError]               = useState("");
+  const [isMobile, setIsMobile]         = useState(false);
+
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 768);
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, []);
 
   const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1";
   const token = typeof window !== "undefined" ? localStorage.getItem("token") : "";
@@ -815,8 +823,8 @@ function BillingSettings() {
         </div>
       )}
 
-      {/* Plan cards — 4 in a row */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 14, marginBottom: 24 }}>
+      {/* Plan cards */}
+      <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(4, 1fr)", gap: isMobile ? 12 : 14, marginBottom: 24 }}>
         {PLANS.map(plan => {
           const isHovered   = hoveredPlan === plan.id;
           const isCurrent   = currentPlan === plan.id;
@@ -912,7 +920,7 @@ function BillingSettings() {
         <div style={{ fontSize: 12, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 14 }}>
           Common Questions
         </div>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px 24px" }}>
+        <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: isMobile ? 12 : "12px 24px" }}>
           {[
             { q: "Is billing per truck or per fleet?", a: "Per fleet — one flat price regardless of how many trucks you manage within the plan limit." },
             { q: "Can I change plans later?", a: "Yes. Upgrade or downgrade anytime. Prorated billing will be applied." },
@@ -1361,6 +1369,15 @@ function SettingsInner() {
   const [formValues, setFormValues] = useState<Record<string, string>>({});
   const [orgLogo, setOrgLogo]     = useState<string>("");
   const logoInputRef              = useRef<HTMLInputElement>(null);
+  const [isMobile, setIsMobile]   = useState(false);
+  const [mobileView, setMobileView] = useState<"nav" | "content">("nav");
+
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 768);
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, []);
 
   useEffect(() => {
     // Always fetch fresh profile from backend
@@ -1445,10 +1462,10 @@ function SettingsInner() {
   return (
     <div>
       <Header title="Settings" subtitle="Manage your account and fleet preferences" />
-      <div style={{ display: "flex", padding: "24px 28px", gap: 24, alignItems: "flex-start" }}>
+      <div style={{ display: "flex", padding: isMobile ? "14px" : "24px 28px", gap: 16, alignItems: "flex-start", flexDirection: isMobile ? "column" : "row" }}>
 
         {/* ── Left sidebar ── */}
-        <div className="card" style={{ width: 260, flexShrink: 0, padding: "12px 8px", color: "var(--text-main)" }}>
+        <div className="card" style={{ width: isMobile ? "100%" : 260, flexShrink: 0, padding: "12px 8px", color: "var(--text-main)", display: isMobile && mobileView === "content" ? "none" : "block" }}>
           <div style={{ position: "relative", marginBottom: 12, padding: "0 6px" }}>
             <Search size={14} style={{ position: "absolute", left: 18, top: "50%", transform: "translateY(-50%)", color: "var(--text-muted)" }} />
             <input value={search} onChange={e => {
@@ -1471,7 +1488,7 @@ function SettingsInner() {
                 {section.label}
               </div>
               {section.items.map(item => (
-                <button key={item.id} onClick={() => setActive(item.id)}
+                <button key={item.id} onClick={() => { setActive(item.id); if (isMobile) setMobileView("content"); }}
                   style={{ width: "100%", display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", borderRadius: 8, border: "none", cursor: "pointer", textAlign: "left",
                     background: active === item.id ? "var(--bg-hover)" : "transparent", transition: "background 0.15s" }}
                   onMouseEnter={e => { if (active !== item.id) e.currentTarget.style.background = "var(--bg-hover)"; }}
@@ -1492,7 +1509,18 @@ function SettingsInner() {
         </div>
 
         {/* ── Right content ── */}
-        <div className="card" style={{ flex: 1, color: "var(--text-main)" }}>
+        <div className="card" style={{ flex: 1, color: "var(--text-main)", width: "100%", display: isMobile && mobileView === "nav" ? "none" : "block" }}>
+
+          {/* Mobile back button */}
+          {isMobile && (
+            <button onClick={() => setMobileView("nav")} style={{
+              display: "flex", alignItems: "center", gap: 6, background: "none", border: "none",
+              cursor: "pointer", color: "#1E2D8E", fontSize: 14, fontWeight: 600,
+              marginBottom: 16, padding: 0,
+            }}>
+              ← All Settings
+            </button>
+          )}
 
           {/* Custom panels */}
           {active === "notifications" ? (

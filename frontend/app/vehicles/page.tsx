@@ -56,7 +56,14 @@ export default function VehiclesPage() {
   const [saving, setSaving]         = useState(false);
   const [error, setError]           = useState("");
   const [search, setSearch]         = useState("");
+  const [isMobile, setIsMobile]     = useState(false);
 
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 768);
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, []);
 
   // Expanded compliance row
   const [expandedRow, setExpandedRow] = useState<string | null>(null);
@@ -142,10 +149,10 @@ export default function VehiclesPage() {
   return (
     <div>
       <Header title="Vehicles" subtitle={`${vehicles.length} vehicles in your fleet`} />
-      <div style={{ padding: "24px 28px" }}>
+      <div style={{ padding: isMobile ? "14px" : "24px 28px" }}>
 
         {/* Stats */}
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 14, marginBottom: 24 }}>
+        <div style={{ display: "grid", gridTemplateColumns: isMobile ? "repeat(2, 1fr)" : "repeat(5, 1fr)", gap: isMobile ? 10 : 14, marginBottom: isMobile ? 16 : 24 }}>
           {[
             { label: "Total Vehicles", value: vehicles.length,                                         icon: <Truck size={18} />,         color: "#1E2D8E", bg: "#eef0fb" },
             { label: "Active",         value: vehicles.filter(v => v.status === "active").length,       icon: <CheckCircle size={18} />,    color: "#2e7d32", bg: "#e8f5e9" },
@@ -169,16 +176,16 @@ export default function VehiclesPage() {
 
         {/* Table card */}
         <div className="card">
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16, gap: 12 }}>
+          <div style={{ display: "flex", flexDirection: isMobile ? "column" : "row", justifyContent: "space-between", alignItems: isMobile ? "stretch" : "center", marginBottom: 16, gap: 10 }}>
             <h2 style={{ margin: 0, fontSize: 15, fontWeight: 700 }}>Your Fleet</h2>
-            <div style={{ display: "flex", gap: 10, flex: 1, maxWidth: 380 }}>
+            <div style={{ display: "flex", gap: 10, flex: isMobile ? undefined : 1, maxWidth: isMobile ? undefined : 380 }}>
               <div style={{ position: "relative", flex: 1 }}>
                 <Search size={14} style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", color: "#aaa" }} />
                 <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search vehicles..."
                   style={{ width: "100%", padding: "7px 10px 7px 32px", border: "1.5px solid var(--border-input)", borderRadius: 8, fontSize: 13, background: "var(--bg-subtle)", color: "var(--text-main)" }} />
               </div>
+              <button className="btn-primary" onClick={openAdd}><Plus size={15} />{isMobile ? "Add" : "Add Vehicle"}</button>
             </div>
-            <button className="btn-primary" onClick={openAdd}><Plus size={15} />Add Vehicle</button>
           </div>
 
           {loading ? (
