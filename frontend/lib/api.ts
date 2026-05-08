@@ -108,3 +108,9 @@ export const dismissInsight   = (id: string) => api.patch(`/insights/${id}/dismi
 // ── Suggestions (Phase 2) ─────────────────────────────────
 export const suggestVehicles   = (origin: string) => api.get("/suggestions/vehicles", { params: { origin } });
 export const driverFatigueCheck = (driver_id: string) => api.get("/suggestions/driver-fatigue", { params: { driver_id } });
+
+// ── Analytics (Phase 3) ───────────────────────────────────
+export const getAnalyticsOverview  = (days = 30) => api.get("/analytics/overview",  { params: { days } });
+export const getAnalyticsMonthly   = ()           => api.get("/analytics/monthly");
+export const getAnalyticsVehicles  = (days = 30) => api.get("/analytics/vehicles",  { params: { days } });
+export const getAnalyticsExpenses  = (days = 30) => api.get("/analytics/expenses",  { params: { days } });

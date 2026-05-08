@@ -3,7 +3,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
   LayoutDashboard, Truck, Users, Route,
-  Wrench, Fuel, HeartPulse, ReceiptText, Circle, PackageOpen, BarChart2,
+  Wrench, Fuel, HeartPulse, ReceiptText, Circle, PackageOpen, BarChart2, TrendingUp,
   ShieldCheck, FileText, ChevronDown, ChevronUp, Settings,
   PlusCircle, UserCircle, LogOut, Building2, Upload,
   Menu, X, IndianRupee,
@@ -33,6 +33,7 @@ const NAV = [
       { label: "Insurance & Renewals", href: "/insurance",    icon: ShieldCheck },
     ]
   },
+  { label: "Analytics",  href: "/analytics", icon: TrendingUp },
   { label: "Parties",    href: "/parties",   icon: Building2 },
   { label: "Documents",  href: "/documents", icon: FileText },
   { label: "Reports",    href: "/reports",   icon: BarChart2 },

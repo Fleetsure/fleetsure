@@ -27,6 +27,7 @@ from app.routers import import_data
 from app.routers import billing
 from app.routers import insights
 from app.routers import suggestions
+from app.routers import analytics
 
 
 @asynccontextmanager
@@ -87,6 +88,7 @@ app.include_router(import_data.router,     prefix=API_PREFIX)
 app.include_router(billing.router,         prefix=API_PREFIX)
 app.include_router(insights.router,        prefix=API_PREFIX)
 app.include_router(suggestions.router,     prefix=API_PREFIX)
+app.include_router(analytics.router,       prefix=API_PREFIX)
 
 
 @app.get("/health")
