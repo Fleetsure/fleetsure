@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
 import Header from "@/components/Header";
-import { getVehicles, getTrips, getFuelLogs, getTollLogs, getTyreLogs, getMiscExpenses } from "@/lib/api";
+import { getVehicles, getTrips, getDrivers, getFuelLogs, getTollLogs, getTyreLogs, getMiscExpenses } from "@/lib/api";
 import { api } from "@/lib/api";
 import { Download, FileSpreadsheet, FileText, CheckSquare, Square } from "lucide-react";
 
@@ -36,15 +36,17 @@ export default function ReportsPage() {
   useEffect(() => {
     const orgName = localStorage.getItem("orgName") || "My Fleet";
     Promise.all([
-      getVehicles(), getTrips(), getFuelLogs(), getTollLogs(), getTyreLogs(), getMiscExpenses()
-    ]).then(([v, t, f, tl, ty, m]) => {
+      getVehicles(), getTrips(), getDrivers(), getFuelLogs(), getTollLogs(), getTyreLogs(), getMiscExpenses()
+    ]).then(([v, t, d, f, tl, ty, m]) => {
       setCounts({
         vehicles:    v.data.length,
         trips:       t.data.length,
+        drivers:     d.data.length,
         fuel:        f.data.length,
         tolls:       tl.data.length,
         tyres:       ty.data.length,
         misc:        m.data.length,
+        profit_loss: t.data.filter((trip: any) => trip.status === "completed").length,
       });
       setLoadingCounts(false);
     }).catch(() => setLoadingCounts(false));

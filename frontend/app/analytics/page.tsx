@@ -80,7 +80,7 @@ function BarChart({ data }: { data: any[] }) {
             <rect
               x={cx + 2} y={PAD_T + chartH - expH}
               width={barW} height={expH}
-              fill={profitPositive ? "#ef5350" : "#ef5350"}
+              fill={profitPositive ? "#ef5350" : "#b71c1c"}
               rx={3} opacity={0.75}
             />
             {/* Month label */}

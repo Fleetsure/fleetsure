@@ -18,6 +18,19 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
+// ── Response interceptor: redirect to login on 401 ────────
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response?.status === 401 && typeof window !== "undefined") {
+      localStorage.removeItem("token");
+      localStorage.removeItem("userName");
+      window.location.href = "/login";
+    }
+    return Promise.reject(error);
+  }
+);
+
 // ── Auth ──────────────────────────────────────────────────
 export const register = (data: { name: string; email: string; password: string }) =>
   api.post("/auth/register", data);
@@ -36,7 +49,7 @@ export const createDriver = (data: any) => api.post("/drivers/", data);
 export const updateDriver = (id: string, data: any) => api.patch(`/drivers/${id}`, data);
 
 // ── Trips ─────────────────────────────────────────────────
-export const getTrips     = () => api.get("/trips/");
+export const getTrips     = (limit = 200) => api.get("/trips/", { params: { limit } });
 export const createTrip   = (data: any) => api.post("/trips/", data);
 export const getTripDetail = (id: string) => api.get(`/trips/${id}`);
 export const updateTrip   = (id: string, data: any) => api.patch(`/trips/${id}`, data);

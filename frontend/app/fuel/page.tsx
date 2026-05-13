@@ -29,12 +29,17 @@ export default function FuelPage() {
   }, []);
 
   const load = async () => {
-    const [l, a, v, t] = await Promise.all([getFuelLogs(), getFuelAnalytics(), getVehicles(), getTrips()]);
-    setLogs(l.data);
-    setAnalytics(a.data);
-    setVehicles(v.data);
-    setTrips(t.data || []);
-    setLoading(false);
+    try {
+      const [l, a, v, t] = await Promise.all([getFuelLogs(), getFuelAnalytics(), getVehicles(), getTrips()]);
+      setLogs(l.data);
+      setAnalytics(a.data);
+      setVehicles(v.data);
+      setTrips(t.data || []);
+    } catch {
+      // non-blocking — page stays usable even if one endpoint is slow
+    } finally {
+      setLoading(false);
+    }
   };
   useEffect(() => { load(); }, []);
 

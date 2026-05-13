@@ -142,14 +142,15 @@ def analytics_monthly(
 
     months = []
     for i in range(5, -1, -1):
-        # First and last day of each month going back 6 months
-        month_date = date(today.year, today.month, 1) - timedelta(days=i * 30)
-        month_start = date(month_date.year, month_date.month, 1)
+        # Correct calendar-accurate month arithmetic (no timedelta*30 approximation)
+        month_offset = (today.month - 1 - i) % 12 + 1
+        year_offset  = today.year + (today.month - 1 - i) // 12
+        month_start = date(year_offset, month_offset, 1)
         # Last day of month
-        if month_date.month == 12:
-            month_end = date(month_date.year + 1, 1, 1) - timedelta(days=1)
+        if month_offset == 12:
+            month_end = date(year_offset + 1, 1, 1) - timedelta(days=1)
         else:
-            month_end = date(month_date.year, month_date.month + 1, 1) - timedelta(days=1)
+            month_end = date(year_offset, month_offset + 1, 1) - timedelta(days=1)
 
         trips = (
             db.query(Trip)

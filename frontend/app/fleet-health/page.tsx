@@ -111,9 +111,11 @@ export default function FleetHealthPage() {
       dateStr: v[c.key as keyof Vehicle] as string | null,
       ...getStatus(v[c.key as keyof Vehicle] as string | null),
     }));
-    const withDates  = checks.filter(c => c.status !== "missing");
     const okCount    = checks.filter(c => c.status === "ok").length;
-    const score      = withDates.length ? Math.round((okCount / withDates.length) * 100) : null;
+    // Use total checks (4) as denominator — missing dates count against the score
+    const score      = checks.some(c => c.status !== "missing")
+      ? Math.round((okCount / checks.length) * 100)
+      : null;
     const worstStatus: ComplianceStatus =
       checks.some(c => c.status === "expired")       ? "expired" :
       checks.some(c => c.status === "expiring_soon") ? "expiring_soon" :

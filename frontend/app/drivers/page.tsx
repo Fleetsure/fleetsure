@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import Header from "@/components/Header";
 import { getDrivers, createDriver, updateDriver, getDriverLedger, addDriverPayment, deleteDriverPayment } from "@/lib/api";
 import { Plus, Users, X, Phone, ChevronDown, ChevronRight, Edit2, Wallet, Trash2 } from "lucide-react";
@@ -328,8 +328,8 @@ export default function DriversPage() {
               </thead>
               <tbody>
                 {drivers.map((d: any) => (
-                  <>
-                    <tr key={d.id} style={{ cursor: "pointer" }} onClick={() => setExpandedRow(expandedRow === d.id ? null : d.id)}>
+                  <React.Fragment key={d.id}>
+                    <tr style={{ cursor: "pointer" }} onClick={() => setExpandedRow(expandedRow === d.id ? null : d.id)}>
                       <td style={{ width: 28, color: "#aaa" }}>
                         {expandedRow === d.id ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
                       </td>
@@ -353,7 +353,7 @@ export default function DriversPage() {
                       </td>
                     </tr>
                     {expandedRow === d.id && (
-                      <tr key={`${d.id}-exp`}>
+                      <tr>
                         <td colSpan={9} style={{ background: "var(--bg-soft, #f9f9fb)", padding: "12px 20px" }}>
                           <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "8px 24px", fontSize: 12.5 }}>
                             {[
@@ -376,7 +376,7 @@ export default function DriversPage() {
                         </td>
                       </tr>
                     )}
-                  </>
+                  </React.Fragment>
                 ))}
               </tbody>
             </table>

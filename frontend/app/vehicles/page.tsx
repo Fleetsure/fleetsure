@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import Header from "@/components/Header";
 import { getVehicles, createVehicle, updateVehicle, getInsights } from "@/lib/api";
 import { Plus, Truck, X, Search, AlertCircle, CheckCircle, ChevronDown, ChevronUp, Wrench, Navigation, AlertTriangle } from "lucide-react";
@@ -243,8 +243,8 @@ export default function VehiclesPage() {
               </thead>
               <tbody>
                 {filtered.map((v: any) => (
-                  <>
-                    <tr key={v.id} style={{ cursor: "pointer" }} onClick={() => setExpandedRow(expandedRow === v.id ? null : v.id)}>
+                  <React.Fragment key={v.id}>
+                    <tr style={{ cursor: "pointer" }} onClick={() => setExpandedRow(expandedRow === v.id ? null : v.id)}>
                       <td style={{ fontWeight: 700, color: "#1E2D8E" }}>
                         {v.registration_number}
                         {v.rto_code && <span style={{ fontSize: 10, color: "#aaa", marginLeft: 4 }}>({v.rto_code})</span>}
@@ -281,7 +281,7 @@ export default function VehiclesPage() {
                       </td>
                     </tr>
                     {expandedRow === v.id && (
-                      <tr key={`${v.id}-expanded`}>
+                      <tr>
                         <td colSpan={8} style={{ background: "var(--bg-subtle)", padding: "12px 20px" }}>
                           <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 16 }}>
                             {[
@@ -303,7 +303,7 @@ export default function VehiclesPage() {
                         </td>
                       </tr>
                     )}
-                  </>
+                  </React.Fragment>
                 ))}
               </tbody>
             </table>
