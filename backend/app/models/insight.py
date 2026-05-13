@@ -13,6 +13,7 @@ class InsightType(str, enum.Enum):
     DRIVER_FATIGUE     = "driver_fatigue"     # Phase 2
     MAINTENANCE_DUE    = "maintenance_due"    # Phase 2
     EMPTY_RUN          = "empty_run"          # Phase 2
+    COMPLIANCE_EXPIRY  = "compliance_expiry"  # Phase 4
 
 
 class InsightSeverity(str, enum.Enum):

@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState, useCallback } from "react";
-import { X, RefreshCw, Bell, AlertTriangle, Info, TrendingUp, Truck, ReceiptText } from "lucide-react";
+import { X, RefreshCw, Bell, AlertTriangle, Info, TrendingUp, Truck, ReceiptText, ShieldAlert } from "lucide-react";
 import { getInsights, refreshInsights, markInsightRead, dismissInsight, markAllRead } from "@/lib/api";
 
 type Insight = {
@@ -24,13 +24,14 @@ const SEVERITY_STYLES: Record<string, { bg: string; border: string; color: strin
 };
 
 const TYPE_META: Record<string, { icon: any; label: string }> = {
-  idle_vehicle:        { icon: Truck,       label: "Idle Vehicle"        },
-  unrecorded_expense:  { icon: ReceiptText, label: "Missing Expense"     },
-  cost_per_km:         { icon: TrendingUp,  label: "Cost Analysis"       },
-  fuel_anomaly:        { icon: AlertTriangle, label: "Fuel Anomaly"      },
-  driver_fatigue:      { icon: AlertTriangle, label: "Driver Fatigue"    },
-  maintenance_due:     { icon: AlertTriangle, label: "Maintenance Due"   },
-  empty_run:           { icon: Truck,       label: "Empty Run Alert"     },
+  idle_vehicle:        { icon: Truck,        label: "Idle Vehicle"        },
+  unrecorded_expense:  { icon: ReceiptText,  label: "Missing Expense"     },
+  cost_per_km:         { icon: TrendingUp,   label: "Cost Analysis"       },
+  fuel_anomaly:        { icon: AlertTriangle, label: "Fuel Anomaly"       },
+  driver_fatigue:      { icon: AlertTriangle, label: "Driver Fatigue"     },
+  maintenance_due:     { icon: AlertTriangle, label: "Maintenance Due"    },
+  empty_run:           { icon: Truck,        label: "Empty Run Alert"     },
+  compliance_expiry:   { icon: ShieldAlert,  label: "Compliance Alert"   },
 };
 
 function timeAgo(iso: string): string {

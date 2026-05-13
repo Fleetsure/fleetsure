@@ -1,8 +1,8 @@
 "use client";
 import { useEffect, useState } from "react";
 import Header from "@/components/Header";
-import { getVehicles } from "@/lib/api";
-import { HeartPulse, AlertTriangle, CheckCircle, Clock, Truck, ChevronUp, ChevronDown } from "lucide-react";
+import { getVehicles, getDrivers } from "@/lib/api";
+import { HeartPulse, AlertTriangle, CheckCircle, Clock, Truck, Users, ChevronUp, ChevronDown } from "lucide-react";
 
 type Vehicle = {
   id: string;
@@ -13,6 +13,16 @@ type Vehicle = {
   fitness_expiry: string | null;
   puc_expiry: string | null;
   permit_expiry: string | null;
+  status: string;
+};
+
+type DriverRecord = {
+  id: string;
+  name: string;
+  phone: string;
+  license_number: string | null;
+  license_expiry: string | null;
+  transport_validity: string | null;
   status: string;
 };
 
@@ -75,6 +85,7 @@ function StatusBadge({ dateStr }: { dateStr: string | null }) {
 
 export default function FleetHealthPage() {
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
+  const [drivers, setDrivers]   = useState<DriverRecord[]>([]);
   const [loading, setLoading]   = useState(true);
   const [sortField, setSortField] = useState<string | null>(null);
   const [sortAsc, setSortAsc]     = useState(true);
@@ -88,7 +99,9 @@ export default function FleetHealthPage() {
   }, []);
 
   useEffect(() => {
-    getVehicles().then(res => setVehicles(res.data)).finally(() => setLoading(false));
+    Promise.all([getVehicles(), getDrivers()])
+      .then(([v, d]) => { setVehicles(v.data); setDrivers(d.data || []); })
+      .finally(() => setLoading(false));
   }, []);
 
   // Compute per-vehicle compliance
@@ -108,10 +121,33 @@ export default function FleetHealthPage() {
     return { ...v, checks, score, worstStatus };
   });
 
-  // Fleet-level stats
+  // Driver compliance rows
+  const DRIVER_CHECKS = [
+    { key: "license_expiry",    label: "DL Expiry" },
+    { key: "transport_validity", label: "Transport Endorsement" },
+  ] as const;
+
+  const driverRows = drivers
+    .filter(d => d.status !== "inactive")
+    .map(d => {
+      const checks = DRIVER_CHECKS.map(c => ({
+        ...c,
+        dateStr: d[c.key as keyof DriverRecord] as string | null,
+        ...getStatus(d[c.key as keyof DriverRecord] as string | null),
+      }));
+      const worstStatus: ComplianceStatus =
+        checks.some(c => c.status === "expired")        ? "expired" :
+        checks.some(c => c.status === "expiring_soon")  ? "expiring_soon" :
+        checks.some(c => c.status === "ok")             ? "ok" : "missing";
+      return { ...d, checks, worstStatus };
+    });
+
+  // Fleet-level stats (vehicles + drivers combined)
   const allChecks   = rows.flatMap(r => r.checks);
-  const expired     = allChecks.filter(c => c.status === "expired").length;
-  const expiringSoon= allChecks.filter(c => c.status === "expiring_soon").length;
+  const driverAllChecks = driverRows.flatMap(r => r.checks);
+  const combinedChecks = [...allChecks, ...driverAllChecks];
+  const expired     = combinedChecks.filter(c => c.status === "expired").length;
+  const expiringSoon= combinedChecks.filter(c => c.status === "expiring_soon").length;
   const ok          = allChecks.filter(c => c.status === "ok").length;
   const total       = allChecks.filter(c => c.status !== "missing").length;
   const fleetScore  = total ? Math.round((ok / total) * 100) : null;
@@ -121,12 +157,19 @@ export default function FleetHealthPage() {
     fleetScore >= 80    ? "#2e7d32" :
     fleetScore >= 50    ? "#e65100" : "#c62828";
 
-  // Alerts: all expired or expiring_soon items
-  const alerts = rows.flatMap(r =>
+  // Alerts: all expired or expiring_soon items (vehicles + drivers)
+  const vehicleAlerts = rows.flatMap(r =>
     r.checks
       .filter(c => c.status === "expired" || c.status === "expiring_soon")
-      .map(c => ({ reg: r.registration_number, make: r.make, model: r.model, ...c }))
-  ).sort((a, b) => (a.daysLeft ?? -9999) - (b.daysLeft ?? -9999));
+      .map(c => ({ entity: r.registration_number, sub: `${r.make} ${r.model}`, type: "vehicle" as const, ...c }))
+  );
+  const driverAlerts = driverRows.flatMap(r =>
+    r.checks
+      .filter(c => c.status === "expired" || c.status === "expiring_soon")
+      .map(c => ({ entity: r.name, sub: r.phone, type: "driver" as const, ...c }))
+  );
+  const alerts = [...vehicleAlerts, ...driverAlerts]
+    .sort((a, b) => (a.daysLeft ?? -9999) - (b.daysLeft ?? -9999));
 
   // Sorting
   const handleSort = (field: string) => {
@@ -211,6 +254,10 @@ export default function FleetHealthPage() {
               <div style={{ fontSize: 24, fontWeight: 800, color: "#1E2D8E" }}>{vehicles.length}</div>
               <div style={{ fontSize: 12, color: "#aaa", marginTop: 2 }}>Vehicles</div>
             </div>
+            <div style={{ textAlign: "center" }}>
+              <div style={{ fontSize: 24, fontWeight: 800, color: "#1565c0" }}>{drivers.filter(d => d.status !== "inactive").length}</div>
+              <div style={{ fontSize: 12, color: "#aaa", marginTop: 2 }}>Drivers</div>
+            </div>
           </div>
         </div>
 
@@ -225,20 +272,22 @@ export default function FleetHealthPage() {
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
               {alerts.map((a, i) => (
-                <div key={i} style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 13 }}>
+                <div key={i} style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 13, flexWrap: "wrap" }}>
                   <span style={{
                     width: 8, height: 8, borderRadius: "50%", flexShrink: 0,
                     background: a.status === "expired" ? "#c62828" : "#e65100"
                   }} />
-                  <span style={{ fontWeight: 600, color: "#1a1a2e" }}>{a.reg}</span>
-                  <span style={{ color: "#555" }}>{a.make} {a.model}</span>
-                  <span style={{ color: "#777" }}>—</span>
-                  <span style={{ color: "#777" }}>{a.label}</span>
+                  <span style={{ fontSize: 10, fontWeight: 700, color: "white", background: a.type === "driver" ? "#1565c0" : "#555", padding: "1px 6px", borderRadius: 4 }}>
+                    {a.type === "driver" ? "DRIVER" : "VEHICLE"}
+                  </span>
+                  <span style={{ fontWeight: 600, color: "#1a1a2e" }}>{a.entity}</span>
+                  <span style={{ color: "#888", fontSize: 12 }}>{a.sub}</span>
+                  <span style={{ color: "#777" }}>— {a.label}</span>
                   <span style={{
                     marginLeft: "auto", fontWeight: 700,
                     color: a.status === "expired" ? "#c62828" : "#e65100"
                   }}>
-                    {a.status === "expired" ? `Expired ${Math.abs(a.daysLeft!)} days ago` : `Expires in ${a.daysLeft} days`}
+                    {a.status === "expired" ? `Expired ${Math.abs(a.daysLeft!)}d ago` : `${a.daysLeft}d left`}
                   </span>
                 </div>
               ))}
@@ -317,6 +366,75 @@ export default function FleetHealthPage() {
                           </div>
                         ) : (
                           <span style={{ fontSize: 12, color: "#ccc" }}>—</span>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+
+        {/* ── Driver License Compliance ──────────────────────── */}
+        <div className="card" style={{ padding: 0, overflow: "hidden" }}>
+          <div style={{ padding: "16px 20px", borderBottom: "1px solid #f0f0f5", display: "flex", alignItems: "center", gap: 10 }}>
+            <Users size={16} color="#1565c0" />
+            <div style={{ fontWeight: 700, fontSize: 15 }}>Driver License Compliance</div>
+          </div>
+
+          {drivers.filter(d => d.status !== "inactive").length === 0 ? (
+            <div style={{ textAlign: "center", padding: "40px 0" }}>
+              <Users size={36} color="#e0e0e0" style={{ display: "block", margin: "0 auto 10px" }} />
+              <p style={{ color: "#aaa", fontSize: 13 }}>No active drivers found.</p>
+            </div>
+          ) : (
+            <div style={{ overflowX: "auto" }}>
+              <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                <thead>
+                  <tr style={{ background: "#fafafa" }}>
+                    {["Driver", "License No.", "DL Expiry", "Transport Endorsement", "Status"].map(h => (
+                      <th key={h} style={{ padding: "10px 16px", textAlign: "left", fontSize: 12, fontWeight: 700, color: "#888", textTransform: "uppercase", letterSpacing: "0.05em", whiteSpace: "nowrap" }}>
+                        {h}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {driverRows.map((d, i) => (
+                    <tr key={d.id} style={{ borderTop: "1px solid #f5f5f5", background: i % 2 === 0 ? "white" : "#fafbff" }}>
+                      <td style={{ padding: "12px 16px" }}>
+                        <div style={{ fontWeight: 700, fontSize: 13.5, color: "#1a1a2e" }}>{d.name}</div>
+                        <div style={{ fontSize: 12, color: "#aaa" }}>{d.phone}</div>
+                      </td>
+                      <td style={{ padding: "12px 16px", fontSize: 13, color: "#555" }}>
+                        {d.license_number || <span style={{ color: "#ccc" }}>—</span>}
+                      </td>
+                      {d.checks.map(c => (
+                        <td key={c.key} style={{ padding: "12px 16px" }}>
+                          <StatusBadge dateStr={c.dateStr} />
+                          {c.dateStr && (
+                            <div style={{ fontSize: 11, color: "#bbb", marginTop: 3, textAlign: "center" }}>
+                              {new Date(c.dateStr).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "2-digit" })}
+                            </div>
+                          )}
+                        </td>
+                      ))}
+                      <td style={{ padding: "12px 16px" }}>
+                        {d.worstStatus === "expired" ? (
+                          <span style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 12, fontWeight: 700, color: "#c62828" }}>
+                            <AlertTriangle size={12} /> Expired
+                          </span>
+                        ) : d.worstStatus === "expiring_soon" ? (
+                          <span style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 12, fontWeight: 700, color: "#e65100" }}>
+                            <Clock size={12} /> Renew Soon
+                          </span>
+                        ) : d.worstStatus === "ok" ? (
+                          <span style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 12, fontWeight: 700, color: "#2e7d32" }}>
+                            <CheckCircle size={12} /> Valid
+                          </span>
+                        ) : (
+                          <span style={{ fontSize: 12, color: "#ccc" }}>No dates</span>
                         )}
                       </td>
                     </tr>

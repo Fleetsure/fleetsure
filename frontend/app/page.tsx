@@ -1,10 +1,10 @@
 "use client";
 import { useEffect, useState } from "react";
 import Header from "@/components/Header";
-import { getVehicles, getTrips, getDrivers, getVehiclePnL } from "@/lib/api";
+import { getVehicles, getTrips, getDrivers, getVehiclePnL, getDailySummary } from "@/lib/api";
 import {
   Truck, Users, Route, TrendingUp, CheckCircle, ChevronRight,
-  TrendingDown, AlertTriangle, IndianRupee, BarChart2
+  TrendingDown, AlertTriangle, IndianRupee, BarChart2, MessageCircle
 } from "lucide-react";
 import Link from "next/link";
 import OnboardingChecklist from "@/components/OnboardingChecklist";
@@ -45,9 +45,10 @@ export default function Dashboard() {
   const [drivers, setDrivers]   = useState<any[]>([]);
   const [pnlData, setPnlData]   = useState<any[]>([]);
   const [loading, setLoading]   = useState(true);
-  const [userName, setUserName] = useState("Fleet Owner");
-  const [emoji, setEmoji]       = useState("🚀");
-  const [isMobile, setIsMobile] = useState(false);
+  const [userName, setUserName]       = useState("Fleet Owner");
+  const [emoji, setEmoji]             = useState("🚀");
+  const [isMobile, setIsMobile]       = useState(false);
+  const [waLoading, setWaLoading]     = useState(false);
 
   useEffect(() => {
     const check = () => setIsMobile(window.innerWidth < 768);
@@ -97,6 +98,82 @@ export default function Dashboard() {
   const fleetProfit    = pnlData.reduce((s, v) => s + v.profit, 0);
   const fleetMargin    = fleetRevenue > 0 ? (fleetProfit / fleetRevenue) * 100 : 0;
   const worstVehicle   = pnlData.length > 0 ? pnlData[pnlData.length - 1] : null;
+
+  // ── WhatsApp daily summary ──────────────────────────────────
+  const handleWhatsAppSummary = async () => {
+    setWaLoading(true);
+    try {
+      const res = await getDailySummary();
+      const d = res.data;
+
+      const today = new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
+      const lines: string[] = [];
+
+      lines.push(`🚛 *FleetSure Daily Report*`);
+      lines.push(`📅 ${today}`);
+      lines.push(``);
+
+      // Fleet status
+      lines.push(`*📍 FLEET STATUS*`);
+      if (d.active_trips.length > 0) {
+        lines.push(`🟢 *On Road:* ${d.active_trips.length} trip${d.active_trips.length !== 1 ? "s" : ""}`);
+        d.active_trips.forEach((t: any) => {
+          lines.push(`   • ${t.reg_number || "—"} → ${t.origin} to ${t.destination}${t.driver_name ? ` (${t.driver_name})` : ""}`);
+        });
+      } else {
+        lines.push(`⚪ No active trips right now`);
+      }
+      if (d.planned_trips_count > 0) lines.push(`📋 *Planned:* ${d.planned_trips_count} trip${d.planned_trips_count !== 1 ? "s" : ""} ready to dispatch`);
+      lines.push(``);
+
+      // Today's numbers
+      lines.push(`*💰 TODAY'S NUMBERS*`);
+      lines.push(`✅ Completed: ${d.completed_today} trip${d.completed_today !== 1 ? "s" : ""}`);
+      if (d.revenue_today > 0) {
+        lines.push(`💵 Revenue: ₹${d.revenue_today.toLocaleString("en-IN")}`);
+      } else {
+        lines.push(`💵 Revenue: ₹0`);
+      }
+      lines.push(``);
+
+      // Compliance alerts
+      if (d.compliance_alerts.length > 0) {
+        lines.push(`*🚨 COMPLIANCE ALERTS*`);
+        d.compliance_alerts.forEach((a: any) => {
+          const icon = a.severity === "critical" ? "🔴" : "🟡";
+          lines.push(`${icon} ${a.title}`);
+        });
+        lines.push(``);
+      }
+
+      // Idle vehicles
+      if (d.idle_vehicles.length > 0) {
+        lines.push(`*⚠️ IDLE VEHICLES*`);
+        d.idle_vehicles.forEach((v: any) => {
+          const days = v.idle_days !== null ? `${v.idle_days} days idle` : "no trips yet";
+          lines.push(`• ${v.registration_number} — ${days}`);
+        });
+        lines.push(``);
+      }
+
+      lines.push(`_Powered by FleetSure_`);
+
+      const message = lines.join("\n");
+      const encoded = encodeURIComponent(message);
+
+      // Route to owner's own number if phone saved, else open picker
+      const phone = d.owner_phone ? `91${d.owner_phone.replace(/\D/g, "").replace(/^91/, "")}` : "";
+      const url = phone
+        ? `https://wa.me/${phone}?text=${encoded}`
+        : `https://wa.me/?text=${encoded}`;
+
+      window.open(url, "_blank");
+    } catch {
+      alert("Could not load summary. Please try again.");
+    } finally {
+      setWaLoading(false);
+    }
+  };
 
   const setupSteps = [
     { label: "Add your first vehicle", done: vehicles.length > 0, href: "/vehicles", cta: "Add Vehicle" },
@@ -165,6 +242,40 @@ export default function Dashboard() {
               </div>
             </div>
           ))}
+        </div>
+
+        {/* ── WhatsApp Daily Summary ───────────────────────────────── */}
+        <div style={{
+          display: "flex", alignItems: "center", justifyContent: "space-between",
+          background: "#e7fce8", border: "1.5px solid #a5d6a7", borderRadius: 12,
+          padding: isMobile ? "12px 14px" : "14px 20px",
+          marginBottom: isMobile ? 16 : 24,
+          flexWrap: "wrap", gap: 10,
+        }}>
+          <div>
+            <div style={{ fontWeight: 700, fontSize: 14, color: "#1b5e20", display: "flex", alignItems: "center", gap: 8 }}>
+              <MessageCircle size={16} color="#2e7d32" />
+              WhatsApp Daily Report
+            </div>
+            <div style={{ fontSize: 12, color: "#4caf50", marginTop: 2 }}>
+              Active trips · revenue · compliance alerts · idle vehicles — sent to your WhatsApp
+            </div>
+          </div>
+          <button
+            onClick={handleWhatsAppSummary}
+            disabled={waLoading}
+            style={{
+              display: "flex", alignItems: "center", gap: 8,
+              background: waLoading ? "#a5d6a7" : "#25D366",
+              color: "white", border: "none", borderRadius: 8,
+              padding: "9px 18px", fontSize: 13.5, fontWeight: 700,
+              cursor: waLoading ? "not-allowed" : "pointer",
+              boxShadow: "0 2px 8px rgba(37,211,102,0.3)",
+              whiteSpace: "nowrap",
+            }}>
+            <MessageCircle size={15} />
+            {waLoading ? "Loading…" : "Send Summary"}
+          </button>
         </div>
 
         {/* ── P&L Per Truck Section ─────────────────────────────────── */}

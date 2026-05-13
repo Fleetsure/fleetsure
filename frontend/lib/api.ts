@@ -114,3 +114,6 @@ export const getAnalyticsOverview  = (days = 30) => api.get("/analytics/overview
 export const getAnalyticsMonthly   = ()           => api.get("/analytics/monthly");
 export const getAnalyticsVehicles  = (days = 30) => api.get("/analytics/vehicles",  { params: { days } });
 export const getAnalyticsExpenses  = (days = 30) => api.get("/analytics/expenses",  { params: { days } });
+
+// ── WhatsApp (Phase 5) ────────────────────────────────────
+export const getDailySummary = () => api.get("/analytics/daily-summary");

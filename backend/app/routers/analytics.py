@@ -18,9 +18,11 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.database import get_db
+from app.models.driver import Driver
 from app.models.driver_payment import DriverPayment
 from app.models.expense import Expense
 from app.models.fuel_log import FuelLog
+from app.models.insight import InsightSeverity, InsightType, OperationalInsight
 from app.models.misc_expense import MiscExpense
 from app.models.toll_log import TollLog
 from app.models.trip import Trip, TripStatus
@@ -351,3 +353,120 @@ def _expense_label(cat: str) -> str:
         "other":             "Other",
     }
     return labels.get(cat, cat.replace("_", " ").title())
+
+
+# ─────────────────────────────────────────────────────────────
+# 5. Daily Summary  (Phase 5 — WhatsApp)
+# ─────────────────────────────────────────────────────────────
+
+@router.get("/daily-summary")
+def analytics_daily_summary(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Returns a snapshot for today:
+    - Active (in-progress) trips
+    - Trips completed today + revenue
+    - Critical + warning compliance alerts
+    - Idle vehicles (no trip in last 7 days)
+    Used to generate the owner's WhatsApp daily report.
+    """
+    owner_id = current_user.id
+    today    = date.today()
+    idle_cutoff = today - timedelta(days=7)
+
+    # Active trips right now
+    active_trips = (
+        db.query(Trip)
+        .filter(Trip.owner_id == owner_id, Trip.status == TripStatus.IN_PROGRESS)
+        .all()
+    )
+
+    # Trips completed today
+    completed_today = (
+        db.query(Trip)
+        .filter(
+            Trip.owner_id == owner_id,
+            Trip.status == TripStatus.COMPLETED,
+            Trip.end_date == today,
+        )
+        .all()
+    )
+
+    revenue_today = sum(float(t.freight_amount or 0) for t in completed_today)
+
+    # Planned trips (dispatched but not started)
+    planned_trips = (
+        db.query(Trip)
+        .filter(Trip.owner_id == owner_id, Trip.status == TripStatus.PLANNED)
+        .all()
+    )
+
+    # Compliance alerts — critical and warning, not dismissed
+    compliance_alerts = (
+        db.query(OperationalInsight)
+        .filter(
+            OperationalInsight.owner_id == owner_id,
+            OperationalInsight.insight_type == InsightType.COMPLIANCE_EXPIRY,
+            OperationalInsight.is_dismissed == False,  # noqa: E712
+            OperationalInsight.severity.in_([InsightSeverity.CRITICAL, InsightSeverity.WARNING]),
+        )
+        .order_by(OperationalInsight.severity.desc())
+        .limit(10)
+        .all()
+    )
+
+    # Idle vehicles — active vehicles with no trip in last 7 days and no in-progress trip
+    active_vehicles = (
+        db.query(Vehicle)
+        .filter(Vehicle.owner_id == owner_id, Vehicle.status == VehicleStatus.ACTIVE)
+        .all()
+    )
+    idle_vehicles = []
+    for v in active_vehicles:
+        on_trip = db.query(Trip).filter(
+            Trip.vehicle_id == v.id,
+            Trip.owner_id == owner_id,
+            Trip.status == TripStatus.IN_PROGRESS,
+        ).first()
+        if on_trip:
+            continue
+        last = db.query(Trip).filter(
+            Trip.vehicle_id == v.id,
+            Trip.owner_id == owner_id,
+            Trip.status == TripStatus.COMPLETED,
+        ).order_by(Trip.end_date.desc()).first()
+        if last is None or last.end_date < idle_cutoff:
+            idle_days = (today - last.end_date).days if last else None
+            idle_vehicles.append({
+                "registration_number": v.registration_number,
+                "idle_days": idle_days,
+            })
+
+    return {
+        "date":            str(today),
+        "owner_name":      current_user.org_name or current_user.name or "Fleet Owner",
+        "owner_phone":     current_user.phone,
+        "active_trips": [
+            {
+                "origin":      t.origin,
+                "destination": t.destination,
+                "driver_name": t.driver_name,
+                "reg_number":  next((v.registration_number for v in active_vehicles if v.id == t.vehicle_id), ""),
+            }
+            for t in active_trips
+        ],
+        "planned_trips_count":  len(planned_trips),
+        "completed_today":      len(completed_today),
+        "revenue_today":        round(revenue_today, 2),
+        "compliance_alerts": [
+            {
+                "title":    a.title,
+                "severity": a.severity.value,
+            }
+            for a in compliance_alerts
+        ],
+        "idle_vehicles": idle_vehicles[:5],  # cap at 5 for message length
+        "total_active_vehicles": len(active_vehicles),
+    }

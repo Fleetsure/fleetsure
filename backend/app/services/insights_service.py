@@ -1,6 +1,7 @@
 """
-Operational Intelligence Engine — Phase 2
-Detects: idle vehicles, unrecorded expenses, cost-per-km anomalies, fuel anomalies.
+Operational Intelligence Engine — Phase 2 + Phase 4
+Detects: idle vehicles, unrecorded expenses, cost-per-km anomalies, fuel anomalies,
+         compliance expiry (insurance, fitness, PUC, permit, driver license).
 Called on-demand via POST /insights/refresh.
 """
 from __future__ import annotations
@@ -12,8 +13,10 @@ from uuid import UUID
 from sqlalchemy import func, text
 from sqlalchemy.orm import Session
 
+from app.models.driver import Driver
 from app.models.fuel_log import FuelLog
 from app.models.insight import InsightSeverity, InsightType, OperationalInsight
+from app.models.insurance import InsurancePolicy
 from app.models.misc_expense import MiscExpense
 from app.models.toll_log import TollLog
 from app.models.trip import Trip, TripStatus
@@ -376,6 +379,184 @@ def detect_fuel_anomaly(db: Session, owner_id: UUID) -> int:
 
 
 # ─────────────────────────────────────────────────────────────
+# 5. Compliance Expiry Detection  (Phase 4)
+# ─────────────────────────────────────────────────────────────
+
+# Days-before-expiry thresholds
+COMPLIANCE_CRITICAL_DAYS = 15   # ≤ 15 days (or already expired) → CRITICAL
+COMPLIANCE_WARNING_DAYS  = 30   # 16–30 days → WARNING
+COMPLIANCE_INFO_DAYS     = 60   # 31–60 days → INFO  (beyond 60 = no alert)
+
+_DOC_LABELS = {
+    "insurance": "Insurance",
+    "fitness":   "Fitness Certificate",
+    "puc":       "PUC Certificate",
+    "permit":    "Permit",
+    "license":   "Driver License",
+    "transport": "Transport Endorsement",
+}
+
+
+def _compliance_severity_and_body(days_left: int, doc_label: str, entity: str) -> tuple[InsightSeverity, str, str]:
+    """Return (severity, title_suffix, body) based on days_left."""
+    if days_left < 0:
+        return (
+            InsightSeverity.CRITICAL,
+            f"EXPIRED {abs(days_left)}d ago",
+            f"{doc_label} for {entity} expired {abs(days_left)} days ago. Immediate renewal required to avoid penalties.",
+        )
+    if days_left == 0:
+        return (
+            InsightSeverity.CRITICAL,
+            "expires TODAY",
+            f"{doc_label} for {entity} expires today. Renew immediately.",
+        )
+    if days_left <= COMPLIANCE_CRITICAL_DAYS:
+        return (
+            InsightSeverity.CRITICAL,
+            f"expires in {days_left}d",
+            f"{doc_label} for {entity} expires in {days_left} days. Renew urgently to avoid challan.",
+        )
+    if days_left <= COMPLIANCE_WARNING_DAYS:
+        return (
+            InsightSeverity.WARNING,
+            f"expires in {days_left}d",
+            f"{doc_label} for {entity} expires in {days_left} days. Schedule renewal soon.",
+        )
+    return (
+        InsightSeverity.INFO,
+        f"expires in {days_left}d",
+        f"{doc_label} for {entity} expires in {days_left} days.",
+    )
+
+
+def detect_compliance_alerts(db: Session, owner_id: UUID) -> int:
+    """
+    Check vehicle compliance dates (insurance, fitness, PUC, permit) and
+    driver license/transport validity.
+    Creates an insight for anything expiring within COMPLIANCE_INFO_DAYS days
+    or already expired.
+    """
+    today = date.today()
+    count = 0
+
+    # ── Vehicles ──────────────────────────────────────────────
+    vehicles = (
+        db.query(Vehicle)
+        .filter(Vehicle.owner_id == owner_id, Vehicle.status == VehicleStatus.ACTIVE)
+        .all()
+    )
+
+    vehicle_doc_fields = [
+        ("insurance", "insurance_expiry"),
+        ("fitness",   "fitness_expiry"),
+        ("puc",       "puc_expiry"),
+        ("permit",    "permit_expiry"),
+    ]
+
+    for v in vehicles:
+        for doc_key, field in vehicle_doc_fields:
+            expiry: Optional[date] = getattr(v, field)
+            if expiry is None:
+                continue
+            days_left = (expiry - today).days
+            if days_left > COMPLIANCE_INFO_DAYS:
+                continue
+
+            doc_label = _DOC_LABELS[doc_key]
+            severity, suffix, body = _compliance_severity_and_body(days_left, doc_label, v.registration_number)
+
+            _create(
+                db, owner_id,
+                insight_type=InsightType.COMPLIANCE_EXPIRY,
+                severity=severity,
+                title=f"{v.registration_number} {doc_label} {suffix}",
+                body=body,
+                vehicle_id=v.id,
+                meta={
+                    "doc_type":            doc_key,
+                    "registration_number": v.registration_number,
+                    "expiry_date":         str(expiry),
+                    "days_left":           days_left,
+                },
+            )
+            count += 1
+
+        # Also check InsurancePolicy table (may have more precise records)
+        policies = (
+            db.query(InsurancePolicy)
+            .filter(
+                InsurancePolicy.vehicle_id == v.id,
+                InsurancePolicy.owner_id == owner_id,
+            )
+            .all()
+        )
+        for pol in policies:
+            days_left = (pol.expiry_date - today).days
+            if days_left > COMPLIANCE_INFO_DAYS:
+                continue
+            pol_label = pol.policy_type.value.replace("_", " ").title()
+            severity, suffix, body = _compliance_severity_and_body(days_left, pol_label, v.registration_number)
+            _create(
+                db, owner_id,
+                insight_type=InsightType.COMPLIANCE_EXPIRY,
+                severity=severity,
+                title=f"{v.registration_number} {pol_label} {suffix}",
+                body=body,
+                vehicle_id=v.id,
+                meta={
+                    "doc_type":            pol.policy_type.value,
+                    "registration_number": v.registration_number,
+                    "policy_number":       pol.policy_number,
+                    "expiry_date":         str(pol.expiry_date),
+                    "days_left":           days_left,
+                },
+            )
+            count += 1
+
+    # ── Drivers ───────────────────────────────────────────────
+    drivers = (
+        db.query(Driver)
+        .filter(Driver.owner_id == owner_id, Driver.status != "inactive")
+        .all()
+    )
+
+    driver_doc_fields = [
+        ("license",   "license_expiry",      "Driver License"),
+        ("transport", "transport_validity",  "Transport Endorsement"),
+    ]
+
+    for d in drivers:
+        for doc_key, field, label in driver_doc_fields:
+            expiry: Optional[date] = getattr(d, field)
+            if expiry is None:
+                continue
+            days_left = (expiry - today).days
+            if days_left > COMPLIANCE_INFO_DAYS:
+                continue
+
+            severity, suffix, body = _compliance_severity_and_body(days_left, label, d.name)
+
+            _create(
+                db, owner_id,
+                insight_type=InsightType.COMPLIANCE_EXPIRY,
+                severity=severity,
+                title=f"{d.name} {label} {suffix}",
+                body=body,
+                driver_id=d.id,
+                meta={
+                    "doc_type":    doc_key,
+                    "driver_name": d.name,
+                    "expiry_date": str(expiry),
+                    "days_left":   days_left,
+                },
+            )
+            count += 1
+
+    return count
+
+
+# ─────────────────────────────────────────────────────────────
 # Orchestrator
 # ─────────────────────────────────────────────────────────────
 
@@ -391,10 +572,11 @@ def refresh_insights(db: Session, owner_id: UUID) -> dict:
         OperationalInsight.is_dismissed == False,  # noqa: E712
     ).delete(synchronize_session=False)
 
-    idle    = detect_idle_vehicles(db, owner_id)
-    nudges  = check_unrecorded_expenses(db, owner_id)
-    cpk     = compute_cost_per_km_insights(db, owner_id)
-    fuel    = detect_fuel_anomaly(db, owner_id)
+    idle       = detect_idle_vehicles(db, owner_id)
+    nudges     = check_unrecorded_expenses(db, owner_id)
+    cpk        = compute_cost_per_km_insights(db, owner_id)
+    fuel       = detect_fuel_anomaly(db, owner_id)
+    compliance = detect_compliance_alerts(db, owner_id)
 
     db.commit()
 
@@ -403,5 +585,6 @@ def refresh_insights(db: Session, owner_id: UUID) -> dict:
         "unrecorded_expense_insights": nudges,
         "cost_per_km_insights":        cpk,
         "fuel_anomaly_insights":       fuel,
-        "total":                       idle + nudges + cpk + fuel,
+        "compliance_alerts":           compliance,
+        "total":                       idle + nudges + cpk + fuel + compliance,
     }
