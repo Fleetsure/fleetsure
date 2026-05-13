@@ -402,6 +402,13 @@ def analytics_daily_summary(
         .all()
     )
 
+    # All active vehicles — needed for compliance check AND idle check AND active trip labels
+    all_active_vehicles = (
+        db.query(Vehicle)
+        .filter(Vehicle.owner_id == owner_id, Vehicle.status == VehicleStatus.ACTIVE)
+        .all()
+    )
+
     # Compliance alerts — compute fresh from vehicle/driver dates (avoids enum migration issues)
     CRITICAL_DAYS = 15
     WARNING_DAYS  = 30
@@ -413,7 +420,7 @@ def analytics_daily_summary(
         ("puc_expiry",       "PUC"),
         ("permit_expiry",    "Permit"),
     ]
-    for v in active_vehicles:
+    for v in all_active_vehicles:
         for field, label in veh_doc_fields:
             expiry = getattr(v, field)
             if expiry is None:
@@ -462,13 +469,8 @@ def analytics_daily_summary(
     compliance_alerts = compliance_alerts[:10]
 
     # Idle vehicles — active vehicles with no trip in last 7 days and no in-progress trip
-    active_vehicles = (
-        db.query(Vehicle)
-        .filter(Vehicle.owner_id == owner_id, Vehicle.status == VehicleStatus.ACTIVE)
-        .all()
-    )
     idle_vehicles = []
-    for v in active_vehicles:
+    for v in all_active_vehicles:
         on_trip = db.query(Trip).filter(
             Trip.vehicle_id == v.id,
             Trip.owner_id == owner_id,
@@ -497,20 +499,14 @@ def analytics_daily_summary(
                 "origin":      t.origin,
                 "destination": t.destination,
                 "driver_name": t.driver_name,
-                "reg_number":  next((v.registration_number for v in active_vehicles if v.id == t.vehicle_id), ""),
+                "reg_number":  next((v.registration_number for v in all_active_vehicles if v.id == t.vehicle_id), ""),
             }
             for t in active_trips
         ],
         "planned_trips_count":  len(planned_trips),
         "completed_today":      len(completed_today),
         "revenue_today":        round(revenue_today, 2),
-        "compliance_alerts": [
-            {
-                "title":    a.title,
-                "severity": a.severity.value,
-            }
-            for a in compliance_alerts
-        ],
-        "idle_vehicles": idle_vehicles[:5],  # cap at 5 for message length
-        "total_active_vehicles": len(active_vehicles),
+        "compliance_alerts":    compliance_alerts,
+        "idle_vehicles":        idle_vehicles[:5],
+        "total_active_vehicles": len(all_active_vehicles),
     }

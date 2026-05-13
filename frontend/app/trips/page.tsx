@@ -10,33 +10,41 @@ import { Plus, X, Route, MessageCircle, FileDown, Zap, AlertTriangle, CheckCircl
 
 // ── WhatsApp trip sheet generator ─────────────────────────────────────────────
 function shareOnWhatsApp(trip: any, detail: any, vehicleReg: string) {
-  const fmt = (d: string | null) => d ? new Date(d).toLocaleDateString("en-IN") : "—";
+  const fmtDate = (d: string | null) =>
+    d ? new Date(d).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "—";
+  const fmtMoney = (n: number) => "₹" + n.toLocaleString("en-IN");
+
   const expenses = detail?.expenses || [];
   const totalExp = expenses.reduce((s: number, e: any) => s + parseFloat(e.amount || 0), 0);
   const freight  = parseFloat(trip.freight_amount || 0);
   const profit   = freight - totalExp;
 
-  const lines = [
-    `🚛 *FleetSure Trip Sheet*`,
-    ``,
-    `📍 *Route:* ${trip.origin} → ${trip.destination}`,
-    `🚗 *Vehicle:* ${vehicleReg}`,
-    `👤 *Driver:* ${trip.driver_name}${trip.driver_phone ? ` (${trip.driver_phone})` : ""}`,
-    `📅 *Dates:* ${fmt(trip.start_date)} → ${fmt(trip.end_date)}`,
-    detail?.doc_number    ? `📄 *LR No:* ${detail.doc_number}` : null,
-    detail?.material      ? `📦 *Material:* ${detail.material}` : null,
-    detail?.weight_tonnes ? `⚖️ *Weight:* ${detail.weight_tonnes} T` : null,
-    ``,
-    `💰 *Freight Amount:* ₹${freight.toLocaleString("en-IN")}`,
-    totalExp > 0 ? `📊 *Total Expenses:* ₹${totalExp.toLocaleString("en-IN")}` : null,
-    totalExp > 0 ? `📈 *Net Profit:* ₹${profit.toLocaleString("en-IN")}` : null,
-    ``,
-    `✅ *Status:* ${trip.status.replace("_", " ").toUpperCase()}`,
-    ``,
-    `_Shared via FleetSure_`,
-  ].filter(Boolean).join("\n");
+  const statusLabel: Record<string, string> = {
+    planned: "Planned", in_progress: "In Progress",
+    completed: "Completed", cancelled: "Cancelled",
+  };
 
-  const url = `https://wa.me/?text=${encodeURIComponent(lines)}`;
+  const lines: string[] = [
+    `*Trip Sheet*`,
+    `*${trip.origin} → ${trip.destination}*`,
+    ``,
+    `*Vehicle:* ${vehicleReg}`,
+    `*Driver:* ${trip.driver_name}${trip.driver_phone ? `  |  ${trip.driver_phone}` : ""}`,
+    `*Dates:* ${fmtDate(trip.start_date)} → ${fmtDate(trip.end_date)}`,
+  ];
+
+  if (detail?.doc_number)    lines.push(`*LR No:* ${detail.doc_number}`);
+  if (detail?.material)      lines.push(`*Material:* ${detail.material}${detail.weight_tonnes ? `  |  ${detail.weight_tonnes} T` : ""}`);
+
+  lines.push(``);
+  lines.push(`*Freight:* ${fmtMoney(freight)}`);
+  if (totalExp > 0) lines.push(`*Expenses:* ${fmtMoney(totalExp)}`);
+  if (totalExp > 0) lines.push(`*Net:* ${profit >= 0 ? "" : "-"}${fmtMoney(Math.abs(profit))}`);
+  lines.push(`*Status:* ${statusLabel[trip.status] || trip.status}`);
+  lines.push(``);
+  lines.push(`_FleetSure_`);
+
+  const url = `https://wa.me/?text=${encodeURIComponent(lines.join("\n"))}`;
   window.open(url, "_blank");
 }
 
