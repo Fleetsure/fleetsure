@@ -43,6 +43,8 @@ async def lifespan(app: FastAPI):
             conn.execute(text("ALTER TABLE fuel_logs ADD COLUMN IF NOT EXISTS trip_id UUID"))
             conn.execute(text("ALTER TABLE fuel_logs ALTER COLUMN odometer_km DROP NOT NULL"))
             conn.execute(text("ALTER TABLE trips ADD COLUMN IF NOT EXISTS driver_id UUID"))
+            # Add new enum values to PostgreSQL native types (safe — skips if already present)
+            conn.execute(text("ALTER TYPE insighttype ADD VALUE IF NOT EXISTS 'compliance_expiry'"))
             conn.commit()
     except Exception:
         pass  # Never block startup — app works fine even if migration skips

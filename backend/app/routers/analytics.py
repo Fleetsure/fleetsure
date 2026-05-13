@@ -22,7 +22,6 @@ from app.models.driver import Driver
 from app.models.driver_payment import DriverPayment
 from app.models.expense import Expense
 from app.models.fuel_log import FuelLog
-from app.models.insight import InsightSeverity, InsightType, OperationalInsight
 from app.models.misc_expense import MiscExpense
 from app.models.toll_log import TollLog
 from app.models.trip import Trip, TripStatus
@@ -403,19 +402,64 @@ def analytics_daily_summary(
         .all()
     )
 
-    # Compliance alerts — critical and warning, not dismissed
-    compliance_alerts = (
-        db.query(OperationalInsight)
-        .filter(
-            OperationalInsight.owner_id == owner_id,
-            OperationalInsight.insight_type == InsightType.COMPLIANCE_EXPIRY,
-            OperationalInsight.is_dismissed == False,  # noqa: E712
-            OperationalInsight.severity.in_([InsightSeverity.CRITICAL, InsightSeverity.WARNING]),
-        )
-        .order_by(OperationalInsight.severity.desc())
-        .limit(10)
-        .all()
-    )
+    # Compliance alerts — compute fresh from vehicle/driver dates (avoids enum migration issues)
+    CRITICAL_DAYS = 15
+    WARNING_DAYS  = 30
+    compliance_alerts = []
+
+    veh_doc_fields = [
+        ("insurance_expiry", "Insurance"),
+        ("fitness_expiry",   "Fitness Certificate"),
+        ("puc_expiry",       "PUC"),
+        ("permit_expiry",    "Permit"),
+    ]
+    for v in active_vehicles:
+        for field, label in veh_doc_fields:
+            expiry = getattr(v, field)
+            if expiry is None:
+                continue
+            days_left = (expiry - today).days
+            if days_left <= CRITICAL_DAYS:
+                severity = "critical"
+            elif days_left <= WARNING_DAYS:
+                severity = "warning"
+            else:
+                continue
+            suffix = f"EXPIRED {abs(days_left)}d ago" if days_left < 0 else f"expires in {days_left}d"
+            compliance_alerts.append({
+                "title":    f"{v.registration_number} {label} — {suffix}",
+                "severity": severity,
+            })
+
+    active_drivers = db.query(Driver).filter(
+        Driver.owner_id == owner_id,
+        Driver.status != "inactive",
+    ).all()
+    drv_doc_fields = [
+        ("license_expiry",     "DL"),
+        ("transport_validity", "Transport Endorsement"),
+    ]
+    for d in active_drivers:
+        for field, label in drv_doc_fields:
+            expiry = getattr(d, field)
+            if expiry is None:
+                continue
+            days_left = (expiry - today).days
+            if days_left <= CRITICAL_DAYS:
+                severity = "critical"
+            elif days_left <= WARNING_DAYS:
+                severity = "warning"
+            else:
+                continue
+            suffix = f"EXPIRED {abs(days_left)}d ago" if days_left < 0 else f"expires in {days_left}d"
+            compliance_alerts.append({
+                "title":    f"{d.name} {label} — {suffix}",
+                "severity": severity,
+            })
+
+    # Sort: critical first, cap at 10
+    compliance_alerts.sort(key=lambda x: 0 if x["severity"] == "critical" else 1)
+    compliance_alerts = compliance_alerts[:10]
 
     # Idle vehicles — active vehicles with no trip in last 7 days and no in-progress trip
     active_vehicles = (
