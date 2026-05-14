@@ -8,7 +8,7 @@ import {
   getVehicles,
 } from "@/lib/api";
 import {
-  Truck, Plus, X, MessageCircle, CheckCircle,
+  Truck, Plus, X, MessageCircle, Search, CheckCircle,
   Clock, Star, ChevronRight, MapPin, Package,
   IndianRupee, RefreshCw,
 } from "lucide-react";
