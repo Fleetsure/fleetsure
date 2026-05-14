@@ -130,3 +130,17 @@ export const getAnalyticsExpenses  = (days = 30) => api.get("/analytics/expenses
 
 // ── WhatsApp (Phase 5) ────────────────────────────────────
 export const getDailySummary = () => api.get("/analytics/daily-summary");
+
+// ── Marketplace (Phase 6) ─────────────────────────────────
+export const getMarketplaceLoads = (params?: { from_city?: string; to_city?: string; from_date?: string; to_date?: string }) =>
+  api.get("/marketplace/loads", { params });
+export const getMyLoads          = () => api.get("/marketplace/loads/mine");
+export const postReturnLoad      = (data: any) => api.post("/marketplace/loads", data);
+export const updateReturnLoad    = (id: string, data: any) => api.patch(`/marketplace/loads/${id}`, data);
+export const cancelReturnLoad    = (id: string) => api.delete(`/marketplace/loads/${id}`);
+export const expressInterest     = (loadId: string, data: { message?: string }) =>
+  api.post(`/marketplace/loads/${loadId}/interest`, data);
+export const getInterestsReceived = () => api.get("/marketplace/interests/received");
+export const getInterestsSent     = () => api.get("/marketplace/interests/sent");
+export const updateInterest       = (id: string, data: { status?: string; rating?: number }) =>
+  api.patch(`/marketplace/interests/${id}`, data);

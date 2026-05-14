@@ -19,6 +19,7 @@ from app.models.misc_expense import MiscExpense           # noqa: F401
 from app.models.notification_settings import NotificationSettings  # noqa: F401
 from app.models.subscription import Subscription                   # noqa: F401
 from app.models.insight import OperationalInsight                  # noqa: F401
+from app.models.marketplace import ReturnLoad, LoadInterest        # noqa: F401
 
 from app.database import engine, Base
 from app.routers import auth, vehicles, drivers, trips, expenses, vahan, dl, export
@@ -28,6 +29,7 @@ from app.routers import billing
 from app.routers import insights
 from app.routers import suggestions
 from app.routers import analytics
+from app.routers import marketplace
 
 
 @asynccontextmanager
@@ -91,6 +93,7 @@ app.include_router(billing.router,         prefix=API_PREFIX)
 app.include_router(insights.router,        prefix=API_PREFIX)
 app.include_router(suggestions.router,     prefix=API_PREFIX)
 app.include_router(analytics.router,       prefix=API_PREFIX)
+app.include_router(marketplace.router,     prefix=API_PREFIX)
 
 
 @app.get("/health")

@@ -6,7 +6,7 @@ import {
   Wrench, Fuel, HeartPulse, ReceiptText, Circle, PackageOpen, BarChart2, TrendingUp,
   ShieldCheck, FileText, ChevronDown, ChevronUp, Settings,
   PlusCircle, UserCircle, LogOut, Building2, Upload,
-  Menu, X, IndianRupee,
+  Menu, X, IndianRupee, ArrowLeftRight,
 } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
 import Image from "next/image";
@@ -33,8 +33,9 @@ const NAV = [
       { label: "Insurance & Renewals", href: "/insurance",    icon: ShieldCheck },
     ]
   },
-  { label: "Analytics",  href: "/analytics", icon: TrendingUp },
-  { label: "Parties",    href: "/parties",   icon: Building2 },
+  { label: "Analytics",   href: "/analytics",   icon: TrendingUp },
+  { label: "Marketplace", href: "/marketplace", icon: ArrowLeftRight },
+  { label: "Parties",     href: "/parties",     icon: Building2 },
   { label: "Documents",  href: "/documents", icon: FileText },
   { label: "Reports",    href: "/reports",   icon: BarChart2 },
   { label: "Import Data",href: "/import",    icon: Upload },
