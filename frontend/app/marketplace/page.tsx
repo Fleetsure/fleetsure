@@ -1,15 +1,16 @@
 "use client";
 import { useEffect, useState, useCallback } from "react";
 import Header from "@/components/Header";
+import LocationInput from "@/components/LocationInput";
 import {
   getMarketplaceLoads, getMyLoads, postReturnLoad, cancelReturnLoad,
   expressInterest, getInterestsReceived, getInterestsSent, updateInterest,
   getVehicles,
 } from "@/lib/api";
 import {
-  Truck, Plus, X, MessageCircle, Search, CheckCircle,
-  Clock, AlertTriangle, Star, ChevronRight, MapPin, Package,
-  IndianRupee, Filter, RefreshCw,
+  Truck, Plus, X, MessageCircle, CheckCircle,
+  Clock, Star, ChevronRight, MapPin, Package,
+  IndianRupee, RefreshCw,
 } from "lucide-react";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -272,14 +273,20 @@ function PostForm({ vehicles, onSuccess, onClose }: { vehicles: any[]; onSuccess
 
         <form onSubmit={submit} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-            <div>
-              <label style={lbl}>From City *</label>
-              <input style={inp} value={form.from_city} onChange={e => set("from_city", e.target.value)} placeholder="Delhi" required />
-            </div>
-            <div>
-              <label style={lbl}>To City *</label>
-              <input style={inp} value={form.to_city} onChange={e => set("to_city", e.target.value)} placeholder="Mumbai" required />
-            </div>
+            <LocationInput
+              label="From City *"
+              value={form.from_city}
+              onChange={v => set("from_city", v)}
+              placeholder="e.g. Electronic City, Bangalore"
+              required
+            />
+            <LocationInput
+              label="To City *"
+              value={form.to_city}
+              onChange={v => set("to_city", v)}
+              placeholder="e.g. Pune"
+              required
+            />
           </div>
 
           <div>
@@ -535,34 +542,20 @@ export default function MarketplacePage() {
         {tab === "browse" && (
           <>
             {/* Filters */}
-            <div style={{ display: "flex", gap: 10, marginBottom: 16, flexWrap: "wrap" }}>
-              <div style={{ position: "relative", flex: 1, minWidth: 140 }}>
-                <Search size={14} color="#aaa" style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)" }} />
-                <input
-                  value={filterFrom}
-                  onChange={e => setFilterFrom(e.target.value)}
-                  placeholder="From city…"
-                  style={{
-                    width: "100%", paddingLeft: 32, paddingRight: 12, paddingTop: 8, paddingBottom: 8,
-                    borderRadius: 8, border: "1.5px solid #e0e0ee", fontSize: 13,
-                    boxSizing: "border-box", outline: "none",
-                  }}
-                />
-              </div>
-              <div style={{ position: "relative", flex: 1, minWidth: 140 }}>
-                <Search size={14} color="#aaa" style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)" }} />
-                <input
-                  value={filterTo}
-                  onChange={e => setFilterTo(e.target.value)}
-                  placeholder="To city…"
-                  style={{
-                    width: "100%", paddingLeft: 32, paddingRight: 12, paddingTop: 8, paddingBottom: 8,
-                    borderRadius: 8, border: "1.5px solid #e0e0ee", fontSize: 13,
-                    boxSizing: "border-box", outline: "none",
-                  }}
-                />
-              </div>
-              <button onClick={loadAll} style={{ background: "#f0f1fa", border: "none", borderRadius: 8, padding: "8px 12px", cursor: "pointer" }}>
+            <div style={{ display: "flex", gap: 10, marginBottom: 16, flexWrap: "wrap", alignItems: "flex-end" }}>
+              <LocationInput
+                value={filterFrom}
+                onChange={setFilterFrom}
+                placeholder="Filter by From city…"
+                style={{ flex: 1, minWidth: 140 }}
+              />
+              <LocationInput
+                value={filterTo}
+                onChange={setFilterTo}
+                placeholder="Filter by To city…"
+                style={{ flex: 1, minWidth: 140 }}
+              />
+              <button onClick={loadAll} style={{ background: "#f0f1fa", border: "none", borderRadius: 8, padding: "9px 12px", cursor: "pointer", flexShrink: 0 }}>
                 <RefreshCw size={15} color="#555" />
               </button>
             </div>

@@ -7,6 +7,7 @@ import {
   suggestVehicles, driverFatigueCheck,
 } from "@/lib/api";
 import { Plus, X, Route, MessageCircle, FileDown, Zap, AlertTriangle, CheckCircle, Clock } from "lucide-react";
+import LocationInput from "@/components/LocationInput";
 
 // ── WhatsApp trip sheet generator ─────────────────────────────────────────────
 function shareOnWhatsApp(trip: any, detail: any, vehicleReg: string) {
@@ -889,20 +890,20 @@ export default function TripsPage() {
 
               {/* Route */}
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-                {/* Origin — smart suggestions */}
-                <div>
-                  <label style={{ fontSize: 12, fontWeight: 600, color: "#555", display: "block", marginBottom: 4 }}>From *</label>
-                  <input required value={form.origin} placeholder="Mumbai"
-                    onChange={e => handleOriginChange(e.target.value)}
-                    style={{ width: "100%", padding: "8px 12px", border: "1.5px solid #e8e8f0", borderRadius: 8, fontSize: 13.5, boxSizing: "border-box" }} />
-                </div>
-                {/* Destination */}
-                <div>
-                  <label style={{ fontSize: 12, fontWeight: 600, color: "#555", display: "block", marginBottom: 4 }}>To *</label>
-                  <input required value={form.destination} placeholder="Delhi"
-                    onChange={e => setForm(p => ({ ...p, destination: e.target.value }))}
-                    style={{ width: "100%", padding: "8px 12px", border: "1.5px solid #e8e8f0", borderRadius: 8, fontSize: 13.5, boxSizing: "border-box" }} />
-                </div>
+                <LocationInput
+                  label="From *"
+                  value={form.origin}
+                  onChange={v => handleOriginChange(v)}
+                  placeholder="e.g. Mumbai, Andheri"
+                  required
+                />
+                <LocationInput
+                  label="To *"
+                  value={form.destination}
+                  onChange={v => setForm(p => ({ ...p, destination: v }))}
+                  placeholder="e.g. Delhi, Gurgaon"
+                  required
+                />
               </div>
 
               {/* Smart vehicle suggestions */}
