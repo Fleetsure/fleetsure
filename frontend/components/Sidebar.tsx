@@ -10,57 +10,58 @@ import {
 } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
 import Image from "next/image";
+import { useLanguage } from "@/lib/LanguageContext";
 
-const NAV = [
-  { label: "Home",     href: "/",         icon: LayoutDashboard },
-  { label: "Vehicles", href: "/vehicles", icon: Truck },
-  { label: "Drivers",  href: "/drivers",  icon: Users },
-  { label: "Trips",    href: "/trips",    icon: Route },
-  {
-    label: "EXPENSES", group: true,
-    children: [
-      { label: "Services",      href: "/expenses",      icon: Wrench },
-      { label: "Fuel",          href: "/fuel",          icon: Fuel },
-      { label: "Tolls",         href: "/tolls",         icon: ReceiptText },
-      { label: "Tyres",         href: "/tyres",         icon: Circle },
-      { label: "Misc Expenses", href: "/misc-expenses", icon: PackageOpen },
-    ]
-  },
-  {
-    label: "COMPLIANCE", group: true,
-    children: [
-      { label: "Fleet Health",         href: "/fleet-health", icon: HeartPulse },
-      { label: "Insurance & Renewals", href: "/insurance",    icon: ShieldCheck },
-    ]
-  },
-  { label: "Analytics",   href: "/analytics",   icon: TrendingUp },
-  { label: "Marketplace", href: "/marketplace", icon: ArrowLeftRight },
-  { label: "Parties",     href: "/parties",     icon: Building2 },
-  { label: "Documents",  href: "/documents", icon: FileText },
-  { label: "Reports",    href: "/reports",   icon: BarChart2 },
-  { label: "Import Data",href: "/import",    icon: Upload },
-  { label: "Settings",   href: "/settings",  icon: Settings },
-];
-
-// Bottom nav tabs (mobile) — most used 5
-const BOTTOM_NAV = [
-  { label: "Home",     href: "/",         icon: LayoutDashboard },
-  { label: "Trips",    href: "/trips",    icon: Route },
-  { label: "Vehicles", href: "/vehicles", icon: Truck },
-  { label: "Expenses", href: "/expenses", icon: IndianRupee },
-  { label: "More",     href: null,        icon: Menu },
-];
-
-const PROFILE_MENU = [
-  { label: "User Profile", icon: UserCircle, href: "/settings", tab: "profile" },
+const PROFILE_MENU_KEYS = [
+  { labelKey: "common.profile" as const, icon: UserCircle, href: "/settings", tab: "profile" },
   { divider: true },
-  { label: "Log Out", icon: LogOut, href: "/logout", danger: true },
-] as const;
+  { labelKey: "common.logout" as const, icon: LogOut, href: "/logout", danger: true },
+];
 
 export default function Sidebar() {
   const pathname = usePathname();
   const router = useRouter();
+  const { t } = useLanguage();
   const [openGroups, setOpenGroups] = useState<string[]>(["EXPENSES", "COMPLIANCE"]);
+
+  const NAV = [
+    { label: t("nav.home"),     href: "/",         icon: LayoutDashboard },
+    { label: t("nav.vehicles"), href: "/vehicles", icon: Truck },
+    { label: t("nav.drivers"),  href: "/drivers",  icon: Users },
+    { label: t("nav.trips"),    href: "/trips",    icon: Route },
+    {
+      label: t("nav.expenses"), group: true,
+      children: [
+        { label: t("nav.services"),      href: "/expenses",      icon: Wrench },
+        { label: t("nav.fuel"),          href: "/fuel",          icon: Fuel },
+        { label: t("nav.tolls"),         href: "/tolls",         icon: ReceiptText },
+        { label: t("nav.tyres"),         href: "/tyres",         icon: Circle },
+        { label: t("nav.misc_expenses"), href: "/misc-expenses", icon: PackageOpen },
+      ]
+    },
+    {
+      label: t("nav.compliance"), group: true,
+      children: [
+        { label: t("nav.fleet_health"), href: "/fleet-health", icon: HeartPulse },
+        { label: t("nav.insurance"),    href: "/insurance",    icon: ShieldCheck },
+      ]
+    },
+    { label: t("nav.analytics"),   href: "/analytics",   icon: TrendingUp },
+    { label: t("nav.marketplace"), href: "/marketplace", icon: ArrowLeftRight },
+    { label: t("nav.parties"),     href: "/parties",     icon: Building2 },
+    { label: t("nav.documents"),   href: "/documents",   icon: FileText },
+    { label: t("nav.reports"),     href: "/reports",     icon: BarChart2 },
+    { label: t("nav.import"),      href: "/import",      icon: Upload },
+    { label: t("nav.settings"),    href: "/settings",    icon: Settings },
+  ];
+
+  const BOTTOM_NAV = [
+    { label: t("nav.home"),     href: "/",         icon: LayoutDashboard },
+    { label: t("nav.trips"),    href: "/trips",    icon: Route },
+    { label: t("nav.vehicles"), href: "/vehicles", icon: Truck },
+    { label: t("nav.expenses"), href: "/expenses", icon: IndianRupee },
+    { label: "More",            href: null,        icon: Menu },
+  ];
   const [profileOpen, setProfileOpen] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const profileRef = useRef<HTMLDivElement>(null);
@@ -212,7 +213,7 @@ export default function Sidebar() {
             {/* Logout */}
             <button onClick={handleLogout}
               style={{ width: "100%", display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", background: "none", border: "none", cursor: "pointer", color: "#ff8a80", fontSize: 14, fontWeight: 500, marginTop: 8 }}>
-              <LogOut size={16} /> Log Out
+              <LogOut size={16} /> {t("common.logout")}
             </button>
           </nav>
 
@@ -327,25 +328,26 @@ export default function Sidebar() {
                 </div>
               </div>
             </div>
-            {PROFILE_MENU.map((item: any, i) => {
+            {PROFILE_MENU_KEYS.map((item: any, i) => {
               if (item.divider) return <div key={i} style={{ height: 1, background: "#f0f0f5", margin: "6px 0" }} />;
+              const label = t(item.labelKey);
               if (item.danger) return (
-                <button key={item.label} onClick={() => { setProfileOpen(false); handleLogout(); }}
+                <button key={label} onClick={() => { setProfileOpen(false); handleLogout(); }}
                   style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 16px", width: "100%", background: "none", border: "none", cursor: "pointer", color: "#e53935", fontSize: 13, fontWeight: 500 }}
                   onMouseEnter={e => (e.currentTarget.style.background = "#fff5f5")}
                   onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>
                   <item.icon size={15} color="#e53935" />
-                  <span style={{ flex: 1, textAlign: "left" }}>{item.label}</span>
+                  <span style={{ flex: 1, textAlign: "left" }}>{label}</span>
                 </button>
               );
               const href = item.tab ? `${item.href}?tab=${item.tab}` : item.href;
               return (
-                <Link key={item.label} href={href} onClick={() => setProfileOpen(false)}
+                <Link key={label} href={href} onClick={() => setProfileOpen(false)}
                   style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 16px", textDecoration: "none", color: "#2a2a4a", fontSize: 13, fontWeight: 500 }}
                   onMouseEnter={e => (e.currentTarget.style.background = "#f8f9ff")}
                   onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>
                   <item.icon size={15} color="#888" />
-                  <span style={{ flex: 1 }}>{item.label}</span>
+                  <span style={{ flex: 1 }}>{label}</span>
                 </Link>
               );
             })}

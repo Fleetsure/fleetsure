@@ -3,6 +3,7 @@ import { Search, X, Truck, Users, Route, Building2, ArrowLeft, Bell } from "luci
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
+import LanguageSwitcher from "@/components/LanguageSwitcher";
 
 const InsightsPanel = dynamic(() => import("@/components/InsightsPanel"), { ssr: false });
 
@@ -302,6 +303,7 @@ export default function Header({ title, subtitle }: { title: string; subtitle?: 
             )}
           </button>
 
+          <LanguageSwitcher />
           <button onClick={() => window.location.reload()} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text-muted)", padding: 6 }}>
             ↺
           </button>
