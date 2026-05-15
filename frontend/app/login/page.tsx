@@ -122,12 +122,13 @@ export default function LoginPage() {
       <div style={{
         width: 480,
         display: "flex",
+        flexDirection: "column",
         alignItems: "center",
         justifyContent: "center",
         background: "#f8f9ff",
         padding: "40px 48px",
       }}>
-        <div style={{ width: "100%" }}>
+        <div style={{ width: "100%", flex: 1, display: "flex", flexDirection: "column", justifyContent: "center" }}>
           <h2 style={{ fontSize: 26, fontWeight: 800, color: "#1a1a2e", margin: "0 0 6px" }}>Welcome back</h2>
           <p style={{ color: "#888", fontSize: 14, margin: "0 0 32px" }}>Sign in to your fleet account</p>
 
@@ -191,6 +192,11 @@ export default function LoginPage() {
             <Link href="/register" style={{ color: "#1E2D8E", fontWeight: 700, textDecoration: "none" }}>Create one free</Link>
           </p>
         </div>
+
+        {/* Footer */}
+        <p style={{ textAlign: "center", fontSize: 12, color: "#ccc", marginTop: 24, marginBottom: 0 }}>
+          Made with ❤️ in Bengaluru
+        </p>
       </div>
     </div>
   );
