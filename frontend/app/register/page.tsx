@@ -183,8 +183,8 @@ export default function RegisterPage() {
             </div>
 
             <div>
-              <label style={labelStyle}>WhatsApp / Phone Number <span style={{ color: "#bbb", fontWeight: 400 }}>(optional)</span></label>
-              <input type="tel" value={form.phone}
+              <label style={labelStyle}>WhatsApp / Phone Number</label>
+              <input type="tel" required value={form.phone}
                 onChange={e => setForm({ ...form, phone: e.target.value })}
                 placeholder="+91 98765 43210" style={inputStyle} />
             </div>
