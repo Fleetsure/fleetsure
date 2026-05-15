@@ -4,7 +4,7 @@ import Header from "@/components/Header";
 import { getVehicles, getTrips, getDrivers, getVehiclePnL, getDailySummary } from "@/lib/api";
 import {
   Truck, Users, Route, TrendingUp, CheckCircle, ChevronRight,
-  TrendingDown, AlertTriangle, IndianRupee, BarChart2, MessageCircle
+  TrendingDown, AlertTriangle, IndianRupee, BarChart2, MessageCircle, Sparkles, ChevronLeft
 } from "lucide-react";
 import Link from "next/link";
 import OnboardingChecklist from "@/components/OnboardingChecklist";
@@ -51,6 +51,7 @@ export default function Dashboard() {
   const [emoji, setEmoji]             = useState("🚀");
   const [isMobile, setIsMobile]       = useState(false);
   const [waLoading, setWaLoading]     = useState(false);
+  const [insightIdx, setInsightIdx]   = useState(0);
 
   useEffect(() => {
     const check = () => setIsMobile(window.innerWidth < 768);
@@ -183,6 +184,66 @@ export default function Dashboard() {
     { label: "Log your first trip",    done: trips.length > 0,    href: "/trips",    cta: "Log Trip" },
   ];
 
+  // ── Smart Insights (Variable Reward) ──────────────────────────
+  const insights = (() => {
+    const list: { emoji: string; headline: string; detail: string; color: string; bg: string }[] = [];
+
+    if (completedTrips >= 3) {
+      const avg = Math.round(totalRevenue / completedTrips);
+      list.push({
+        emoji: "📊",
+        headline: `Based on your ${completedTrips} trips`,
+        detail: `Your average freight per trip is ₹${avg.toLocaleString("en-IN")} — keep logging to sharpen this number.`,
+        color: "#1E2D8E", bg: "#eef0fb",
+      });
+    }
+
+    if (pnlData.length > 0 && pnlData[0].profit > 0) {
+      const best = pnlData[0];
+      list.push({
+        emoji: "🏆",
+        headline: `${best.reg_number} is your star truck`,
+        detail: `${best.margin_percent.toFixed(1)}% profit margin across ${best.completed_trips} trips — highest in your fleet.`,
+        color: "#2e7d32", bg: "#e8f5e9",
+      });
+    }
+
+    if (fleetProfit > 0 && pnlData.length > 0) {
+      list.push({
+        emoji: "💰",
+        headline: `Fleet is running profitable`,
+        detail: `${fmt(fleetProfit)} total profit at ${fleetMargin.toFixed(1)}% margin. Every trip logged makes this more accurate.`,
+        color: "#1565c0", bg: "#e3f2fd",
+      });
+    }
+
+    if (pnlData.length > 1) {
+      const worst = pnlData[pnlData.length - 1];
+      if (worst.profit < 0) {
+        list.push({
+          emoji: "⚠️",
+          headline: `${worst.reg_number} needs attention`,
+          detail: `Running at a loss of ${fmt(Math.abs(worst.profit))}. Check fuel costs and trip freight on this truck.`,
+          color: "#c62828", bg: "#fce4ec",
+        });
+      }
+    }
+
+    if (vehicles.length > 0 && completedTrips > 0) {
+      const ratio = (completedTrips / vehicles.length).toFixed(1);
+      list.push({
+        emoji: "🚛",
+        headline: `${completedTrips} trips across ${vehicles.length} trucks`,
+        detail: `${ratio} trips per vehicle on average. The more you log, the better your route insights.`,
+        color: "#e65100", bg: "#fff3e0",
+      });
+    }
+
+    return list;
+  })();
+
+  const currentInsight = insights[insightIdx % Math.max(insights.length, 1)];
+
   // Brand new user — show full onboarding screen
   if (!loading && vehicles.length === 0) {
     return (
@@ -279,6 +340,41 @@ export default function Dashboard() {
             {waLoading ? "Loading…" : "Send Summary"}
           </button>
         </div>
+
+        {/* ── Smart Insight Card ──────────────────────────────────── */}
+        {insights.length > 0 && currentInsight && (
+          <div style={{
+            display: "flex", alignItems: "center", gap: 16,
+            background: currentInsight.bg,
+            border: `1.5px solid ${currentInsight.color}22`,
+            borderRadius: 12,
+            padding: isMobile ? "14px" : "16px 20px",
+            marginBottom: isMobile ? 16 : 24,
+            transition: "background 0.3s",
+          }}>
+            <div style={{ fontSize: 32, flexShrink: 0 }}>{currentInsight.emoji}</div>
+            <div style={{ flex: 1 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 3 }}>
+                <Sparkles size={13} color={currentInsight.color} />
+                <span style={{ fontSize: 11, fontWeight: 700, color: currentInsight.color, textTransform: "uppercase", letterSpacing: "0.05em" }}>Fleet Insight</span>
+              </div>
+              <div style={{ fontSize: 14, fontWeight: 700, color: currentInsight.color, marginBottom: 3 }}>{currentInsight.headline}</div>
+              <div style={{ fontSize: 13, color: "#555", lineHeight: 1.5 }}>{currentInsight.detail}</div>
+            </div>
+            {insights.length > 1 && (
+              <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
+                <button onClick={() => setInsightIdx(i => (i - 1 + insights.length) % insights.length)}
+                  style={{ width: 28, height: 28, borderRadius: 8, border: `1px solid ${currentInsight.color}44`, background: "white", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  <ChevronLeft size={14} color={currentInsight.color} />
+                </button>
+                <button onClick={() => setInsightIdx(i => (i + 1) % insights.length)}
+                  style={{ width: 28, height: 28, borderRadius: 8, border: `1px solid ${currentInsight.color}44`, background: "white", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  <ChevronRight size={14} color={currentInsight.color} />
+                </button>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* ── P&L Per Truck Section ─────────────────────────────────── */}
         {pnlData.length > 0 && (

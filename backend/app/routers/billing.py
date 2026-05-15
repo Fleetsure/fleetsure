@@ -42,7 +42,7 @@ PLAN_NAMES = {
     "pro":     "Pro",
 }
 
-TRIAL_DAYS = 14
+TRIAL_DAYS = 60
 
 
 def get_razorpay_client():

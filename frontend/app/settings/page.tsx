@@ -795,7 +795,7 @@ function BillingSettings() {
     <div>
       <h2 style={{ margin: "0 0 4px", fontSize: 17, fontWeight: 700 }}>Billing & Subscriptions</h2>
       <p style={{ margin: "0 0 20px", fontSize: 13, color: "var(--text-muted)" }}>
-        Choose the plan that fits your fleet size. All plans include a 14-day free trial — no credit card required.
+        Choose the plan that fits your fleet size. All plans include a 60-day free trial — no credit card required.
       </p>
 
       {/* Current plan banner */}
