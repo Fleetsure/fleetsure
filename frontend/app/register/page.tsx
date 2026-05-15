@@ -14,7 +14,7 @@ const STATS = [
 
 export default function RegisterPage() {
   const router = useRouter();
-  const [form, setForm] = useState({ name: "", email: "", password: "", confirmPassword: "" });
+  const [form, setForm] = useState({ name: "", email: "", phone: "", password: "", confirmPassword: "" });
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [gLoading, setGLoading] = useState(false);
@@ -34,7 +34,7 @@ export default function RegisterPage() {
 
     setLoading(true);
     try {
-      const res = await register({ name: form.name, email: form.email, password: form.password });
+      const res = await register({ name: form.name, email: form.email, password: form.password, phone: form.phone || undefined });
       const { access_token, name, user_id } = res.data;
       localStorage.setItem("token", access_token);
       localStorage.setItem("userName", name);
@@ -180,6 +180,13 @@ export default function RegisterPage() {
               <input type="email" required value={form.email}
                 onChange={e => setForm({ ...form, email: e.target.value })}
                 placeholder="you@example.com" style={inputStyle} />
+            </div>
+
+            <div>
+              <label style={labelStyle}>WhatsApp / Phone Number <span style={{ color: "#bbb", fontWeight: 400 }}>(optional)</span></label>
+              <input type="tel" value={form.phone}
+                onChange={e => setForm({ ...form, phone: e.target.value })}
+                placeholder="+91 98765 43210" style={inputStyle} />
             </div>
 
             <div>

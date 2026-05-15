@@ -43,7 +43,7 @@ def _create_access_token(user_id: UUID) -> str:
 
 # ── Admin signup notification ─────────────────────────────────────────────────
 
-def _notify_admin_new_signup(name: str, email: str, method: str = "Email") -> None:
+def _notify_admin_new_signup(name: str, email: str, phone: str = "—", method: str = "Email") -> None:
     """Send admin notification email on new signup (synchronous)."""
     smtp_email    = os.getenv("SMTP_EMAIL")
     smtp_password = os.getenv("SMTP_PASSWORD")
@@ -67,6 +67,7 @@ def _notify_admin_new_signup(name: str, email: str, method: str = "Email") -> No
         <table style="width:100%;font-size:13.5px;color:#444;border-collapse:collapse;">
           <tr><td style="padding:6px 0;color:#888;width:90px;">Name</td><td style="padding:6px 0;font-weight:600;">{name}</td></tr>
           <tr><td style="padding:6px 0;color:#888;">Email</td><td style="padding:6px 0;font-weight:600;">{email}</td></tr>
+          <tr><td style="padding:6px 0;color:#888;">Phone</td><td style="padding:6px 0;font-weight:600;">{phone}</td></tr>
           <tr><td style="padding:6px 0;color:#888;">Method</td><td style="padding:6px 0;">{method}</td></tr>
           <tr><td style="padding:6px 0;color:#888;">Time</td><td style="padding:6px 0;">{now}</td></tr>
         </table>
@@ -98,12 +99,13 @@ def register(db: Session, payload: RegisterRequest) -> TokenResponse:
         name=payload.name,
         email=payload.email,
         hashed_password=_hash_password(payload.password),
+        phone=payload.phone,
     )
     db.add(user)
     db.commit()
     db.refresh(user)
 
-    _notify_admin_new_signup(user.name, user.email, method="Email")
+    _notify_admin_new_signup(user.name, user.email, phone=user.phone or "—", method="Email")
 
     token = _create_access_token(user.id)
     return TokenResponse(access_token=token, user_id=user.id, name=user.name, email=user.email,
