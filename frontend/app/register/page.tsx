@@ -169,35 +169,35 @@ export default function RegisterPage() {
 
           <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
             <div>
-              <label style={labelStyle}>Your Name</label>
+              <label style={labelStyle}>Your Name <span style={{ color: "#e53935" }}>*</span></label>
               <input type="text" required value={form.name}
                 onChange={e => setForm({ ...form, name: e.target.value })}
                 placeholder="Ramesh Kumar" style={inputStyle} />
             </div>
 
             <div>
-              <label style={labelStyle}>Email Address</label>
+              <label style={labelStyle}>Email Address <span style={{ color: "#e53935" }}>*</span></label>
               <input type="email" required value={form.email}
                 onChange={e => setForm({ ...form, email: e.target.value })}
                 placeholder="you@example.com" style={inputStyle} />
             </div>
 
             <div>
-              <label style={labelStyle}>WhatsApp / Phone Number</label>
+              <label style={labelStyle}>WhatsApp / Phone Number <span style={{ color: "#e53935" }}>*</span></label>
               <input type="tel" required value={form.phone}
                 onChange={e => setForm({ ...form, phone: e.target.value })}
                 placeholder="+91 98765 43210" style={inputStyle} />
             </div>
 
             <div>
-              <label style={labelStyle}>Password</label>
+              <label style={labelStyle}>Password <span style={{ color: "#e53935" }}>*</span></label>
               <input type="password" required value={form.password}
                 onChange={e => setForm({ ...form, password: e.target.value })}
                 placeholder="Min. 6 characters" style={inputStyle} />
             </div>
 
             <div>
-              <label style={labelStyle}>Confirm Password</label>
+              <label style={labelStyle}>Confirm Password <span style={{ color: "#e53935" }}>*</span></label>
               <input type="password" required value={form.confirmPassword}
                 onChange={e => setForm({ ...form, confirmPassword: e.target.value })}
                 placeholder="Re-enter your password"
