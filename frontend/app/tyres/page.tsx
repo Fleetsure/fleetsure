@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import Header from "@/components/Header";
 import { getTyreLogs, addTyreLog, deleteTyreLog, getVehicles } from "@/lib/api";
 import { Plus, X, Trash2, Circle, Truck } from "lucide-react";
+import { useLanguage } from "@/lib/LanguageContext";
 
 const TYRE_TYPES = [
   { value: "new",       label: "New Tyre" },
@@ -35,6 +36,7 @@ const EMPTY = {
 };
 
 export default function TyresPage() {
+  const { t } = useLanguage();
   const [logs, setLogs]         = useState<any[]>([]);
   const [vehicles, setVehicles] = useState<any[]>([]);
   const [loading, setLoading]   = useState(true);
@@ -98,7 +100,7 @@ export default function TyresPage() {
 
   return (
     <div>
-      <Header title="Tyres" subtitle={`${logs.length} entries · ₹${totalSpend.toLocaleString("en-IN")} total spend`} />
+      <Header title={t("tyre.title")} subtitle={`${logs.length} entries · ₹${totalSpend.toLocaleString("en-IN")} total spend`} />
       <div style={{ padding: isMobile ? "14px" : "24px 28px" }}>
 
         <div style={{ display: "grid", gridTemplateColumns: isMobile ? "repeat(2, 1fr)" : "repeat(4, 1fr)", gap: 14, marginBottom: 24 }}>
@@ -124,7 +126,7 @@ export default function TyresPage() {
             marginBottom: 16,
             gap: 10,
           }}>
-            <h2 style={{ margin: 0, fontSize: 15, fontWeight: 700 }}>Tyre Entries</h2>
+            <h2 style={{ margin: 0, fontSize: 15, fontWeight: 700 }}>{t("tyre.title")}</h2>
             <div style={{ display: "flex", gap: 8, flex: isMobile ? undefined : 1, maxWidth: isMobile ? undefined : 440 }}>
               <select value={filterVehicle} onChange={e => setFilterVehicle(e.target.value)}
                 style={{ flex: 1, padding: "7px 10px", border: "1.5px solid var(--border-input)", borderRadius: 8, fontSize: 13, background: "var(--bg-subtle)", color: "var(--text-main)" }}>
@@ -134,16 +136,16 @@ export default function TyresPage() {
               <select value={filterType} onChange={e => setFilterType(e.target.value)}
                 style={{ flex: 1, padding: "7px 10px", border: "1.5px solid var(--border-input)", borderRadius: 8, fontSize: 13, background: "var(--bg-subtle)", color: "var(--text-main)" }}>
                 <option value="">All Types</option>
-                {TYRE_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+                {TYRE_TYPES.map(ty => <option key={ty.value} value={ty.value}>{ty.label}</option>)}
               </select>
               <button className="btn-primary" onClick={() => { setForm({ ...EMPTY }); setError(""); setShowForm(true); }} style={{ whiteSpace: "nowrap" }}>
-                <Plus size={15} /> Add Entry
+                <Plus size={15} /> {t("tyre.add")}
               </button>
             </div>
           </div>
 
           {loading ? (
-            <p style={{ color: "#aaa", textAlign: "center", padding: "32px 0" }}>Loading...</p>
+            <p style={{ color: "#aaa", textAlign: "center", padding: "32px 0" }}>{t("common.loading")}</p>
           ) : filtered.length === 0 ? (
             <div style={{ textAlign: "center", padding: "52px 20px" }}>
               <div style={{ width: 72, height: 72, borderRadius: "50%", background: "#eef0fb", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 16px" }}>
@@ -157,7 +159,7 @@ export default function TyresPage() {
               </div>
               {!filterVehicle && !filterType && (
                 <button className="btn-primary" onClick={() => { setForm({ ...EMPTY }); setError(""); setShowForm(true); }}>
-                  <Plus size={14} /> Add Entry
+                  <Plus size={14} /> {t("tyre.add")}
                 </button>
               )}
             </div>
@@ -171,7 +173,7 @@ export default function TyresPage() {
                       <div style={{ fontWeight: 700, fontSize: 13, color: "#1E2D8E", marginBottom: 3 }}>{vehicleName(l.vehicle_id)}</div>
                       <div style={{ marginBottom: 4 }}>
                         <span style={{ fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 6, background: tc.bg, color: tc.color }}>
-                          {TYRE_TYPES.find(t => t.value === l.tyre_type)?.label || l.tyre_type}
+                          {TYRE_TYPES.find(ty => ty.value === l.tyre_type)?.label || l.tyre_type}
                         </span>
                       </div>
                       <div style={{ fontSize: 12, color: "var(--text-muted)" }}>
@@ -217,7 +219,7 @@ export default function TyresPage() {
                       <td style={{ fontWeight: 600, color: "#1E2D8E" }}>{vehicleName(l.vehicle_id)}</td>
                       <td>
                         <span style={{ fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 6, background: tc.bg, color: tc.color }}>
-                          {TYRE_TYPES.find(t => t.value === l.tyre_type)?.label || l.tyre_type}
+                          {TYRE_TYPES.find(ty => ty.value === l.tyre_type)?.label || l.tyre_type}
                         </span>
                       </td>
                       <td>{l.tyre_brand || <span style={{ color: "#ccc" }}>—</span>}</td>
@@ -248,7 +250,7 @@ export default function TyresPage() {
             <button onClick={() => setShowForm(false)} style={{ position: "absolute", top: 16, right: 16, background: "none", border: "none", cursor: "pointer", color: "#888" }}>
               <X size={18} />
             </button>
-            <h2 style={{ margin: "0 0 18px", fontSize: 16, fontWeight: 700 }}>Add Tyre Entry</h2>
+            <h2 style={{ margin: "0 0 18px", fontSize: 16, fontWeight: 700 }}>{t("tyre.add")}</h2>
 
             {error && <div style={{ background: "#fce4ec", color: "#b71c1c", padding: "8px 12px", borderRadius: 8, marginBottom: 14, fontSize: 13 }}>{error}</div>}
 
@@ -257,12 +259,12 @@ export default function TyresPage() {
                 <div>
                   <label style={lbl}>Vehicle *</label>
                   <select required value={form.vehicle_id} onChange={e => set("vehicle_id", e.target.value)} style={inp}>
-                    <option value="">Select vehicle</option>
+                    <option value="">{t("form.select_vehicle")}</option>
                     {vehicles.map(v => <option key={v.id} value={v.id}>{v.registration_number}</option>)}
                   </select>
                 </div>
                 <div>
-                  <label style={lbl}>Date *</label>
+                  <label style={lbl}>{t("form.date")} *</label>
                   <input type="date" required value={form.date} onChange={e => set("date", e.target.value)} style={inp} />
                 </div>
               </div>
@@ -271,11 +273,11 @@ export default function TyresPage() {
                 <div>
                   <label style={lbl}>Type *</label>
                   <select value={form.tyre_type} onChange={e => set("tyre_type", e.target.value)} style={inp}>
-                    {TYRE_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+                    {TYRE_TYPES.map(ty => <option key={ty.value} value={ty.value}>{ty.label}</option>)}
                   </select>
                 </div>
                 <div>
-                  <label style={lbl}>Amount (₹) *</label>
+                  <label style={lbl}>{t("form.amount")} *</label>
                   <input type="number" required min="0" step="0.01" placeholder="e.g. 12000" value={form.amount} onChange={e => set("amount", e.target.value)} style={inp} />
                 </div>
               </div>
@@ -306,14 +308,14 @@ export default function TyresPage() {
               </div>
 
               <div>
-                <label style={lbl}>Notes</label>
+                <label style={lbl}>{t("form.notes")}</label>
                 <input type="text" placeholder="Any additional info..." value={form.notes} onChange={e => set("notes", e.target.value)} style={inp} />
               </div>
 
               <div style={{ display: "flex", gap: 10, marginTop: 4 }}>
-                <button type="button" className="btn-outline" style={{ flex: 1 }} onClick={() => setShowForm(false)}>Cancel</button>
+                <button type="button" className="btn-outline" style={{ flex: 1 }} onClick={() => setShowForm(false)}>{t("common.cancel")}</button>
                 <button type="submit" className="btn-primary" style={{ flex: 1, justifyContent: "center" }} disabled={saving}>
-                  {saving ? "Saving..." : "Add Entry"}
+                  {saving ? t("common.loading") : t("tyre.add")}
                 </button>
               </div>
             </form>

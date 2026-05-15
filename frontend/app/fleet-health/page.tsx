@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import Header from "@/components/Header";
 import { getVehicles, getDrivers } from "@/lib/api";
+import { useLanguage } from "@/lib/LanguageContext";
 import { HeartPulse, AlertTriangle, CheckCircle, Clock, Truck, Users, ChevronUp, ChevronDown } from "lucide-react";
 
 type Vehicle = {

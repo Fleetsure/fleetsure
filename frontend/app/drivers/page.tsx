@@ -3,6 +3,7 @@ import React, { useEffect, useState } from "react";
 import Header from "@/components/Header";
 import { getDrivers, createDriver, updateDriver, getDriverLedger, addDriverPayment, deleteDriverPayment } from "@/lib/api";
 import { Plus, Users, X, Phone, ChevronDown, ChevronRight, Edit2, Wallet, Trash2 } from "lucide-react";
+import { useLanguage } from "@/lib/LanguageContext";
 
 // ── Driver Payment Ledger Modal ───────────────────────────────────────────────
 const PAYMENT_TYPES = ["advance", "salary", "bonus", "deduction", "settlement"];
@@ -159,6 +160,7 @@ function Badge({ dateStr }: { dateStr?: string | null }) {
 }
 
 export default function DriversPage() {
+  const { t } = useLanguage();
   const [drivers, setDrivers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -236,15 +238,15 @@ export default function DriversPage() {
 
   return (
     <div>
-      <Header title="Drivers" subtitle={`${drivers.length} drivers in your fleet`} />
+      <Header title={t("nav.drivers")} subtitle={`${drivers.length} ${t("driver.subtitle")}`} />
       <div style={{ padding: isMobile ? "14px" : "24px 28px" }}>
 
         {/* Stats */}
         <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: isMobile ? 10 : 14, marginBottom: isMobile ? 16 : 24 }}>
           {[
-            { label: "Total Drivers", value: drivers.length },
-            { label: "Available",     value: drivers.filter(d => d.status === "available").length },
-            { label: "On Trip",       value: drivers.filter(d => d.status === "on_trip").length },
+            { label: t("driver.total"),     value: drivers.length },
+            { label: t("driver.available"), value: drivers.filter(d => d.status === "available").length },
+            { label: t("driver.on_trip"),   value: drivers.filter(d => d.status === "on_trip").length },
           ].map(s => (
             <div key={s.label} className="stat-card" style={{ textAlign: "center" }}>
               <div style={{ fontSize: 26, fontWeight: 700, color: "#1E2D8E" }}>{s.value}</div>
@@ -256,12 +258,12 @@ export default function DriversPage() {
         {/* Table */}
         <div className="card">
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-            <h2 style={{ margin: 0, fontSize: 15, fontWeight: 700 }}>All Drivers</h2>
-            <button className="btn-primary" onClick={openAdd}><Plus size={15} />{isMobile ? "Add" : "Add Driver"}</button>
+            <h2 style={{ margin: 0, fontSize: 15, fontWeight: 700 }}>{t("nav.drivers")}</h2>
+            <button className="btn-primary" onClick={openAdd}><Plus size={15} />{isMobile ? t("common.add") : t("driver.add")}</button>
           </div>
 
           {loading ? (
-            <p style={{ color: "#aaa", textAlign: "center", padding: "32px 0" }}>Loading...</p>
+            <p style={{ color: "#aaa", textAlign: "center", padding: "32px 0" }}>{t("common.loading")}</p>
           ) : drivers.length === 0 ? (
             <div style={{ textAlign: "center", padding: "52px 20px" }}>
               <div style={{
@@ -273,13 +275,13 @@ export default function DriversPage() {
                 <Users size={32} color="#1E2D8E" style={{ opacity: 0.5 }} />
               </div>
               <div style={{ fontSize: 15, fontWeight: 700, color: "var(--text-main)", marginBottom: 6 }}>
-                Add your first driver
+                {t("driver.add")}
               </div>
               <div style={{ fontSize: 13, color: "#aaa", marginBottom: 20, maxWidth: 320, margin: "0 auto 20px" }}>
-                Add drivers to assign them to trips, track payment ledgers and monitor licence expiry dates.
+                {t("driver.subtitle")}
               </div>
               <button className="btn-primary" onClick={openAdd}>
-                <Plus size={14} /> Add Driver
+                <Plus size={14} /> {t("driver.add")}
               </button>
             </div>
           ) : isMobile ? (
@@ -316,13 +318,13 @@ export default function DriversPage() {
               <thead>
                 <tr>
                   <th></th>
-                  <th>Name</th>
-                  <th>Phone</th>
-                  <th>License No.</th>
+                  <th>{t("driver.name")}</th>
+                  <th>{t("driver.phone")}</th>
+                  <th>{t("driver.license")}</th>
                   <th>Class</th>
-                  <th>License Expiry</th>
+                  <th>{t("driver.license_expiry")}</th>
                   <th>Transport Valid</th>
-                  <th>Status</th>
+                  <th>{t("vehicle.status")}</th>
                   <th></th>
                 </tr>
               </thead>
@@ -392,8 +394,8 @@ export default function DriversPage() {
               style={{ position: "absolute", top: 16, right: 16, background: "none", border: "none", cursor: "pointer", color: "#888" }}>
               <X size={18} />
             </button>
-            <h2 style={{ margin: "0 0 4px", fontSize: 16, fontWeight: 700 }}>{editingId ? "Edit Driver" : "Add Driver"}</h2>
-            <p style={{ margin: "0 0 18px", fontSize: 12.5, color: "#888" }}>Fill in the driver details manually.</p>
+            <h2 style={{ margin: "0 0 4px", fontSize: 16, fontWeight: 700 }}>{editingId ? t("driver.edit") : t("driver.add")}</h2>
+            <p style={{ margin: "0 0 18px", fontSize: 12.5, color: "#888" }}>{t("vehicle.fill_manually")}</p>
 
             {error && (
               <div style={{ background: "#fce4ec", color: "#b71c1c", padding: "8px 12px", borderRadius: 6, marginBottom: 14, fontSize: 13 }}>{error}</div>
@@ -475,9 +477,9 @@ export default function DriversPage() {
               </div>
 
               <div style={{ display: "flex", gap: 10, marginTop: 4 }}>
-                <button type="button" className="btn-outline" style={{ flex: 1 }} onClick={() => setShowForm(false)}>Cancel</button>
+                <button type="button" className="btn-outline" style={{ flex: 1 }} onClick={() => setShowForm(false)}>{t("common.cancel")}</button>
                 <button type="submit" className="btn-primary" style={{ flex: 1, justifyContent: "center" }} disabled={saving}>
-                  {saving ? "Saving..." : editingId ? "Save Changes" : "Add Driver"}
+                  {saving ? t("common.loading") : editingId ? t("settings.save_changes") : t("driver.add")}
                 </button>
               </div>
             </form>

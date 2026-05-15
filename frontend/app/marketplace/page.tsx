@@ -12,6 +12,7 @@ import {
   Clock, Star, ChevronRight, MapPin, Package,
   IndianRupee, RefreshCw,
 } from "lucide-react";
+import { useLanguage } from "@/lib/LanguageContext";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -425,6 +426,7 @@ function InterestModal({ load, onClose, onSuccess }: { load: any; onClose: () =>
 type Tab = "browse" | "my_loads" | "received" | "sent";
 
 export default function MarketplacePage() {
+  const { t } = useLanguage();
   const [tab, setTab]               = useState<Tab>("browse");
   const [loads, setLoads]           = useState<any[]>([]);
   const [myLoads, setMyLoads]       = useState<any[]>([]);
@@ -492,8 +494,8 @@ export default function MarketplacePage() {
   const pad = isMobile ? "14px" : "24px 28px";
 
   const TABS: { key: Tab; label: string; badge?: number }[] = [
-    { key: "browse",   label: "Browse Loads" },
-    { key: "my_loads", label: "My Listings" },
+    { key: "browse",   label: t("market.browse") },
+    { key: "my_loads", label: t("market.post") },
     { key: "received", label: "Received", badge: pendingReceivedCount },
     { key: "sent",     label: "Sent" },
   ];
@@ -501,7 +503,7 @@ export default function MarketplacePage() {
   return (
     <div>
       <Header
-        title="Load Marketplace"
+        title={t("market.title")}
         subtitle="Find backhaul loads · kill empty return trips"
       />
 

@@ -2,6 +2,7 @@
 import { useState, useEffect, useRef, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import Header from "@/components/Header";
+import { useLanguage } from "@/lib/LanguageContext";
 import {
   UserCircle, Bell, Lock, Palette,
   Settings, CreditCard, Download,
@@ -1356,6 +1357,7 @@ function NotificationSettings() {
 
 // ─── Main settings page ───────────────────────────────────────────────────────
 function SettingsInner() {
+  const { t } = useLanguage();
   const searchParams = useSearchParams();
   const [active, setActive] = useState(() => searchParams.get("tab") || "profile");
   const [search, setSearch] = useState("");
@@ -1461,7 +1463,7 @@ function SettingsInner() {
 
   return (
     <div>
-      <Header title="Settings" subtitle="Manage your account and fleet preferences" />
+      <Header title={t("nav.settings")} subtitle={t("settings.subtitle")} />
       <div style={{ display: "flex", padding: isMobile ? "14px" : "24px 28px", gap: 16, alignItems: "flex-start", flexDirection: isMobile ? "column" : "row" }}>
 
         {/* ── Left sidebar ── */}
@@ -1485,7 +1487,10 @@ function SettingsInner() {
           {filteredSections.map(section => (
             <div key={section.label} style={{ marginBottom: 8 }}>
               <div style={{ fontSize: 11, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.06em", padding: "6px 12px" }}>
-                {section.label}
+                {section.label === "My Account" ? t("settings.my_account") :
+                 section.label === "Fleet Settings" ? t("settings.fleet_settings") :
+                 section.label === "User Access" ? t("settings.user_access") :
+                 section.label}
               </div>
               {section.items.map(item => (
                 <button key={item.id} onClick={() => { setActive(item.id); if (isMobile) setMobileView("content"); }}
@@ -1494,7 +1499,19 @@ function SettingsInner() {
                   onMouseEnter={e => { if (active !== item.id) e.currentTarget.style.background = "var(--bg-hover)"; }}
                   onMouseLeave={e => { if (active !== item.id) e.currentTarget.style.background = "transparent"; }}>
                   <item.icon size={15} color={active === item.id ? "#1E2D8E" : "var(--text-muted)"} />
-                  <span style={{ fontSize: 13, fontWeight: 500, color: active === item.id ? "#1E2D8E" : "var(--text-sub)", flex: 1 }}>{item.label}</span>
+                  <span style={{ fontSize: 13, fontWeight: 500, color: active === item.id ? "#1E2D8E" : "var(--text-sub)", flex: 1 }}>
+                    {item.id === "notifications" ? t("settings.notifications") :
+                     item.id === "password" ? t("settings.login_password") :
+                     item.id === "appearance" ? t("settings.appearance") :
+                     item.id === "billing" ? t("settings.billing") :
+                     item.id === "export" ? t("settings.export") :
+                     item.id === "manage-users" ? t("settings.manage_users") :
+                     item.id === "language" ? t("settings.language_region") :
+                     item.id === "gst" ? t("settings.gst") :
+                     item.id === "integrations" ? t("settings.integrations") :
+                     item.id === "alerts" ? t("settings.alerts") :
+                     item.label}
+                  </span>
                   {(item as any).badge && (
                     <span style={{ fontSize: 10, fontWeight: 700, padding: "2px 6px", borderRadius: 10,
                       background: (item as any).badge === "Recommended" ? "#e8f5e9" : "#fff3e0",
@@ -1548,7 +1565,12 @@ function SettingsInner() {
               <div style={{ display: "flex", flexDirection: "column", gap: 16, maxWidth: 480 }}>
                 {content.fields.map((f: any) => (
                   <div key={f.key}>
-                    <label style={{ fontSize: 12.5, fontWeight: 600, color: "var(--text-muted)", display: "block", marginBottom: 6 }}>{f.label}</label>
+                    <label style={{ fontSize: 12.5, fontWeight: 600, color: "var(--text-muted)", display: "block", marginBottom: 6 }}>
+                      {f.key === "name" ? t("settings.full_name") :
+                       f.key === "email" ? t("settings.email") :
+                       f.key === "phone" ? t("settings.phone") :
+                       f.label}
+                    </label>
 
                     {f.type === "logo_upload" ? (
                       <div>
@@ -1593,8 +1615,8 @@ function SettingsInner() {
               </div>
 
               <div style={{ marginTop: 28, display: "flex", gap: 10 }}>
-                <button className="btn-primary" onClick={handleSave}>{saved ? "✓ Saved!" : "Save Changes"}</button>
-                <button className="btn-outline">Cancel</button>
+                <button className="btn-primary" onClick={handleSave}>{saved ? "✓ " + t("common.save") + "!" : t("settings.save_changes")}</button>
+                <button className="btn-outline">{t("common.cancel")}</button>
               </div>
             </>
 

@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState, useCallback } from "react";
 import Header from "@/components/Header";
+import { useLanguage } from "@/lib/LanguageContext";
 import {
   getAnalyticsOverview,
   getAnalyticsMonthly,
@@ -178,6 +179,7 @@ const PERIOD_OPTIONS = [
 ];
 
 export default function AnalyticsPage() {
+  const { t } = useLanguage();
   const [period, setPeriod]       = useState(30);
   const [isMobile, setIsMobile]   = useState(false);
   const [loading, setLoading]     = useState(true);
@@ -217,7 +219,7 @@ export default function AnalyticsPage() {
 
   return (
     <div>
-      <Header title="Analytics" subtitle="Fleet performance & profitability" />
+      <Header title={t("analytics.title")} subtitle={t("analytics.subtitle")} />
 
       <div style={{ padding: pad }}>
 
@@ -237,7 +239,7 @@ export default function AnalyticsPage() {
         </div>
 
         {loading ? (
-          <div style={{ textAlign: "center", color: "#aaa", padding: "60px 0", fontSize: 14 }}>Loading analytics…</div>
+          <div style={{ textAlign: "center", color: "#aaa", padding: "60px 0", fontSize: 14 }}>{t("common.loading")}</div>
         ) : (
           <>
             {/* ── KPI Cards ──────────────────────────────────────────────── */}
@@ -249,21 +251,21 @@ export default function AnalyticsPage() {
             }}>
               {[
                 {
-                  label: "Total Revenue",
+                  label: t("analytics.revenue"),
                   value: fmtShort(overview?.total_revenue || 0),
                   sub: `${overview?.total_trips || 0} trips`,
                   color: "#1E2D8E", bg: "#eef0fb",
                   icon: <TrendingUp size={18} color="#1E2D8E" />,
                 },
                 {
-                  label: "Total Expenses",
+                  label: t("analytics.expenses"),
                   value: fmtShort(overview?.total_expenses || 0),
                   sub: `₹${overview?.avg_cost_per_km || 0}/km avg`,
                   color: "#c62828", bg: "#fce4ec",
                   icon: <TrendingDown size={18} color="#c62828" />,
                 },
                 {
-                  label: "Net Profit",
+                  label: t("analytics.net_profit"),
                   value: fmtShort(Math.abs(overview?.net_profit || 0)),
                   sub: `${overview?.margin_pct || 0}% margin`,
                   color: (overview?.net_profit || 0) >= 0 ? "#2e7d32" : "#c62828",
@@ -274,7 +276,7 @@ export default function AnalyticsPage() {
                   prefix: (overview?.net_profit || 0) < 0 ? "−" : "",
                 },
                 {
-                  label: "Fleet Utilization",
+                  label: t("analytics.trips_completed"),
                   value: `${overview?.utilization_pct || 0}%`,
                   sub: `${overview?.active_vehicles || 0} active trucks`,
                   color: "#e65100", bg: "#fff3e0",

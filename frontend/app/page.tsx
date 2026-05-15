@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import OnboardingChecklist from "@/components/OnboardingChecklist";
+import { useLanguage } from "@/lib/LanguageContext";
 
 const GREETING_EMOJIS = ["🚀", "💪", "🌟", "⚡", "🔥", "✨", "🎯", "💼", "🏆", "😎"];
 
@@ -40,6 +41,7 @@ function MarginBar({ pct }: { pct: number }) {
 }
 
 export default function Dashboard() {
+  const { t } = useLanguage();
   const [vehicles, setVehicles] = useState<any[]>([]);
   const [trips, setTrips]       = useState<any[]>([]);
   const [drivers, setDrivers]   = useState<any[]>([]);
@@ -198,7 +200,7 @@ export default function Dashboard() {
 
   return (
     <div>
-      <Header title={`${getGreeting()}, ${userName} ${emoji}`} subtitle="Here's your fleet overview" />
+      <Header title={`${getGreeting()}, ${userName} ${emoji}`} subtitle={t("analytics.subtitle")} />
       <div style={{ padding: isMobile ? "14px" : "24px 28px" }}>
 
         {/* Setup Guide */}
@@ -226,10 +228,10 @@ export default function Dashboard() {
         {/* Top Stats */}
         <div style={{ display: "grid", gridTemplateColumns: isMobile ? "repeat(2, 1fr)" : "repeat(4, 1fr)", gap: isMobile ? 10 : 16, marginBottom: isMobile ? 16 : 24 }}>
           {[
-            { label: "Total Vehicles", value: vehicles.length, sub: `${activeVehicles} Active · ${inTripVehicles} On Trip`, icon: Truck },
-            { label: "Total Drivers",  value: drivers.length,  sub: `${availDrivers} Available`,        icon: Users },
-            { label: "Total Trips",    value: trips.length,    sub: `${completedTrips} Completed`,      icon: Route },
-            { label: "Revenue",        value: `₹${(totalRevenue/1000).toFixed(1)}K`, sub: "Completed trips", icon: TrendingUp },
+            { label: t("vehicle.total"),  value: vehicles.length, sub: `${activeVehicles} ${t("driver.available")} · ${inTripVehicles} ${t("vehicle.on_trip")}`, icon: Truck },
+            { label: t("driver.total"),  value: drivers.length,  sub: `${availDrivers} ${t("driver.available")}`,        icon: Users },
+            { label: t("dash.total_trips"), value: trips.length, sub: `${completedTrips} ${t("status.completed")}`,      icon: Route },
+            { label: t("dash.revenue"),  value: `₹${(totalRevenue/1000).toFixed(1)}K`, sub: t("status.completed"), icon: TrendingUp },
           ].map(s => (
             <div key={s.label} className="stat-card" style={{ display: "flex", alignItems: "center", gap: 16 }}>
               <div style={{ width: 44, height: 44, borderRadius: 10, background: "#e8eaf6", display: "flex", alignItems: "center", justifyContent: "center" }}>

@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import Header from "@/components/Header";
 import { getMiscExpenses, addMiscExpense, deleteMiscExpense, getVehicles, getTrips } from "@/lib/api";
 import { Plus, X, Trash2, PackageOpen } from "lucide-react";
+import { useLanguage } from "@/lib/LanguageContext";
 
 const CATEGORIES = [
   { value: "fine",              label: "Fine / Penalty",      color: "#b71c1c", bg: "#fce4ec" },
@@ -28,6 +29,7 @@ const EMPTY = {
 };
 
 export default function MiscExpensesPage() {
+  const { t } = useLanguage();
   const [logs, setLogs]         = useState<any[]>([]);
   const [vehicles, setVehicles] = useState<any[]>([]);
   const [trips, setTrips]       = useState<any[]>([]);
@@ -78,7 +80,7 @@ export default function MiscExpensesPage() {
   };
 
   const vehicleName = (id: string) => vehicles.find(v => v.id === id)?.registration_number || "—";
-  const tripLabel = (id: string) => { const t = trips.find(t => t.id === id); return t ? `${t.origin} → ${t.destination}` : null; };
+  const tripLabel = (id: string) => { const tp = trips.find(tp => tp.id === id); return tp ? `${tp.origin} → ${tp.destination}` : null; };
 
   const filtered = logs
     .filter(l => !filterCat || l.category === filterCat)
@@ -96,7 +98,7 @@ export default function MiscExpensesPage() {
 
   return (
     <div>
-      <Header title="Misc Expenses" subtitle={`${logs.length} entries · ₹${totalSpend.toLocaleString("en-IN")} total`} />
+      <Header title={t("misc.title")} subtitle={`${logs.length} entries · ₹${totalSpend.toLocaleString("en-IN")} total`} />
       <div style={{ padding: isMobile ? "14px" : "24px 28px" }}>
 
         {/* Stats */}
@@ -123,7 +125,7 @@ export default function MiscExpensesPage() {
             marginBottom: 16,
             gap: 10,
           }}>
-            <h2 style={{ margin: 0, fontSize: 15, fontWeight: 700 }}>All Entries</h2>
+            <h2 style={{ margin: 0, fontSize: 15, fontWeight: 700 }}>{t("misc.title")}</h2>
             <div style={{ display: "flex", gap: 8, flex: isMobile ? undefined : 1, maxWidth: isMobile ? undefined : 440 }}>
               <select value={filterCat} onChange={e => setFilterCat(e.target.value)}
                 style={{ flex: 1, padding: "7px 10px", border: "1.5px solid var(--border-input)", borderRadius: 8, fontSize: 13, background: "var(--bg-subtle)", color: "var(--text-main)" }}>
@@ -136,13 +138,13 @@ export default function MiscExpensesPage() {
                 {vehicles.map(v => <option key={v.id} value={v.id}>{v.registration_number}</option>)}
               </select>
               <button className="btn-primary" onClick={() => { setForm({ ...EMPTY }); setError(""); setShowForm(true); }} style={{ whiteSpace: "nowrap" }}>
-                <Plus size={15} /> Add Expense
+                <Plus size={15} /> {t("misc.add")}
               </button>
             </div>
           </div>
 
           {loading ? (
-            <p style={{ color: "#aaa", textAlign: "center", padding: "32px 0" }}>Loading...</p>
+            <p style={{ color: "#aaa", textAlign: "center", padding: "32px 0" }}>{t("common.loading")}</p>
           ) : filtered.length === 0 ? (
             <div style={{ textAlign: "center", padding: "52px 20px" }}>
               <div style={{ width: 72, height: 72, borderRadius: "50%", background: "#eef0fb", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 16px" }}>
@@ -156,7 +158,7 @@ export default function MiscExpensesPage() {
               </div>
               {!filterCat && !filterVehicle && (
                 <button className="btn-primary" onClick={() => { setForm({ ...EMPTY }); setError(""); setShowForm(true); }}>
-                  <Plus size={14} /> Add Expense
+                  <Plus size={14} /> {t("misc.add")}
                 </button>
               )}
             </div>
@@ -242,31 +244,31 @@ export default function MiscExpensesPage() {
             <button onClick={() => setShowForm(false)} style={{ position: "absolute", top: 16, right: 16, background: "none", border: "none", cursor: "pointer", color: "#888" }}>
               <X size={18} />
             </button>
-            <h2 style={{ margin: "0 0 18px", fontSize: 16, fontWeight: 700 }}>Add Misc Expense</h2>
+            <h2 style={{ margin: "0 0 18px", fontSize: 16, fontWeight: 700 }}>{t("misc.add")}</h2>
 
             {error && <div style={{ background: "#fce4ec", color: "#b71c1c", padding: "8px 12px", borderRadius: 8, marginBottom: 14, fontSize: 13 }}>{error}</div>}
 
             <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
               <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 12 }}>
                 <div>
-                  <label style={lbl}>Category *</label>
+                  <label style={lbl}>{t("misc.category")} *</label>
                   <select value={form.category} onChange={e => set("category", e.target.value)} style={inp}>
                     {CATEGORIES.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
                   </select>
                 </div>
                 <div>
-                  <label style={lbl}>Date *</label>
+                  <label style={lbl}>{t("form.date")} *</label>
                   <input type="date" required value={form.date} onChange={e => set("date", e.target.value)} style={inp} />
                 </div>
               </div>
 
               <div>
-                <label style={lbl}>Amount (₹) *</label>
+                <label style={lbl}>{t("form.amount")} *</label>
                 <input type="number" required min="0" step="0.01" placeholder="e.g. 500" value={form.amount} onChange={e => set("amount", e.target.value)} style={inp} />
               </div>
 
               <div>
-                <label style={lbl}>Description</label>
+                <label style={lbl}>{t("misc.description")}</label>
                 <input type="text" placeholder="e.g. Overloading fine at Nashik checkpost" value={form.description} onChange={e => set("description", e.target.value)} style={inp} />
               </div>
 
@@ -282,22 +284,22 @@ export default function MiscExpensesPage() {
                   <label style={lbl}>Link to Trip (optional)</label>
                   <select value={form.trip_id} onChange={e => set("trip_id", e.target.value)} style={inp}>
                     <option value="">Not linked to trip</option>
-                    {trips.filter(t => !form.vehicle_id || t.vehicle_id === form.vehicle_id).map(t => (
-                      <option key={t.id} value={t.id}>{t.origin} → {t.destination}</option>
+                    {trips.filter(tp => !form.vehicle_id || tp.vehicle_id === form.vehicle_id).map(tp => (
+                      <option key={tp.id} value={tp.id}>{tp.origin} → {tp.destination}</option>
                     ))}
                   </select>
                 </div>
               </div>
 
               <div>
-                <label style={lbl}>Notes</label>
+                <label style={lbl}>{t("form.notes")}</label>
                 <input type="text" placeholder="Any additional info..." value={form.notes} onChange={e => set("notes", e.target.value)} style={inp} />
               </div>
 
               <div style={{ display: "flex", gap: 10, marginTop: 4 }}>
-                <button type="button" className="btn-outline" style={{ flex: 1 }} onClick={() => setShowForm(false)}>Cancel</button>
+                <button type="button" className="btn-outline" style={{ flex: 1 }} onClick={() => setShowForm(false)}>{t("common.cancel")}</button>
                 <button type="submit" className="btn-primary" style={{ flex: 1, justifyContent: "center" }} disabled={saving}>
-                  {saving ? "Saving..." : "Add Expense"}
+                  {saving ? t("common.loading") : t("misc.add")}
                 </button>
               </div>
             </form>

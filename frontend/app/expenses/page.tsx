@@ -3,8 +3,10 @@ import { useEffect, useState } from "react";
 import Header from "@/components/Header";
 import { getTrips, getTripExpenses, addExpense } from "@/lib/api";
 import { Plus, Wrench, X } from "lucide-react";
+import { useLanguage } from "@/lib/LanguageContext";
 
 export default function ExpensesPage() {
+  const { t } = useLanguage();
   const [trips, setTrips]           = useState<any[]>([]);
   const [selectedTrip, setSelected] = useState("");
   const [expenses, setExpenses]     = useState<any[]>([]);
@@ -47,7 +49,7 @@ export default function ExpensesPage() {
 
   return (
     <div>
-      <Header title="Services & Expenses" subtitle="Track all trip expenses" />
+      <Header title={t("nav.services")} subtitle={t("trip.expense")} />
       <div style={{ padding: isMobile ? "14px" : "24px 28px" }}>
 
         {/* Trip selector */}
@@ -89,8 +91,8 @@ export default function ExpensesPage() {
                 marginBottom: 16,
                 gap: 10,
               }}>
-                <h2 style={{ margin: 0, fontSize: 15, fontWeight: 700 }}>Expense Entries</h2>
-                <button className="btn-primary" onClick={() => setShowForm(true)}><Plus size={15} />Add Expense</button>
+                <h2 style={{ margin: 0, fontSize: 15, fontWeight: 700 }}>{t("trip.expense")}</h2>
+                <button className="btn-primary" onClick={() => setShowForm(true)}><Plus size={15} />{t("misc.add")}</button>
               </div>
               {expenses.length === 0 ? (
                 <div style={{ textAlign: "center", padding: "32px 0" }}>
@@ -141,7 +143,7 @@ export default function ExpensesPage() {
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, padding: 20 }}>
           <div className="card" style={{ width: "100%", maxWidth: 480, position: "relative", maxHeight: "90vh", overflowY: "auto" }}>
             <button onClick={() => setShowForm(false)} style={{ position: "absolute", top: 16, right: 16, background: "none", border: "none", cursor: "pointer", color: "#888" }}><X size={18} /></button>
-            <h2 style={{ margin: "0 0 20px", fontSize: 16, fontWeight: 700 }}>Add Expense</h2>
+            <h2 style={{ margin: "0 0 20px", fontSize: 16, fontWeight: 700 }}>{t("misc.add")}</h2>
             {error && <div style={{ background: "#fce4ec", color: "#b71c1c", padding: "8px 12px", borderRadius: 6, marginBottom: 14, fontSize: 13 }}>{error}</div>}
             <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 12 }}>
               <div>
@@ -169,8 +171,8 @@ export default function ExpensesPage() {
                   style={{ width: "100%", padding: "8px 12px", border: "1.5px solid #e8e8f0", borderRadius: 8, fontSize: 13.5 }} />
               </div>
               <div style={{ display: "flex", gap: 10, marginTop: 4 }}>
-                <button type="button" className="btn-outline" style={{ flex: 1 }} onClick={() => setShowForm(false)}>Cancel</button>
-                <button type="submit" className="btn-primary" style={{ flex: 1, justifyContent: "center" }} disabled={saving}>{saving ? "Saving..." : "Add Expense"}</button>
+                <button type="button" className="btn-outline" style={{ flex: 1 }} onClick={() => setShowForm(false)}>{t("common.cancel")}</button>
+                <button type="submit" className="btn-primary" style={{ flex: 1, justifyContent: "center" }} disabled={saving}>{saving ? t("common.loading") : t("misc.add")}</button>
               </div>
             </form>
           </div>

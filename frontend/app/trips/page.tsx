@@ -8,6 +8,7 @@ import {
 } from "@/lib/api";
 import { Plus, X, Route, MessageCircle, FileDown, Zap, AlertTriangle, CheckCircle, Clock } from "lucide-react";
 import LocationInput from "@/components/LocationInput";
+import { useLanguage } from "@/lib/LanguageContext";
 
 // ── WhatsApp trip sheet generator ─────────────────────────────────────────────
 function shareOnWhatsApp(trip: any, detail: any, vehicleReg: string) {
@@ -148,6 +149,7 @@ function StatusStepper({ status }: { status: string }) {
 // ── Main page ─────────────────────────────────────────────────────────────────
 
 export default function TripsPage() {
+  const { t } = useLanguage();
   const [trips, setTrips]       = useState<any[]>([]);
   const [vehicles, setVehicles] = useState<any[]>([]);
   const [drivers, setDrivers]   = useState<any[]>([]);
@@ -353,7 +355,7 @@ export default function TripsPage() {
 
   return (
     <div>
-      <Header title="Trips" subtitle={`${trips.length} total trips`} />
+      <Header title={t("nav.trips")} subtitle={`${trips.length} ${t("dash.total_trips")}`} />
       {/* Floating Log Trip button on mobile */}
       {isMobile && (
         <button
@@ -670,7 +672,7 @@ export default function TripsPage() {
                       <select value={expForm.expense_type}
                         onChange={e => setExpForm(p => ({ ...p, expense_type: e.target.value }))}
                         style={{ width: "100%", padding: "7px 8px", border: "1.5px solid #e8e8f0", borderRadius: 7, fontSize: 12.5, boxSizing: "border-box" }}>
-                        {EXPENSE_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+                        {EXPENSE_TYPES.map(et => <option key={et.value} value={et.value}>{et.label}</option>)}
                       </select>
                     </div>
                     <div>
@@ -811,8 +813,8 @@ export default function TripsPage() {
               style={{ position: "absolute", top: 16, right: 16, background: "none", border: "none", cursor: "pointer", color: "#aaa" }}>
               <X size={18} />
             </button>
-            <h2 style={{ margin: "0 0 4px", fontSize: 16, fontWeight: 700 }}>Log New Trip</h2>
-            <p style={{ margin: "0 0 18px", fontSize: 12.5, color: "#888" }}>Create a trip to start tracking expenses and profit.</p>
+            <h2 style={{ margin: "0 0 4px", fontSize: 16, fontWeight: 700 }}>{t("trip.new")}</h2>
+            <p style={{ margin: "0 0 18px", fontSize: 12.5, color: "#888" }}>{t("vehicle.fill_manually")}</p>
 
             {formErr && (
               <div style={{ background: "#fce4ec", color: "#b71c1c", padding: "8px 12px", borderRadius: 6, marginBottom: 14, fontSize: 13 }}>
@@ -824,11 +826,11 @@ export default function TripsPage() {
 
               {/* Vehicle */}
               <div>
-                <label style={{ fontSize: 12, fontWeight: 600, color: "#555", display: "block", marginBottom: 4 }}>Vehicle *</label>
+                <label style={{ fontSize: 12, fontWeight: 600, color: "#555", display: "block", marginBottom: 4 }}>{t("trip.vehicle")} *</label>
                 <select required value={form.vehicle_id}
                   onChange={e => setForm(p => ({ ...p, vehicle_id: e.target.value }))}
                   style={{ width: "100%", padding: "8px 12px", border: "1.5px solid #e8e8f0", borderRadius: 8, fontSize: 13.5, boxSizing: "border-box" }}>
-                  <option value="">Select vehicle</option>
+                  <option value="">{t("form.select_vehicle")}</option>
                   {vehicles.filter(v => v.status === "active").map((v: any) => (
                     <option key={v.id} value={v.id}>{v.registration_number} — {v.make} {v.model}</option>
                   ))}
@@ -992,9 +994,9 @@ export default function TripsPage() {
               </div>
 
               <div style={{ display: "flex", gap: 10, marginTop: 4 }}>
-                <button type="button" className="btn-outline" style={{ flex: 1 }} onClick={() => { setShowForm(false); setVehicleSuggestions([]); setFatigueStatus(null); }}>Cancel</button>
+                <button type="button" className="btn-outline" style={{ flex: 1 }} onClick={() => { setShowForm(false); setVehicleSuggestions([]); setFatigueStatus(null); }}>{t("common.cancel")}</button>
                 <button type="submit" className="btn-primary" style={{ flex: 1, justifyContent: "center" }} disabled={saving}>
-                  {saving ? "Saving…" : "Log Trip"}
+                  {saving ? t("common.loading") : t("trip.new")}
                 </button>
               </div>
             </form>

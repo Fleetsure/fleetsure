@@ -4,6 +4,7 @@ import Header from "@/components/Header";
 import { getVehicles, getTrips, getDrivers, getFuelLogs, getTollLogs, getTyreLogs, getMiscExpenses } from "@/lib/api";
 import { api } from "@/lib/api";
 import { Download, FileSpreadsheet, FileText, CheckSquare, Square } from "lucide-react";
+import { useLanguage } from "@/lib/LanguageContext";
 
 const EXPORT_TYPES = [
   { key: "vehicles",    label: "Vehicles",          desc: "All vehicle details + compliance dates" },
@@ -17,7 +18,8 @@ const EXPORT_TYPES = [
 ];
 
 export default function ReportsPage() {
-  const [selected, setSelected] = useState<string[]>(EXPORT_TYPES.map(t => t.key));
+  const { t } = useLanguage();
+  const [selected, setSelected] = useState<string[]>(EXPORT_TYPES.map(et => et.key));
   const [format, setFormat]     = useState<"xlsx" | "csv">("xlsx");
   const [downloading, setDownloading] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
@@ -56,7 +58,7 @@ export default function ReportsPage() {
     setSelected(prev => prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key]);
 
   const toggleAll = () =>
-    setSelected(selected.length === EXPORT_TYPES.length ? [] : EXPORT_TYPES.map(t => t.key));
+    setSelected(selected.length === EXPORT_TYPES.length ? [] : EXPORT_TYPES.map(et => et.key));
 
   const handleDownload = async () => {
     if (selected.length === 0) return;
@@ -91,7 +93,7 @@ export default function ReportsPage() {
 
   return (
     <div>
-      <Header title="Reports & Export" subtitle="Download your fleet data as Excel or CSV" />
+      <Header title={t("nav.reports")} subtitle="Download your fleet data as Excel or CSV" />
       <div style={{ padding: isMobile ? "14px" : "24px 28px" }}>
 
         <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 340px", gap: isMobile ? 16 : 24, alignItems: "start" }}>
@@ -109,12 +111,12 @@ export default function ReportsPage() {
             </div>
 
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-              {EXPORT_TYPES.map(t => {
-                const isSelected = selected.includes(t.key);
-                const count = counts[t.key];
+              {EXPORT_TYPES.map(et => {
+                const isSelected = selected.includes(et.key);
+                const count = counts[et.key];
                 return (
-                  <div key={t.key}
-                    onClick={() => toggle(t.key)}
+                  <div key={et.key}
+                    onClick={() => toggle(et.key)}
                     style={{
                       display: "flex", alignItems: "center", gap: 14, padding: "12px 14px",
                       borderRadius: 10, cursor: "pointer", transition: "all 0.15s",
@@ -132,8 +134,8 @@ export default function ReportsPage() {
                       {isSelected && <svg width="10" height="8" viewBox="0 0 10 8" fill="none"><path d="M1 4L3.5 6.5L9 1" stroke="white" strokeWidth="2" strokeLinecap="round"/></svg>}
                     </div>
                     <div style={{ flex: 1 }}>
-                      <div style={{ fontSize: 13.5, fontWeight: 600, color: isSelected ? "#1E2D8E" : "var(--text-main)" }}>{t.label}</div>
-                      <div style={{ fontSize: 12, color: "#aaa", marginTop: 1 }}>{t.desc}</div>
+                      <div style={{ fontSize: 13.5, fontWeight: 600, color: isSelected ? "#1E2D8E" : "var(--text-main)" }}>{et.label}</div>
+                      <div style={{ fontSize: 12, color: "#aaa", marginTop: 1 }}>{et.desc}</div>
                     </div>
                     {count !== undefined && (
                       <span style={{

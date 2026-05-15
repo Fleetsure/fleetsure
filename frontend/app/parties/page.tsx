@@ -2,6 +2,7 @@
 import React, { useEffect, useState } from "react";
 import Header from "@/components/Header";
 import { getParties, createParty, updateParty, deleteParty } from "@/lib/api";
+import { useLanguage } from "@/lib/LanguageContext";
 import {
   Plus, X, Users, Truck, Wrench, Phone, Building2,
   Search, Edit2, Trash2, IndianRupee, ChevronDown, ChevronUp
@@ -22,6 +23,7 @@ const EMPTY: any = {
 };
 
 export default function PartiesPage() {
+  const { t } = useLanguage();
   const [parties, setParties]     = useState<any[]>([]);
   const [loading, setLoading]     = useState(true);
   const [filter, setFilter]       = useState<PartyType | "all">("all");
@@ -112,22 +114,22 @@ export default function PartiesPage() {
   return (
     <div>
       <Header
-        title="Parties"
+        title={t("party.title")}
         subtitle={`${parties.length} contacts in your network`}
       />
       <div style={{ padding: isMobile ? "14px" : "24px 28px" }}>
 
         {/* Stat cards */}
         <div style={{ display: "grid", gridTemplateColumns: isMobile ? "repeat(2, 1fr)" : "repeat(4, 1fr)", gap: 14, marginBottom: 24 }}>
-          {(["all", ...PARTY_TYPES] as const).map(t => {
-            const isAll = t === "all";
-            const meta  = isAll ? null : TYPE_META[t];
+          {(["all", ...PARTY_TYPES] as const).map(pt => {
+            const isAll = pt === "all";
+            const meta  = isAll ? null : TYPE_META[pt];
             const Icon  = isAll ? Building2 : meta!.icon;
-            const count = counts[t];
-            const active = filter === t;
+            const count = counts[pt];
+            const active = filter === pt;
             return (
-              <div key={t}
-                onClick={() => setFilter(t)}
+              <div key={pt}
+                onClick={() => setFilter(pt)}
                 className="stat-card"
                 style={{
                   display: "flex", alignItems: "center", gap: 14, cursor: "pointer",
@@ -166,20 +168,20 @@ export default function PartiesPage() {
               />
             </div>
             <button className="btn-primary" onClick={openAdd} style={{ justifyContent: isMobile ? "center" : undefined }}>
-              <Plus size={15} /> Add Party
+              <Plus size={15} /> {t("party.add")}
             </button>
           </div>
 
           {/* Table */}
           {loading ? (
-            <div style={{ textAlign: "center", padding: "40px 0", color: "#aaa" }}>Loading…</div>
+            <div style={{ textAlign: "center", padding: "40px 0", color: "#aaa" }}>{t("common.loading")}</div>
           ) : visible.length === 0 ? (
             <div style={{ textAlign: "center", padding: "48px 0" }}>
               <Building2 size={40} color="#e0e0e0" style={{ margin: "0 auto 12px", display: "block" }} />
               <p style={{ color: "#aaa", fontSize: 14, margin: "0 0 16px" }}>
                 {search ? "No matches found" : "No parties added yet"}
               </p>
-              {!search && <button className="btn-primary" onClick={openAdd}><Plus size={14} /> Add First Party</button>}
+              {!search && <button className="btn-primary" onClick={openAdd}><Plus size={14} /> {t("party.add")}</button>}
             </div>
           ) : isMobile ? (
             <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
@@ -325,7 +327,7 @@ export default function PartiesPage() {
               <X size={18} />
             </button>
             <h2 style={{ margin: "0 0 20px", fontSize: 16, fontWeight: 700 }}>
-              {editingId ? "Edit Party" : "Add Party"}
+              {editingId ? t("common.edit") + " " + t("party.title") : t("party.add")}
             </h2>
 
             <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
@@ -333,14 +335,14 @@ export default function PartiesPage() {
               <div>
                 <label style={lbl}>Type *</label>
                 <div style={{ display: "flex", gap: 8 }}>
-                  {PARTY_TYPES.map(t => {
-                    const m = TYPE_META[t];
-                    const active = form.party_type === t;
+                  {PARTY_TYPES.map(pt => {
+                    const m = TYPE_META[pt];
+                    const active = form.party_type === pt;
                     return (
                       <button
-                        key={t}
+                        key={pt}
                         type="button"
-                        onClick={() => set("party_type", t)}
+                        onClick={() => set("party_type", pt)}
                         style={{
                           flex: 1, padding: "8px 0", borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: "pointer",
                           border: active ? `2px solid ${m.color}` : "2px solid #e8e8f0",
@@ -357,7 +359,7 @@ export default function PartiesPage() {
 
               {/* Name */}
               <div>
-                <label style={lbl}>Name *</label>
+                <label style={lbl}>{t("party.name")} *</label>
                 <input required value={form.name} onChange={e => set("name", e.target.value)}
                   placeholder="e.g. Sharma Transport Co." style={inp} />
               </div>
@@ -402,9 +404,9 @@ export default function PartiesPage() {
               </div>
 
               <div style={{ display: "flex", gap: 10, marginTop: 4 }}>
-                <button type="button" className="btn-outline" style={{ flex: 1 }} onClick={() => setShowForm(false)}>Cancel</button>
+                <button type="button" className="btn-outline" style={{ flex: 1 }} onClick={() => setShowForm(false)}>{t("common.cancel")}</button>
                 <button type="submit" className="btn-primary" style={{ flex: 1, justifyContent: "center" }} disabled={saving}>
-                  {saving ? "Saving…" : editingId ? "Save Changes" : "Add Party"}
+                  {saving ? t("common.loading") : editingId ? t("common.save") : t("party.add")}
                 </button>
               </div>
             </form>

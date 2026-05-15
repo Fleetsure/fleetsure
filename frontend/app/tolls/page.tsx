@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import Header from "@/components/Header";
 import { getTollLogs, addTollLog, deleteTollLog, getVehicles, getTrips } from "@/lib/api";
 import { Plus, X, Trash2, IndianRupee, Truck, Route, CreditCard, Banknote } from "lucide-react";
+import { useLanguage } from "@/lib/LanguageContext";
 
 const EMPTY = {
   vehicle_id:   "",
@@ -16,6 +17,7 @@ const EMPTY = {
 };
 
 export default function TollsPage() {
+  const { t } = useLanguage();
   const [logs, setLogs]         = useState<any[]>([]);
   const [vehicles, setVehicles] = useState<any[]>([]);
   const [trips, setTrips]       = useState<any[]>([]);
@@ -74,8 +76,8 @@ export default function TollsPage() {
   };
 
   const tripLabel = (id: string) => {
-    const t = trips.find(t => t.id === id);
-    return t ? `${t.origin} → ${t.destination}` : null;
+    const tp = trips.find(tp => tp.id === id);
+    return tp ? `${tp.origin} → ${tp.destination}` : null;
   };
 
   const filtered = filterVehicle ? logs.filter(l => l.vehicle_id === filterVehicle) : logs;
@@ -88,7 +90,7 @@ export default function TollsPage() {
 
   return (
     <div>
-      <Header title="Tolls" subtitle={`${logs.length} entries · ₹${totalSpend.toLocaleString("en-IN")} total spend`} />
+      <Header title={t("toll.title")} subtitle={`${logs.length} entries · ₹${totalSpend.toLocaleString("en-IN")} total spend`} />
       <div style={{ padding: isMobile ? "14px" : "24px 28px" }}>
 
         {/* Stat cards */}
@@ -120,7 +122,7 @@ export default function TollsPage() {
             marginBottom: 16,
             gap: 10,
           }}>
-            <h2 style={{ margin: 0, fontSize: 15, fontWeight: 700 }}>Toll Entries</h2>
+            <h2 style={{ margin: 0, fontSize: 15, fontWeight: 700 }}>{t("toll.title")}</h2>
             <div style={{ display: "flex", gap: 8, alignItems: "center", flex: isMobile ? undefined : 1, maxWidth: isMobile ? undefined : 340 }}>
               <select
                 value={filterVehicle}
@@ -130,13 +132,13 @@ export default function TollsPage() {
                 {vehicles.map(v => <option key={v.id} value={v.id}>{v.registration_number}</option>)}
               </select>
               <button className="btn-primary" onClick={() => { setForm({ ...EMPTY }); setError(""); setShowForm(true); }} style={{ whiteSpace: "nowrap" }}>
-                <Plus size={15} /> Add Toll
+                <Plus size={15} /> {t("toll.add")}
               </button>
             </div>
           </div>
 
           {loading ? (
-            <p style={{ color: "#aaa", textAlign: "center", padding: "32px 0" }}>Loading...</p>
+            <p style={{ color: "#aaa", textAlign: "center", padding: "32px 0" }}>{t("common.loading")}</p>
           ) : filtered.length === 0 ? (
             <div style={{ textAlign: "center", padding: "52px 20px" }}>
               <div style={{ width: 72, height: 72, borderRadius: "50%", background: "#eef0fb", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 16px" }}>
@@ -150,7 +152,7 @@ export default function TollsPage() {
               </div>
               {!filterVehicle && (
                 <button className="btn-primary" onClick={() => { setForm({ ...EMPTY }); setError(""); setShowForm(true); }}>
-                  <Plus size={14} /> Add Toll
+                  <Plus size={14} /> {t("toll.add")}
                 </button>
               )}
             </div>
@@ -244,7 +246,7 @@ export default function TollsPage() {
               style={{ position: "absolute", top: 16, right: 16, background: "none", border: "none", cursor: "pointer", color: "#888" }}>
               <X size={18} />
             </button>
-            <h2 style={{ margin: "0 0 18px", fontSize: 16, fontWeight: 700 }}>Add Toll Entry</h2>
+            <h2 style={{ margin: "0 0 18px", fontSize: 16, fontWeight: 700 }}>{t("toll.add")}</h2>
 
             {error && (
               <div style={{ background: "#fce4ec", color: "#b71c1c", padding: "8px 12px", borderRadius: 8, marginBottom: 14, fontSize: 13 }}>{error}</div>
@@ -256,19 +258,19 @@ export default function TollsPage() {
                 <div>
                   <label style={labelStyle}>Vehicle *</label>
                   <select required value={form.vehicle_id} onChange={e => set("vehicle_id", e.target.value)} style={inputStyle}>
-                    <option value="">Select vehicle</option>
+                    <option value="">{t("form.select_vehicle")}</option>
                     {vehicles.map(v => <option key={v.id} value={v.id}>{v.registration_number}</option>)}
                   </select>
                 </div>
                 <div>
-                  <label style={labelStyle}>Date *</label>
+                  <label style={labelStyle}>{t("form.date")} *</label>
                   <input type="date" required value={form.date} onChange={e => set("date", e.target.value)} style={inputStyle} />
                 </div>
               </div>
 
               <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 12 }}>
                 <div>
-                  <label style={labelStyle}>Amount (₹) *</label>
+                  <label style={labelStyle}>{t("form.amount")} *</label>
                   <input type="number" required min="0" step="0.01" placeholder="e.g. 285" value={form.amount} onChange={e => set("amount", e.target.value)} style={inputStyle} />
                 </div>
                 <div>
@@ -281,7 +283,7 @@ export default function TollsPage() {
               </div>
 
               <div>
-                <label style={labelStyle}>Toll Plaza Name</label>
+                <label style={labelStyle}>{t("toll.booth")}</label>
                 <input type="text" placeholder="e.g. Khopoli Toll, Surat Toll" value={form.toll_plaza} onChange={e => set("toll_plaza", e.target.value)} style={inputStyle} />
               </div>
 
@@ -301,14 +303,14 @@ export default function TollsPage() {
               </div>
 
               <div>
-                <label style={labelStyle}>Notes</label>
+                <label style={labelStyle}>{t("form.notes")}</label>
                 <input type="text" placeholder="Any additional info..." value={form.notes} onChange={e => set("notes", e.target.value)} style={inputStyle} />
               </div>
 
               <div style={{ display: "flex", gap: 10, marginTop: 4 }}>
-                <button type="button" className="btn-outline" style={{ flex: 1 }} onClick={() => setShowForm(false)}>Cancel</button>
+                <button type="button" className="btn-outline" style={{ flex: 1 }} onClick={() => setShowForm(false)}>{t("common.cancel")}</button>
                 <button type="submit" className="btn-primary" style={{ flex: 1, justifyContent: "center" }} disabled={saving}>
-                  {saving ? "Saving..." : "Add Toll"}
+                  {saving ? t("common.loading") : t("toll.add")}
                 </button>
               </div>
             </form>

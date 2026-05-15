@@ -3,10 +3,12 @@ import { useEffect, useState } from "react";
 import Header from "@/components/Header";
 import { getFuelLogs, addFuelLog, deleteFuelLog, getFuelAnalytics, getVehicles, getTrips } from "@/lib/api";
 import { Fuel, Plus, X, AlertTriangle, TrendingDown, TrendingUp, Truck, Trash2 } from "lucide-react";
+import { useLanguage } from "@/lib/LanguageContext";
 
 const EMPTY = { vehicle_id: "", trip_id: "", date: new Date().toISOString().slice(0, 10), odometer_km: "", litres: "", rate: "", amount: "", fuel_station: "", notes: "" };
 
 export default function FuelPage() {
+  const { t } = useLanguage();
   const [logs, setLogs]           = useState<any[]>([]);
   const [analytics, setAnalytics] = useState<any[]>([]);
   const [vehicles, setVehicles]   = useState<any[]>([]);
@@ -121,7 +123,7 @@ export default function FuelPage() {
 
   return (
     <div>
-      <Header title="Fuel" subtitle={`${logs.length} fill-up entries · ${anomalies.length} anomaly${anomalies.length !== 1 ? "s" : ""} detected`} />
+      <Header title={t("nav.fuel")} subtitle={`${logs.length} ${t("fuel.title")} · ${anomalies.length} anomaly${anomalies.length !== 1 ? "s" : ""}`} />
       <div style={{ padding: isMobile ? "14px" : "24px 28px" }}>
 
         {/* Anomaly banner */}
@@ -156,17 +158,17 @@ export default function FuelPage() {
 
         {/* Tabs */}
         <div style={{ display: "flex", gap: 4, marginBottom: 16, flexWrap: "wrap" }}>
-          {(["log", "analytics"] as const).map(t => (
-            <button key={t} onClick={() => setTab(t)}
+          {(["log", "analytics"] as const).map(tab2 => (
+            <button key={tab2} onClick={() => setTab(tab2)}
               style={{ padding: "7px 18px", borderRadius: 8, border: "1.5px solid", fontSize: 13, fontWeight: 600, cursor: "pointer",
-                background: tab === t ? "#1E2D8E" : "transparent",
-                color: tab === t ? "white" : "#1E2D8E",
+                background: tab === tab2 ? "#1E2D8E" : "transparent",
+                color: tab === tab2 ? "white" : "#1E2D8E",
                 borderColor: "#1E2D8E" }}>
-              {t === "log" ? "Fuel Log" : (isMobile ? "Analytics" : "Efficiency Analytics")}
+              {tab2 === "log" ? t("fuel.title") : (isMobile ? t("nav.analytics") : t("analytics.title"))}
             </button>
           ))}
           <div style={{ flex: 1 }} />
-          <button className="btn-primary" onClick={() => setShowForm(true)}><Plus size={15} />Add Fill-up</button>
+          <button className="btn-primary" onClick={() => setShowForm(true)}><Plus size={15} />{t("fuel.add")}</button>
         </div>
 
         <div className="card">
@@ -271,13 +273,13 @@ export default function FuelPage() {
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, padding: 20 }}>
           <div className="card" style={{ width: "100%", maxWidth: 480, position: "relative", maxHeight: "90vh", overflowY: "auto" }}>
             <button onClick={() => setShowForm(false)} style={{ position: "absolute", top: 16, right: 16, background: "none", border: "none", cursor: "pointer", color: "#888" }}><X size={18} /></button>
-            <h2 style={{ margin: "0 0 20px", fontSize: 16, fontWeight: 700 }}>Add Fuel Fill-up</h2>
+            <h2 style={{ margin: "0 0 20px", fontSize: 16, fontWeight: 700 }}>{t("fuel.add")}</h2>
             {error && <div style={{ background: "#fce4ec", color: "#b71c1c", padding: "8px 12px", borderRadius: 8, marginBottom: 12, fontSize: 13 }}>{error}</div>}
             <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
               <div>
-                <label style={lbl}>Vehicle *</label>
+                <label style={lbl}>{t("trip.vehicle")} *</label>
                 <select required value={form.vehicle_id} onChange={e => set("vehicle_id", e.target.value)} style={inp}>
-                  <option value="">Select vehicle</option>
+                  <option value="">{t("form.select_vehicle")}</option>
                   {vehicles.map(v => <option key={v.id} value={v.id}>{v.registration_number} — {v.make} {v.model}</option>)}
                 </select>
               </div>
@@ -310,8 +312,8 @@ export default function FuelPage() {
               <div><label style={lbl}>Fuel Station</label><input placeholder="HP Petrol Pump, NH-48" value={form.fuel_station} onChange={e => set("fuel_station", e.target.value)} style={inp} /></div>
               <div><label style={lbl}>Notes</label><input placeholder="Any notes..." value={form.notes} onChange={e => set("notes", e.target.value)} style={inp} /></div>
               <div style={{ display: "flex", gap: 10, marginTop: 4 }}>
-                <button type="button" className="btn-outline" style={{ flex: 1 }} onClick={() => setShowForm(false)}>Cancel</button>
-                <button type="submit" className="btn-primary" style={{ flex: 1, justifyContent: "center" }} disabled={saving}>{saving ? "Saving..." : "Save Fill-up"}</button>
+                <button type="button" className="btn-outline" style={{ flex: 1 }} onClick={() => setShowForm(false)}>{t("common.cancel")}</button>
+                <button type="submit" className="btn-primary" style={{ flex: 1, justifyContent: "center" }} disabled={saving}>{saving ? t("common.loading") : t("common.save")}</button>
               </div>
             </form>
           </div>
