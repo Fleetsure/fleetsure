@@ -32,7 +32,7 @@ api.interceptors.response.use(
 );
 
 // ── Auth ──────────────────────────────────────────────────
-export const register = (data: { name: string; email: string; password: string }) =>
+export const register = (data: { name: string; email: string; password: string; phone?: string }) =>
   api.post("/auth/register", data);
 export const login = (data: { email: string; password: string }) =>
   api.post("/auth/login", data);
