@@ -226,7 +226,7 @@ export default function RegisterPage() {
         </div>
 
         {/* Footer */}
-        <p style={{ textAlign: "center", fontSize: 12, color: "#ccc", marginTop: 24, marginBottom: 0 }}>
+        <p style={{ textAlign: "center", fontSize: 13, color: "#888", marginTop: 24, marginBottom: 0 }}>
           Made with ❤️ in Bengaluru
         </p>
       </div>
