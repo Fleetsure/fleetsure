@@ -1,6 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
-from sqlalchemy.orm import Session, joinedload
 from uuid import UUID
 import io, base64
 from datetime import date
@@ -15,12 +14,9 @@ from reportlab.lib.enums import TA_CENTER, TA_RIGHT, TA_LEFT
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 
-from app.database import get_db
-from app.models.trip import Trip
-from app.models.user import User
+from app.db import supabase
 from app.services.auth_service import get_current_user
 
-# ── Register Unicode fonts (supports ₹) ───────────────────────────────────────
 import os as _os
 _FONT_DIR = _os.path.join(_os.path.dirname(_os.path.dirname(__file__)), "fonts")
 try:
@@ -33,7 +29,6 @@ except Exception as _e:
 
 router = APIRouter(prefix="/trips", tags=["PDF"])
 
-# ── Colors ─────────────────────────────────────────────────────────────────────
 BLUE   = colors.HexColor("#1E2D8E")
 LBLUE  = colors.HexColor("#e8eaf6")
 GRAY   = colors.HexColor("#888888")
@@ -65,7 +60,7 @@ def _inr(amount) -> str:
     return f"₹{float(amount):,.0f}"
 
 
-def build_trip_pdf(trip: Trip, org_name: str, org_logo_b64: str,
+def build_trip_pdf(trip: dict, expenses: list, vehicle: dict, org_name: str, org_logo_b64: str,
                    include_expense_types: list, show_profit: bool) -> bytes:
     buffer = io.BytesIO()
     W_PAGE = A4[0]
@@ -78,19 +73,15 @@ def build_trip_pdf(trip: Trip, org_name: str, org_logo_b64: str,
     )
     story = []
 
-    # ── 1. HEADER — single flat table, Paragraphs directly in cells ─────────
     org_display = org_name or "Fleet Company"
-    MUTED = colors.HexColor("#c5cae9")
 
-    # Right cell: single Paragraph with line breaks — no nested table
     right_para = Paragraph(
         f'<font name="{FONTB}" size="12" color="white">TRIP SHEET</font><br/>'
-        f'<font name="{FONT}" size="8" color="#c5cae9">Doc: {trip.doc_number or "—"}</font><br/>'
-        f'<font name="{FONT}" size="8" color="#c5cae9">Date: {_fmt_date(trip.start_date)}</font>',
+        f'<font name="{FONT}" size="8" color="#c5cae9">Doc: {trip.get("doc_number") or "—"}</font><br/>'
+        f'<font name="{FONT}" size="8" color="#c5cae9">Date: {_fmt_date(trip.get("start_date"))}</font>',
         ParagraphStyle("rp", alignment=TA_RIGHT, leading=14)
     )
 
-    # Left cell: logo + text OR just text
     logo_img = None
     if org_logo_b64:
         try:
@@ -138,7 +129,6 @@ def build_trip_pdf(trip: Trip, org_name: str, org_logo_b64: str,
         ("ROUNDEDCORNERS", [8,8,8,8]),
     ]))
     story.append(banner)
-    # Gold accent strip
     accent = Table([[""]], colWidths=[W])
     accent.setStyle(TableStyle([
         ("BACKGROUND",    (0,0),(-1,-1), GOLD),
@@ -148,11 +138,10 @@ def build_trip_pdf(trip: Trip, org_name: str, org_logo_b64: str,
     story.append(accent)
     story.append(Spacer(1, 6))
 
-    # ── 2. ROUTE BANNER ───────────────────────────────────────────────────────
     route = Table([[
-        P(trip.origin.upper(),      font=FONTB, size=14, color=BLUE),
+        P((trip.get("origin") or "").upper(),      font=FONTB, size=14, color=BLUE),
         P("→", size=16, color=GRAY, align=TA_CENTER),
-        P(trip.destination.upper(), font=FONTB, size=14, color=BLUE, align=TA_RIGHT),
+        P((trip.get("destination") or "").upper(), font=FONTB, size=14, color=BLUE, align=TA_RIGHT),
     ]], colWidths=[W*0.44, W*0.12, W*0.44])
     route.setStyle(TableStyle([
         ("BACKGROUND",    (0,0),(-1,-1), LBLUE),
@@ -165,27 +154,26 @@ def build_trip_pdf(trip: Trip, org_name: str, org_logo_b64: str,
     story.append(route)
     story.append(Spacer(1, 14))
 
-    # ── 3. TRIP DETAILS ────────────────────────────────────────────────────────
     def lv(label, val):
         return [P(label, size=8, color=GRAY), P(val or "—", font=FONTB, size=9)]
 
-    v = trip.vehicle
+    reg = vehicle.get("registration_number") if vehicle else "—"
+    veh_label = f"{vehicle.get('make', '')} {vehicle.get('model', '')}".strip() if vehicle else "—"
+
     details = [
-        lv("Vehicle No.",   v.registration_number if v else "—"),
-        lv("Vehicle",       f"{v.make} {v.model}" if v else "—"),
-        lv("Driver Name",   trip.driver_name),
-        lv("Driver Phone",  trip.driver_phone),
-        lv("Start Date",    _fmt_date(trip.start_date)),
-        lv("End Date",      _fmt_date(trip.end_date)),
-        lv("Distance",      f"{trip.distance_km} km" if trip.distance_km else None),
-        lv("Material",      trip.material),
-        lv("Weight",        f"{trip.weight_tonnes} Tonnes" if trip.weight_tonnes else None),
-        lv("Doc Number",    trip.doc_number),
+        lv("Vehicle No.",   reg),
+        lv("Vehicle",       veh_label),
+        lv("Driver Name",   trip.get("driver_name")),
+        lv("Driver Phone",  trip.get("driver_phone")),
+        lv("Start Date",    _fmt_date(trip.get("start_date"))),
+        lv("End Date",      _fmt_date(trip.get("end_date"))),
+        lv("Distance",      f"{trip.get('distance_km')} km" if trip.get("distance_km") else None),
+        lv("Material",      trip.get("material")),
+        lv("Weight",        f"{trip.get('weight_tonnes')} Tonnes" if trip.get("weight_tonnes") else None),
+        lv("Doc Number",    trip.get("doc_number")),
     ]
-    # Filter out blank entries
     details = [d for d in details if d[1].text != "—"]
 
-    # 2-column grid
     rows = []
     for i in range(0, len(details), 2):
         l, r = details[i], (details[i+1] if i+1 < len(details) else [P(""), P("")])
@@ -204,39 +192,34 @@ def build_trip_pdf(trip: Trip, org_name: str, org_logo_b64: str,
     story.append(dtable)
     story.append(Spacer(1, 14))
 
-    # ── 4. CHARGES / EXPENSES ─────────────────────────────────────────────────
     story.append(P("▌  CHARGES", font=FONTB, size=8, color=BLUE, spaceAfter=4))
     story.append(HRFlowable(width=W, thickness=0.5, color=BORDER, spaceAfter=6))
 
-    freight = float(trip.freight_amount or 0)
+    freight = float(trip.get("freight_amount") or 0)
     total_shown_exp = 0.0
 
-    # Header row
     charge_rows = [[
         P("Description", font=FONTB, size=8, color=WHITE),
         P("Amount",      font=FONTB, size=8, color=WHITE, align=TA_RIGHT),
     ]]
-
-    # Freight row
     charge_rows.append([
         P("Freight Charge", font=FONTB, size=9),
         P(_inr(freight),    font=FONTB, size=9, align=TA_RIGHT),
     ])
 
-    # Selected expenses
-    shown_exps = [e for e in (trip.expenses or [])
-                  if "all" in include_expense_types or e.expense_type in include_expense_types]
-    shown_exps.sort(key=lambda e: e.date)
+    shown_exps = [e for e in expenses
+                  if "all" in include_expense_types or e.get("expense_type") in include_expense_types]
+    shown_exps.sort(key=lambda e: e.get("date") or "")
 
     for e in shown_exps:
-        label = e.expense_type.replace("_", " ").title()
-        if e.description:
-            label += f" — {e.description}"
+        label = (e.get("expense_type") or "").replace("_", " ").title()
+        if e.get("description"):
+            label += f" — {e['description']}"
         charge_rows.append([
-            P(label,         size=9, color=DARK),
-            P(_inr(e.amount),size=9, align=TA_RIGHT),
+            P(label,          size=9, color=DARK),
+            P(_inr(e.get("amount")), size=9, align=TA_RIGHT),
         ])
-        total_shown_exp += float(e.amount)
+        total_shown_exp += float(e.get("amount") or 0)
 
     ctable = Table(charge_rows, colWidths=[W*0.75, W*0.25])
     ctable.setStyle(TableStyle([
@@ -252,7 +235,6 @@ def build_trip_pdf(trip: Trip, org_name: str, org_logo_b64: str,
     story.append(ctable)
     story.append(Spacer(1, 8))
 
-    # Total amount row
     total_amt = freight + total_shown_exp
     total_row = Table([[
         P("TOTAL AMOUNT", font=FONTB, size=11, color=WHITE),
@@ -268,9 +250,8 @@ def build_trip_pdf(trip: Trip, org_name: str, org_logo_b64: str,
     ]))
     story.append(total_row)
 
-    # ── 5. NET PROFIT (optional — internal use) ────────────────────────────────
     if show_profit:
-        all_exp = sum(float(e.amount) for e in (trip.expenses or []))
+        all_exp = sum(float(e.get("amount") or 0) for e in expenses)
         profit  = freight - all_exp
         story.append(Spacer(1, 14))
         story.append(P("▌  NET PROFIT (INTERNAL)", font=FONTB, size=8, color=BLUE, spaceAfter=4))
@@ -289,14 +270,12 @@ def build_trip_pdf(trip: Trip, org_name: str, org_logo_b64: str,
         ]))
         story.append(profit_row)
 
-    # ── 6. NOTES ──────────────────────────────────────────────────────────────
-    if trip.notes:
+    if trip.get("notes"):
         story.append(Spacer(1, 14))
         story.append(P("▌  NOTES", font=FONTB, size=8, color=BLUE, spaceAfter=4))
         story.append(HRFlowable(width=W, thickness=0.5, color=BORDER, spaceAfter=6))
-        story.append(P(trip.notes, size=8.5))
+        story.append(P(trip["notes"], size=8.5))
 
-    # ── 7. FOOTER ─────────────────────────────────────────────────────────────
     story.append(Spacer(1, 24))
     story.append(HRFlowable(width=W, thickness=0.5, color=BORDER, spaceAfter=6))
     story.append(P(
@@ -311,32 +290,35 @@ def build_trip_pdf(trip: Trip, org_name: str, org_logo_b64: str,
 @router.get("/{trip_id}/pdf")
 def download_trip_pdf(
     trip_id: UUID,
-    expense_types: str = "all",  # "all" or comma-separated: "fuel,toll"
-    show_profit: bool = False,   # include internal profit section
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    expense_types: str = "all",
+    show_profit: bool = False,
+    current_user: dict = Depends(get_current_user),
 ):
-    trip = (
-        db.query(Trip)
-        .options(joinedload(Trip.vehicle), joinedload(Trip.expenses))
-        .filter(Trip.id == trip_id, Trip.owner_id == current_user.id)
-        .first()
-    )
-    if not trip:
+    trip_res = supabase.table("trips").select("*").eq("id", str(trip_id)).eq("owner_id", current_user["id"]).execute().data
+    if not trip_res:
         raise HTTPException(404, "Trip not found")
+    trip = trip_res[0]
+
+    expenses = supabase.table("expenses").select("*").eq("trip_id", str(trip_id)).execute().data
+
+    vehicle = None
+    if trip.get("vehicle_id"):
+        veh_res = supabase.table("vehicles").select("*").eq("id", trip["vehicle_id"]).execute().data
+        vehicle = veh_res[0] if veh_res else None
 
     include = ["all"] if expense_types == "all" else [t.strip() for t in expense_types.split(",")]
 
-    # Read org name/logo directly from DB — no URL param needed
     pdf_bytes = build_trip_pdf(
-        trip       = trip,
-        org_name   = current_user.org_name or "",
-        org_logo_b64 = current_user.org_logo or "",
-        include_expense_types = include,
-        show_profit = show_profit,
+        trip=trip,
+        expenses=expenses,
+        vehicle=vehicle,
+        org_name=current_user.get("org_name") or "",
+        org_logo_b64=current_user.get("org_logo") or "",
+        include_expense_types=include,
+        show_profit=show_profit,
     )
 
-    filename = f"tripsheet_{trip.origin}_{trip.destination}_{trip.start_date}.pdf".replace(" ", "_")
+    filename = f"tripsheet_{trip.get('origin')}_{trip.get('destination')}_{trip.get('start_date')}.pdf".replace(" ", "_")
     return StreamingResponse(
         io.BytesIO(pdf_bytes),
         media_type="application/pdf",

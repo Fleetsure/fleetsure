@@ -1,7 +1,7 @@
 "use client";
 import React, { useEffect, useState } from "react";
 import Header from "@/components/Header";
-import { getParties, createParty, updateParty, deleteParty } from "@/lib/api";
+import { partyService } from "@/lib/services/partyService";
 import { useLanguage } from "@/lib/LanguageContext";
 import {
   Plus, X, Users, Truck, Wrench, Phone, Building2,
@@ -44,7 +44,7 @@ export default function PartiesPage() {
 
   const load = () => {
     setLoading(true);
-    getParties().then(r => setParties(r.data)).finally(() => setLoading(false));
+    partyService.getAll().then(r => setParties(r.data || [])).finally(() => setLoading(false));
   };
 
   useEffect(() => { load(); }, []);
@@ -79,8 +79,8 @@ export default function PartiesPage() {
         ...form,
         opening_balance: form.opening_balance !== "" ? parseFloat(form.opening_balance) : 0,
       };
-      if (editingId) await updateParty(editingId, payload);
-      else await createParty(payload);
+      if (editingId) await partyService.update(editingId, payload);
+      else await partyService.create(payload);
       setShowForm(false);
       load();
     } finally { setSaving(false); }
@@ -88,7 +88,7 @@ export default function PartiesPage() {
 
   const handleDelete = async (id: string, name: string) => {
     if (!confirm(`Delete "${name}"? This cannot be undone.`)) return;
-    await deleteParty(id);
+    await partyService.delete(id);
     load();
   };
 

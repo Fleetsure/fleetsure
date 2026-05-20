@@ -1,8 +1,14 @@
 "use client";
 import { useState, useEffect } from "react";
 import Header from "@/components/Header";
-import { getVehicles, getTrips, getDrivers, getFuelLogs, getTollLogs, getTyreLogs, getMiscExpenses } from "@/lib/api";
-import { api } from "@/lib/api";
+import { vehicleService } from "@/lib/services/vehicleService";
+import { tripService } from "@/lib/services/tripService";
+import { driverService } from "@/lib/services/driverService";
+import { fuelService } from "@/lib/services/fuelService";
+import { tollService } from "@/lib/services/tollService";
+import { tyreService } from "@/lib/services/tyreService";
+import { miscExpenseService } from "@/lib/services/miscExpenseService";
+import { authService } from "@/lib/services/authService";
 import { Download, FileSpreadsheet, FileText, CheckSquare, Square } from "lucide-react";
 import { useLanguage } from "@/lib/LanguageContext";
 
@@ -38,17 +44,18 @@ export default function ReportsPage() {
   useEffect(() => {
     const orgName = localStorage.getItem("orgName") || "My Fleet";
     Promise.all([
-      getVehicles(), getTrips(), getDrivers(), getFuelLogs(), getTollLogs(), getTyreLogs(), getMiscExpenses()
+      vehicleService.getAll(), tripService.getAll(), driverService.getAll(),
+      fuelService.getAll(), tollService.getAll(), tyreService.getAll(), miscExpenseService.getAll()
     ]).then(([v, t, d, f, tl, ty, m]) => {
       setCounts({
-        vehicles:    v.data.length,
-        trips:       t.data.length,
-        drivers:     d.data.length,
-        fuel:        f.data.length,
-        tolls:       tl.data.length,
-        tyres:       ty.data.length,
-        misc:        m.data.length,
-        profit_loss: t.data.filter((trip: any) => trip.status === "completed").length,
+        vehicles:    (v.data || []).length,
+        trips:       (t.data || []).length,
+        drivers:     (d.data || []).length,
+        fuel:        (f.data || []).length,
+        tolls:       (tl.data || []).length,
+        tyres:       (ty.data || []).length,
+        misc:        (m.data || []).length,
+        profit_loss: (t.data || []).filter((trip: any) => trip.status === "completed").length,
       });
       setLoadingCounts(false);
     }).catch(() => setLoadingCounts(false));
@@ -65,19 +72,13 @@ export default function ReportsPage() {
     setDownloading(true);
     try {
       const orgName = localStorage.getItem("orgName") || "My Fleet";
-      const token   = localStorage.getItem("token") || "";
-      const types   = selected.join(",");
-      const url     = `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1"}/export/?format=${format}&types=${types}&org_name=${encodeURIComponent(orgName)}`;
-
-      const resp = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
-      if (!resp.ok) throw new Error("Export failed");
-
-      const blob     = await resp.blob();
-      const blobUrl  = URL.createObjectURL(blob);
-      const a        = document.createElement("a");
-      const ext      = format === "xlsx" ? "xlsx" : "zip";
-      a.href         = blobUrl;
-      a.download     = `fleetsure_export_${new Date().toISOString().slice(0, 10)}.${ext}`;
+      const res = await authService.exportData(format, selected.join(","), orgName);
+      if (!res.success || !res.data) throw new Error("Export failed");
+      const blobUrl = URL.createObjectURL(res.data);
+      const a = document.createElement("a");
+      const ext = format === "xlsx" ? "xlsx" : "zip";
+      a.href = blobUrl;
+      a.download = `fleetsure_export_${new Date().toISOString().slice(0, 10)}.${ext}`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);

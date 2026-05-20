@@ -1,26 +1,17 @@
-from pydantic_settings import BaseSettings
+import os
 from functools import lru_cache
 
 
-class Settings(BaseSettings):
-    # Database
-    DATABASE_URL: str = "postgresql://postgres:password@localhost:5432/fleetsure"
-
-    # App
-    APP_NAME: str = "FleetSure API"
-    APP_VERSION: str = "1.0.0"
-    DEBUG: bool = False
-
-    # JWT Auth
-    SECRET_KEY: str = "change-me-in-production-use-a-long-random-string"
-
-    # Vahan RC Lookup — one API key from rapidapi.com
-    VAHAN_API_KEY: str = ""
-    VAHAN_API_HOST: str = "vehicle-rc-api.p.rapidapi.com"
-
-    class Config:
-        env_file = ".env"
-        extra = "ignore"
+class Settings:
+    APP_NAME: str = os.getenv("APP_NAME", "FleetSure API")
+    APP_VERSION: str = os.getenv("APP_VERSION", "1.0.0")
+    DEBUG: bool = os.getenv("DEBUG", "false").lower() == "true"
+    SECRET_KEY: str = os.getenv("SECRET_KEY", "change-me")
+    VAHAN_API_KEY: str = os.getenv("VAHAN_API_KEY", "")
+    VAHAN_API_HOST: str = os.getenv("VAHAN_API_HOST", "vehicle-rc-api.p.rapidapi.com")
+    FIREBASE_PROJECT_ID: str = os.getenv("FIREBASE_PROJECT_ID", "fleetsure-fc010")
+    SUPABASE_URL: str = os.getenv("SUPABASE_URL", "")
+    SUPABASE_SERVICE_ROLE_KEY: str = os.getenv("SUPABASE_SERVICE_ROLE_KEY", "")
 
 
 @lru_cache()

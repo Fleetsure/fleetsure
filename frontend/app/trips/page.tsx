@@ -1,19 +1,18 @@
 "use client";
 import { useEffect, useState } from "react";
 import Header from "@/components/Header";
-import {
-  getTrips, createTrip, updateTrip,
-  getVehicles, getDrivers, getTripDetail, addExpense,
-  suggestVehicles, driverFatigueCheck,
-} from "@/lib/api";
+import { tripService } from "@/lib/services/tripService";
+import { vehicleService } from "@/lib/services/vehicleService";
+import { driverService } from "@/lib/services/driverService";
+import { lookupService } from "@/lib/services/lookupService";
 import { Plus, X, Route, MessageCircle, FileDown, Zap, AlertTriangle, CheckCircle, Clock } from "lucide-react";
 import LocationInput from "@/components/LocationInput";
 import { useLanguage } from "@/lib/LanguageContext";
+import { fmtDate, todayISO } from "@/lib/date";
 
 // ── WhatsApp trip sheet generator ─────────────────────────────────────────────
 function shareOnWhatsApp(trip: any, detail: any, vehicleReg: string) {
-  const fmtDate = (d: string | null) =>
-    d ? new Date(d).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "—";
+  const fmtDateLocal = (d: string | null) => d ? fmtDate(d) : "—";
   const fmtMoney = (n: number) => "₹" + n.toLocaleString("en-IN");
 
   const expenses = detail?.expenses || [];
@@ -32,7 +31,7 @@ function shareOnWhatsApp(trip: any, detail: any, vehicleReg: string) {
     ``,
     `*Vehicle:* ${vehicleReg}`,
     `*Driver:* ${trip.driver_name}${trip.driver_phone ? `  |  ${trip.driver_phone}` : ""}`,
-    `*Dates:* ${fmtDate(trip.start_date)} → ${fmtDate(trip.end_date)}`,
+    `*Dates:* ${fmtDateLocal(trip.start_date)} → ${fmtDateLocal(trip.end_date)}`,
   ];
 
   if (detail?.doc_number)    lines.push(`*LR No:* ${detail.doc_number}`);
@@ -77,7 +76,7 @@ const STATUS_CONFIG: Record<string, { label: string; color: string; bg: string; 
 const EMPTY_FORM = {
   vehicle_id: "", driver_id: "", driver_name: "", driver_phone: "",
   origin: "", destination: "", distance_km: "",
-  start_date: new Date().toISOString().slice(0, 10),
+  start_date: todayISO(),
   end_date: "", freight_amount: "",
   doc_number: "", material: "", weight_tonnes: "", driver_advance: "",
   notes: "",
@@ -85,7 +84,7 @@ const EMPTY_FORM = {
 
 const EMPTY_EXP = {
   expense_type: "fuel", amount: "", description: "",
-  date: new Date().toISOString().slice(0, 10),
+  date: todayISO(),
 };
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -182,7 +181,7 @@ export default function TripsPage() {
   const [statusBusy, setStatusBusy] = useState(false);
 
   // Expense form (inside drawer)
-  const [expForm, setExpForm]       = useState({ ...EMPTY_EXP });
+  const [expForm, setExpForm]       = useState({ ...EMPTY_EXP, date: todayISO() });
   const [showExpForm, setShowExpForm] = useState(false);
   const [pdfModal, setPdfModal]   = useState(false);
   const [pdfOpts, setPdfOpts]     = useState({
@@ -195,8 +194,8 @@ export default function TripsPage() {
   // ── Data loading ────────────────────────────────────────────────────────────
 
   const load = () =>
-    Promise.all([getTrips(), getVehicles(), getDrivers()])
-      .then(([t, v, d]) => { setTrips(t.data); setVehicles(v.data); setDrivers(d.data || []); })
+    Promise.all([tripService.getAll(), vehicleService.getAll(), driverService.getAll()])
+      .then(([t, v, d]) => { setTrips(t.data || []); setVehicles(v.data || []); setDrivers(d.data || []); })
       .finally(() => setLoading(false));
 
   // Fetch vehicle suggestions when origin changes (debounced)
@@ -204,8 +203,8 @@ export default function TripsPage() {
     setForm(p => ({ ...p, origin: value }));
     if (value.trim().length < 3) { setVehicleSuggestions([]); return; }
     const timer = setTimeout(() => {
-      suggestVehicles(value.trim())
-        .then(r => setVehicleSuggestions(r.data.suggestions || []))
+      lookupService.suggestVehicles(value.trim())
+        .then(r => setVehicleSuggestions(r.data?.suggestions || []))
         .catch(() => {});
     }, 600);
     return () => clearTimeout(timer);
@@ -222,7 +221,7 @@ export default function TripsPage() {
     }));
     if (!driverId) { setFatigueStatus(null); return; }
     setFatigueLoading(true);
-    driverFatigueCheck(driverId)
+    lookupService.driverFatigueCheck(driverId)
       .then(r => setFatigueStatus(r.data))
       .catch(() => setFatigueStatus(null))
       .finally(() => setFatigueLoading(false));
@@ -243,10 +242,10 @@ export default function TripsPage() {
     setDetail(null);
     setDetLoading(true);
     setShowExpForm(false);
-    setExpForm({ ...EMPTY_EXP });
+    setExpForm({ ...EMPTY_EXP, date: todayISO() });
     setExpErr("");
     try {
-      const r = await getTripDetail(trip.id);
+      const r = await tripService.getById(trip.id);
       setDetail(r.data);
     } finally {
       setDetLoading(false);
@@ -256,7 +255,7 @@ export default function TripsPage() {
   const refreshDetail = async () => {
     if (!selTrip) return;
     try {
-      const r = await getTripDetail(selTrip.id);
+      const r = await tripService.getById(selTrip.id);
       setDetail(r.data);
     } catch {}
   };
@@ -268,7 +267,7 @@ export default function TripsPage() {
     const next = trip.status === "planned" ? "in_progress" : "completed";
     setStatusBusy(true);
     try {
-      await updateTrip(trip.id, { status: next });
+      await tripService.update(trip.id, { status: next });
       const updated = { ...trip, status: next };
       setTrips(prev => prev.map(t => t.id === trip.id ? updated : t));
       setSelTrip((p: any) => p?.id === trip.id ? updated : p);
@@ -281,7 +280,7 @@ export default function TripsPage() {
     if (!confirm("Cancel this trip? The vehicle will be released.")) return;
     setStatusBusy(true);
     try {
-      await updateTrip(trip.id, { status: "cancelled" });
+      await tripService.update(trip.id, { status: "cancelled" });
       const updated = { ...trip, status: "cancelled" };
       setTrips(prev => prev.map(t => t.id === trip.id ? updated : t));
       setSelTrip((p: any) => p?.id === trip.id ? updated : p);
@@ -296,13 +295,13 @@ export default function TripsPage() {
     if (!expForm.amount || !selTrip) return;
     setAddingExp(true); setExpErr("");
     try {
-      await addExpense(selTrip.id, {
+      await tripService.addExpense(selTrip.id, {
         expense_type: expForm.expense_type,
         amount: parseFloat(expForm.amount),
         description: expForm.description || null,
         date: expForm.date,
       });
-      setExpForm({ ...EMPTY_EXP });
+      setExpForm({ ...EMPTY_EXP, date: todayISO() });
       setShowExpForm(false);
       await refreshDetail();
     } catch (err: any) {
@@ -316,7 +315,7 @@ export default function TripsPage() {
   const handleSubmit = async (e: any) => {
     e.preventDefault(); setSaving(true); setFormErr("");
     try {
-      await createTrip({
+      await tripService.create({
         ...form,
         driver_id:      form.driver_id      || null,
         distance_km:    form.distance_km    ? parseFloat(form.distance_km)    : null,
@@ -328,7 +327,7 @@ export default function TripsPage() {
         material:       form.material    || null,
       });
       setShowForm(false);
-      setForm({ ...EMPTY_FORM });
+      setForm({ ...EMPTY_FORM, start_date: todayISO() });
       setVehicleSuggestions([]);
       setFatigueStatus(null);
       load();
@@ -474,7 +473,7 @@ export default function TripsPage() {
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                       <div style={{ fontSize: 12, color: "var(--text-muted)" }}>
                         <div>{t.driver_name} · {veh?.registration_number || "—"}</div>
-                        <div style={{ marginTop: 2 }}>{t.start_date}</div>
+                        <div style={{ marginTop: 2 }}>{fmtDate(t.start_date)}</div>
                       </div>
                       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                         <span style={{ fontWeight: 800, fontSize: 15, color: "#1E2D8E" }}>{fmt(Number(t.freight_amount))}</span>
@@ -523,7 +522,7 @@ export default function TripsPage() {
                         {veh?.registration_number || "—"}
                       </td>
                       <td>{t.driver_name}</td>
-                      <td style={{ color: "#888" }}>{t.start_date}</td>
+                      <td style={{ color: "#888" }}>{fmtDate(t.start_date)}</td>
                       <td style={{ fontWeight: 700, color: "#1E2D8E" }}>
                         {fmt(Number(t.freight_amount))}
                       </td>
@@ -630,8 +629,8 @@ export default function TripsPage() {
                   {[
                     { label: "Vehicle",   value: vehicleMap[selTrip.vehicle_id]?.registration_number },
                     { label: "Driver",    value: selTrip.driver_name },
-                    { label: "Start",     value: selTrip.start_date },
-                    { label: "End",       value: selTrip.end_date },
+                    { label: "Start",     value: fmtDate(selTrip.start_date) },
+                    { label: "End",       value: selTrip.end_date ? fmtDate(selTrip.end_date) : null },
                     { label: "LR No.",    value: detail?.doc_number },
                     { label: "Material",  value: detail?.material },
                     { label: "Weight",    value: detail?.weight_tonnes ? `${detail.weight_tonnes} T` : null },
@@ -695,7 +694,7 @@ export default function TripsPage() {
                     </div>
                   </div>
                   <div style={{ display: "flex", gap: 8 }}>
-                    <button onClick={() => { setShowExpForm(false); setExpErr(""); setExpForm({ ...EMPTY_EXP }); }}
+                    <button onClick={() => { setShowExpForm(false); setExpErr(""); setExpForm({ ...EMPTY_EXP, date: todayISO() }); }}
                       style={{ flex: 1, padding: "7px", background: "none", border: "1.5px solid #ddd", borderRadius: 7, fontSize: 12.5, cursor: "pointer" }}>
                       Cancel
                     </button>
@@ -727,7 +726,7 @@ export default function TripsPage() {
                     {expenses.map((e: any) => (
                       <tr key={e.id}>
                         <td style={{ padding: "7px 4px", fontWeight: 600, color: "#444" }}>{expLabel(e.expense_type)}</td>
-                        <td style={{ padding: "7px 4px", color: "#999" }}>{e.date}</td>
+                        <td style={{ padding: "7px 4px", color: "#999" }}>{fmtDate(e.date)}</td>
                         <td style={{ padding: "7px 4px", color: "#aaa", maxWidth: 110, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                           {e.description || "—"}
                         </td>
@@ -1058,14 +1057,11 @@ export default function TripsPage() {
               <button onClick={async () => {
                 const selected = Object.entries(pdfOpts.expTypes).filter(([,v]) => v).map(([k]) => k);
                 const expTypes = selected.join(",") || "none";
-                const url = `${process.env.NEXT_PUBLIC_API_URL}/trips/${selTrip.id}/pdf?expense_types=${encodeURIComponent(expTypes)}&show_profit=${pdfOpts.showProfit}`;
-                const token = localStorage.getItem("token");
                 try {
-                  const r = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
-                  if (!r.ok) throw new Error(`Server error: ${r.status}`);
-                  const blob = await r.blob();
+                  const res = await lookupService.getTripPdf(selTrip.id, expTypes, pdfOpts.showProfit);
+                  if (!res.success || !res.data) throw new Error("Failed");
                   const a = document.createElement("a");
-                  a.href = URL.createObjectURL(blob);
+                  a.href = URL.createObjectURL(res.data);
                   a.download = `tripsheet_${selTrip.origin}_${selTrip.destination}.pdf`;
                   a.click();
                   setPdfModal(false);

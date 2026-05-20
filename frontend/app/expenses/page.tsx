@@ -1,7 +1,9 @@
 "use client";
 import { useEffect, useState } from "react";
 import Header from "@/components/Header";
-import { getTrips, getTripExpenses, addExpense } from "@/lib/api";
+import { tripService } from "@/lib/services/tripService";
+import { vehicleService } from "@/lib/services/vehicleService";
+import { todayISO, fmtDate } from "@/lib/date";
 import { Plus, Wrench, X } from "lucide-react";
 import { useLanguage } from "@/lib/LanguageContext";
 
@@ -13,7 +15,7 @@ export default function ExpensesPage() {
   const [showForm, setShowForm]     = useState(false);
   const [saving, setSaving]         = useState(false);
   const [error, setError]           = useState("");
-  const [form, setForm]             = useState({ expense_type: "fuel", amount: "", description: "", date: "" });
+  const [form, setForm]             = useState({ expense_type: "fuel", amount: "", description: "", date: todayISO() });
   const [isMobile, setIsMobile]     = useState(false);
 
   useEffect(() => {
@@ -23,19 +25,19 @@ export default function ExpensesPage() {
     return () => window.removeEventListener("resize", check);
   }, []);
 
-  useEffect(() => { getTrips().then(r => setTrips(r.data)); }, []);
+  useEffect(() => { tripService.getAll().then(r => setTrips(r.data || [])); }, []);
 
   useEffect(() => {
     if (!selectedTrip) { setExpenses([]); return; }
-    getTripExpenses(selectedTrip).then(r => setExpenses(r.data));
+    tripService.getExpenses(selectedTrip).then(r => setExpenses(r.data || []));
   }, [selectedTrip]);
 
   const handleSubmit = async (e: any) => {
     e.preventDefault(); setSaving(true); setError("");
     try {
-      await addExpense(selectedTrip, { ...form, amount: parseFloat(form.amount) });
-      setShowForm(false); setForm({ expense_type: "fuel", amount: "", description: "", date: "" });
-      getTripExpenses(selectedTrip).then(r => setExpenses(r.data));
+      await tripService.addExpense(selectedTrip, { ...form, amount: parseFloat(form.amount) });
+      setShowForm(false); setForm({ expense_type: "fuel", amount: "", description: "", date: todayISO() });
+      tripService.getExpenses(selectedTrip).then(r => setExpenses(r.data || []));
     } catch (err: any) {
       setError(err.response?.data?.detail || "Error adding expense");
     } finally { setSaving(false); }
@@ -114,7 +116,7 @@ export default function ExpensesPage() {
                       </div>
                       <div style={{ textAlign: "right", flexShrink: 0, marginLeft: 12 }}>
                         <div style={{ fontWeight: 700, fontSize: 15, color: "#1E2D8E" }}>₹{Number(e.amount).toLocaleString("en-IN")}</div>
-                        <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 2 }}>{e.date}</div>
+                        <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 2 }}>{fmtDate(e.date)}</div>
                       </div>
                     </div>
                   ))}
@@ -127,7 +129,7 @@ export default function ExpensesPage() {
                       <tr key={e.id}>
                         <td><span className="badge" style={{ background: `${typeColors[e.expense_type]}15`, color: typeColors[e.expense_type] || "#1E2D8E", textTransform: "capitalize" }}>{e.expense_type.replace("_", " ")}</span></td>
                         <td style={{ fontWeight: 600, color: "#1E2D8E" }}>₹{Number(e.amount).toLocaleString("en-IN")}</td>
-                        <td>{e.date}</td>
+                        <td>{fmtDate(e.date)}</td>
                         <td style={{ color: "#888" }}>{e.description || "—"}</td>
                       </tr>
                     ))}

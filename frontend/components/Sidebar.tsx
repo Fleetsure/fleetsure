@@ -10,6 +10,9 @@ import {
 } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
 import Image from "next/image";
+import { supabase } from "@/lib/supabase";
+import { auth } from "@/lib/firebase";
+import { signOut } from "firebase/auth";
 import { useLanguage } from "@/lib/LanguageContext";
 
 const PROFILE_MENU_KEYS = [
@@ -62,6 +65,7 @@ export default function Sidebar() {
     { label: t("nav.expenses"), href: "/expenses", icon: IndianRupee },
     { label: "More",            href: null,        icon: Menu },
   ];
+
   const [profileOpen, setProfileOpen] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const profileRef = useRef<HTMLDivElement>(null);
@@ -77,51 +81,31 @@ export default function Sidebar() {
     return () => window.removeEventListener("resize", check);
   }, []);
 
-  // Close drawer on route change
   useEffect(() => { setDrawerOpen(false); }, [pathname]);
 
-  const handleLogout = () => {
-    localStorage.removeItem("token");
-    localStorage.removeItem("userName");
-    localStorage.removeItem("userId");
-    localStorage.removeItem("orgName");
-    localStorage.removeItem("orgLogo");
+  const handleLogout = async () => {
+    await signOut(auth);
     router.push("/login");
   };
 
-  const loadOrgSettings = () => {
-    setOrgName(localStorage.getItem("orgName") || "");
-    setOrgLogo(localStorage.getItem("orgLogo") || "");
-    setUserName(localStorage.getItem("userName") || "");
+  const loadProfile = async () => {
+    const fbUser = auth.currentUser;
+    if (!fbUser) return;
+
+    setUserName(fbUser.displayName || fbUser.email || "");
+
+    const { data } = await supabase.from("users").select("org_name, org_logo, name").eq("id", fbUser.uid).single();
+    if (data) {
+      setOrgName(data.org_name || "");
+      setOrgLogo(data.org_logo || "");
+      if (data.name) setUserName(data.name);
+    }
   };
 
-  const toggleGroup = (label: string) =>
-    setOpenGroups(prev =>
-      prev.includes(label) ? prev.filter(g => g !== label) : [...prev, label]
-    );
-
   useEffect(() => {
-    loadOrgSettings();
-    const token = localStorage.getItem("token");
-    if (token) {
-      const apiBase = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1";
-      fetch(`${apiBase}/auth/me`, { headers: { Authorization: `Bearer ${token}` } })
-        .then(r => r.ok ? r.json() : null)
-        .then(data => {
-          if (!data) return;
-          if (data.org_name !== undefined) localStorage.setItem("orgName", data.org_name || "");
-          if (data.org_logo !== undefined) localStorage.setItem("orgLogo", data.org_logo || "");
-          if (data.name) localStorage.setItem("userName", data.name);
-          loadOrgSettings();
-        })
-        .catch(() => {});
-    }
-    window.addEventListener("orgSettingsUpdated", loadOrgSettings);
-    window.addEventListener("storage", loadOrgSettings);
-    return () => {
-      window.removeEventListener("orgSettingsUpdated", loadOrgSettings);
-      window.removeEventListener("storage", loadOrgSettings);
-    };
+    loadProfile();
+    window.addEventListener("orgSettingsUpdated", loadProfile);
+    return () => window.removeEventListener("orgSettingsUpdated", loadProfile);
   }, []);
 
   useEffect(() => {
@@ -138,7 +122,6 @@ export default function Sidebar() {
   if (isMobile) {
     return (
       <>
-        {/* Backdrop */}
         {drawerOpen && (
           <div
             onClick={() => setDrawerOpen(false)}
@@ -149,7 +132,6 @@ export default function Sidebar() {
           />
         )}
 
-        {/* Slide-up full drawer */}
         <div style={{
           position: "fixed", left: 0, right: 0, bottom: 60,
           height: drawerOpen ? "75vh" : 0,
@@ -160,13 +142,12 @@ export default function Sidebar() {
           zIndex: 999,
           display: "flex", flexDirection: "column",
         }}>
-          {/* Drawer header */}
           <div style={{ padding: "16px 20px 10px", borderBottom: "1px solid rgba(255,255,255,0.1)", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
               {orgLogo
                 ? <img src={orgLogo} alt="Logo" style={{ width: 30, height: 30, borderRadius: "50%", objectFit: "cover", border: "2px solid rgba(255,255,255,0.3)" }} />
                 : <div style={{ width: 30, height: 30, borderRadius: "50%", background: "rgba(255,255,255,0.2)", display: "flex", alignItems: "center", justifyContent: "center", color: "white", fontWeight: 700, fontSize: 13 }}>
-                    {(orgName || "F")[0].toUpperCase()}
+                    {(orgName || userName || "F")[0].toUpperCase()}
                   </div>
               }
               <div>
@@ -179,14 +160,13 @@ export default function Sidebar() {
             </button>
           </div>
 
-          {/* Scrollable nav */}
           <nav style={{ flex: 1, overflowY: "auto", padding: "8px 12px" }}>
             {NAV.map((item: any) => {
               if (item.group) {
                 const open = openGroups.includes(item.label);
                 return (
                   <div key={item.label} style={{ marginTop: 4 }}>
-                    <button onClick={() => toggleGroup(item.label)}
+                    <button onClick={() => setOpenGroups(prev => prev.includes(item.label) ? prev.filter(g => g !== item.label) : [...prev, item.label])}
                       style={{ width: "100%", background: "none", border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "space-between", padding: "6px 14px", color: "#8fa0d8", fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase" }}>
                       {item.label}
                       {open ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
@@ -210,14 +190,12 @@ export default function Sidebar() {
               );
             })}
 
-            {/* Logout */}
             <button onClick={handleLogout}
               style={{ width: "100%", display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", background: "none", border: "none", cursor: "pointer", color: "#ff8a80", fontSize: 14, fontWeight: 500, marginTop: 8 }}>
               <LogOut size={16} /> {t("common.logout")}
             </button>
           </nav>
 
-          {/* Log Trip CTA */}
           <div style={{ padding: "12px 16px", borderTop: "1px solid rgba(255,255,255,0.1)", flexShrink: 0 }}>
             <Link href="/trips" style={{ textDecoration: "none" }}>
               <button style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, padding: "12px", background: "rgba(255,255,255,0.15)", border: "1px solid rgba(255,255,255,0.2)", borderRadius: 10, color: "white", fontWeight: 700, fontSize: 14, cursor: "pointer" }}>
@@ -227,7 +205,6 @@ export default function Sidebar() {
           </div>
         </div>
 
-        {/* Bottom nav bar */}
         <nav style={{
           position: "fixed", bottom: 0, left: 0, right: 0, height: 60,
           background: "#1E2D8E",
@@ -272,7 +249,6 @@ export default function Sidebar() {
   return (
     <aside style={{ width: 220, minHeight: "100vh", background: "#1E2D8E", display: "flex", flexDirection: "column", padding: "0 10px 20px", position: "relative" }}>
 
-      {/* Logo */}
       <Link href="/" style={{ textDecoration: "none" }}>
         <div style={{ padding: "20px 6px 16px", borderBottom: "1px solid rgba(255,255,255,0.1)", marginBottom: 8, cursor: "pointer", borderRadius: 8, transition: "background 0.15s" }}
           onMouseEnter={e => (e.currentTarget.style.background = "rgba(255,255,255,0.06)")}
@@ -287,7 +263,6 @@ export default function Sidebar() {
         </div>
       </Link>
 
-      {/* User / profile trigger */}
       <div ref={profileRef} style={{ position: "relative" }}>
         <div onClick={() => setProfileOpen(p => !p)}
           style={{ padding: "10px 6px 14px", borderBottom: "1px solid rgba(255,255,255,0.08)", marginBottom: 8, cursor: "pointer", borderRadius: 8, transition: "background 0.15s" }}
@@ -298,7 +273,7 @@ export default function Sidebar() {
               {orgLogo
                 ? <img src={orgLogo} alt="Org Logo" style={{ width: 30, height: 30, borderRadius: "50%", objectFit: "cover", border: "2px solid rgba(255,255,255,0.3)", flexShrink: 0 }} />
                 : <div style={{ width: 30, height: 30, borderRadius: "50%", background: "rgba(255,255,255,0.2)", display: "flex", alignItems: "center", justifyContent: "center", color: "white", fontWeight: 700, fontSize: 13, flexShrink: 0 }}>
-                    {(orgName || "F")[0].toUpperCase()}
+                    {(orgName || userName || "F")[0].toUpperCase()}
                   </div>
               }
               <div style={{ minWidth: 0 }}>
@@ -319,7 +294,7 @@ export default function Sidebar() {
                 {orgLogo
                   ? <img src={orgLogo} alt="Logo" style={{ width: 34, height: 34, borderRadius: 8, objectFit: "cover", border: "1.5px solid #e8eaf6" }} />
                   : <div style={{ width: 34, height: 34, borderRadius: 8, background: "#e8eaf6", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, fontWeight: 700, color: "#1E2D8E" }}>
-                      {(orgName || "F")[0].toUpperCase()}
+                      {(orgName || userName || "F")[0].toUpperCase()}
                     </div>
                 }
                 <div>
@@ -355,14 +330,13 @@ export default function Sidebar() {
         )}
       </div>
 
-      {/* Nav */}
       <nav style={{ flex: 1 }}>
         {NAV.map((item: any) => {
           if (item.group) {
             const open = openGroups.includes(item.label);
             return (
               <div key={item.label} style={{ marginTop: 6 }}>
-                <button onClick={() => toggleGroup(item.label)}
+                <button onClick={() => setOpenGroups(prev => prev.includes(item.label) ? prev.filter(g => g !== item.label) : [...prev, item.label])}
                   style={{ width: "100%", background: "none", border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "space-between", padding: "6px 14px", color: "#8fa0d8", fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase" }}>
                   {item.label}
                   {open ? <ChevronUp size={12} /> : <ChevronDown size={12} />}

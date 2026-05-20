@@ -2,12 +2,7 @@
 import { useEffect, useState, useCallback } from "react";
 import Header from "@/components/Header";
 import { useLanguage } from "@/lib/LanguageContext";
-import {
-  getAnalyticsOverview,
-  getAnalyticsMonthly,
-  getAnalyticsVehicles,
-  getAnalyticsExpenses,
-} from "@/lib/api";
+import { analyticsService } from "@/lib/services/analyticsService";
 import { TrendingUp, TrendingDown, Truck, Route, BarChart2, PieChart } from "lucide-react";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -199,16 +194,16 @@ export default function AnalyticsPage() {
   const load = useCallback((days: number) => {
     setLoading(true);
     Promise.all([
-      getAnalyticsOverview(days),
-      getAnalyticsMonthly(),
-      getAnalyticsVehicles(days),
-      getAnalyticsExpenses(days),
+      analyticsService.getOverview(days),
+      analyticsService.getMonthly(),
+      analyticsService.getVehicles(days),
+      analyticsService.getExpenses(days),
     ])
       .then(([ov, mo, ve, ex]) => {
         setOverview(ov.data);
-        setMonthly(mo.data.months || []);
-        setVehicles(ve.data.vehicles || []);
-        setExpenses(ex.data.categories || []);
+        setMonthly(mo.data?.months || []);
+        setVehicles(ve.data?.vehicles || []);
+        setExpenses(ex.data?.categories || []);
       })
       .finally(() => setLoading(false));
   }, []);

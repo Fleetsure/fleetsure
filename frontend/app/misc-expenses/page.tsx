@@ -1,7 +1,10 @@
 "use client";
 import { useEffect, useState } from "react";
 import Header from "@/components/Header";
-import { getMiscExpenses, addMiscExpense, deleteMiscExpense, getVehicles, getTrips } from "@/lib/api";
+import { miscExpenseService } from "@/lib/services/miscExpenseService";
+import { vehicleService } from "@/lib/services/vehicleService";
+import { tripService } from "@/lib/services/tripService";
+import { fmtDate, todayISO } from "@/lib/date";
 import { Plus, X, Trash2, PackageOpen } from "lucide-react";
 import { useLanguage } from "@/lib/LanguageContext";
 
@@ -21,7 +24,7 @@ const catColor = (val: string) => CATEGORIES.find(c => c.value === val) || CATEG
 const EMPTY = {
   vehicle_id:  "",
   trip_id:     "",
-  date:        new Date().toISOString().slice(0, 10),
+  date:        todayISO(),
   amount:      "",
   category:    "other",
   description: "",
@@ -50,8 +53,8 @@ export default function MiscExpensesPage() {
   }, []);
 
   const load = async () => {
-    const [l, v, t] = await Promise.all([getMiscExpenses(), getVehicles(), getTrips()]);
-    setLogs(l.data); setVehicles(v.data); setTrips(t.data); setLoading(false);
+    const [l, v, t] = await Promise.all([miscExpenseService.getAll(), vehicleService.getAll(), tripService.getAll()]);
+    setLogs(l.data || []); setVehicles(v.data || []); setTrips(t.data || []); setLoading(false);
   };
   useEffect(() => { load(); }, []);
 
@@ -60,7 +63,7 @@ export default function MiscExpensesPage() {
   const handleSubmit = async (e: any) => {
     e.preventDefault(); setSaving(true); setError("");
     try {
-      await addMiscExpense({
+      await miscExpenseService.add({
         ...form,
         amount:     parseFloat(form.amount),
         vehicle_id: form.vehicle_id || null,
@@ -76,7 +79,7 @@ export default function MiscExpensesPage() {
 
   const handleDelete = async (id: string) => {
     if (!confirm("Delete this expense?")) return;
-    await deleteMiscExpense(id); load();
+    await miscExpenseService.delete(id); load();
   };
 
   const vehicleName = (id: string) => vehicles.find(v => v.id === id)?.registration_number || "—";
@@ -87,7 +90,7 @@ export default function MiscExpensesPage() {
     .filter(l => !filterVehicle || l.vehicle_id === filterVehicle);
 
   const totalSpend = logs.reduce((s, l) => s + parseFloat(l.amount || 0), 0);
-  const thisMonth  = logs.filter(l => l.date?.slice(0, 7) === new Date().toISOString().slice(0, 7))
+  const thisMonth  = logs.filter(l => l.date?.slice(0, 7) === todayISO().slice(0, 7))
                          .reduce((s, l) => s + parseFloat(l.amount || 0), 0);
 
   // Top category by spend
@@ -181,7 +184,7 @@ export default function MiscExpensesPage() {
                     </div>
                     <div style={{ textAlign: "right", flexShrink: 0, marginLeft: 12 }}>
                       <div style={{ fontWeight: 700, fontSize: 15, color: "#1E2D8E" }}>₹{parseFloat(l.amount).toLocaleString("en-IN")}</div>
-                      <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 2 }}>{new Date(l.date).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}</div>
+                      <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 2 }}>{fmtDate(l.date)}</div>
                       <button onClick={() => handleDelete(l.id)}
                         style={{ background: "none", border: "none", cursor: "pointer", color: "#ccc", padding: "4px 0", marginTop: 4 }}
                         onMouseEnter={e => (e.currentTarget.style.color = "#e53935")}
@@ -211,7 +214,7 @@ export default function MiscExpensesPage() {
                   const c = catColor(l.category);
                   return (
                     <tr key={l.id}>
-                      <td style={{ fontSize: 13 }}>{new Date(l.date).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}</td>
+                      <td style={{ fontSize: 13 }}>{fmtDate(l.date)}</td>
                       <td>
                         <span style={{ fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 6, background: c.bg, color: c.color }}>
                           {c.label}

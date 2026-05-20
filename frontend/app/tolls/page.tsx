@@ -1,14 +1,17 @@
 "use client";
 import { useEffect, useState } from "react";
 import Header from "@/components/Header";
-import { getTollLogs, addTollLog, deleteTollLog, getVehicles, getTrips } from "@/lib/api";
+import { tollService } from "@/lib/services/tollService";
+import { vehicleService } from "@/lib/services/vehicleService";
+import { tripService } from "@/lib/services/tripService";
+import { fmtDate, todayISO } from "@/lib/date";
 import { Plus, X, Trash2, IndianRupee, Truck, Route, CreditCard, Banknote } from "lucide-react";
 import { useLanguage } from "@/lib/LanguageContext";
 
 const EMPTY = {
   vehicle_id:   "",
   trip_id:      "",
-  date:         new Date().toISOString().slice(0, 10),
+  date:         todayISO(),
   amount:       "",
   toll_plaza:   "",
   route:        "",
@@ -37,10 +40,10 @@ export default function TollsPage() {
   }, []);
 
   const load = async () => {
-    const [l, v, t] = await Promise.all([getTollLogs(), getVehicles(), getTrips()]);
-    setLogs(l.data);
-    setVehicles(v.data);
-    setTrips(t.data);
+    const [l, v, t] = await Promise.all([tollService.getAll(), vehicleService.getAll(), tripService.getAll()]);
+    setLogs(l.data || []);
+    setVehicles(v.data || []);
+    setTrips(t.data || []);
     setLoading(false);
   };
   useEffect(() => { load(); }, []);
@@ -58,7 +61,7 @@ export default function TollsPage() {
         route:    form.route || null,
         notes:    form.notes || null,
       };
-      await addTollLog(payload);
+      await tollService.add(payload);
       setShowForm(false); setForm({ ...EMPTY }); load();
     } catch (err: any) {
       setError(err?.response?.data?.detail || "Failed to save");
@@ -67,7 +70,7 @@ export default function TollsPage() {
 
   const handleDelete = async (id: string) => {
     if (!confirm("Delete this toll entry?")) return;
-    await deleteTollLog(id); load();
+    await tollService.delete(id); load();
   };
 
   const vehicleName = (id: string) => {
@@ -83,7 +86,7 @@ export default function TollsPage() {
   const filtered = filterVehicle ? logs.filter(l => l.vehicle_id === filterVehicle) : logs;
 
   const totalSpend  = logs.reduce((s, l) => s + parseFloat(l.amount || 0), 0);
-  const thisMonth   = logs.filter(l => l.date?.slice(0, 7) === new Date().toISOString().slice(0, 7))
+  const thisMonth   = logs.filter(l => l.date?.slice(0, 7) === todayISO().slice(0, 7))
                           .reduce((s, l) => s + parseFloat(l.amount || 0), 0);
   const fastagCount = logs.filter(l => l.payment_mode === "fastag").length;
   const cashCount   = logs.filter(l => l.payment_mode === "cash").length;
@@ -177,7 +180,7 @@ export default function TollsPage() {
                   </div>
                   <div style={{ textAlign: "right", flexShrink: 0, marginLeft: 12 }}>
                     <div style={{ fontWeight: 700, fontSize: 15, color: "#1E2D8E" }}>₹{parseFloat(l.amount).toLocaleString("en-IN")}</div>
-                    <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 2 }}>{new Date(l.date).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}</div>
+                    <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 2 }}>{fmtDate(l.date)}</div>
                     <button onClick={() => handleDelete(l.id)}
                       style={{ background: "none", border: "none", cursor: "pointer", color: "#ccc", padding: "4px 0", marginTop: 4 }}
                       onMouseEnter={e => (e.currentTarget.style.color = "#e53935")}
@@ -204,7 +207,7 @@ export default function TollsPage() {
               <tbody>
                 {filtered.map((l: any) => (
                   <tr key={l.id}>
-                    <td style={{ fontSize: 13 }}>{new Date(l.date).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}</td>
+                    <td style={{ fontSize: 13 }}>{fmtDate(l.date)}</td>
                     <td style={{ fontWeight: 600, color: "#1E2D8E" }}>{vehicleName(l.vehicle_id)}</td>
                     <td>{l.toll_plaza || <span style={{ color: "#ccc" }}>—</span>}</td>
                     <td style={{ fontSize: 12.5, color: "#666" }}>
@@ -297,7 +300,7 @@ export default function TollsPage() {
                 <select value={form.trip_id} onChange={e => set("trip_id", e.target.value)} style={inputStyle}>
                   <option value="">Not linked to a trip</option>
                   {trips.filter(t => !form.vehicle_id || t.vehicle_id === form.vehicle_id).map(t => (
-                    <option key={t.id} value={t.id}>{t.origin} → {t.destination} ({new Date(t.start_date).toLocaleDateString("en-IN")})</option>
+                    <option key={t.id} value={t.id}>{t.origin} → {t.destination} ({fmtDate(t.start_date)})</option>
                   ))}
                 </select>
               </div>

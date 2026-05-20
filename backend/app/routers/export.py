@@ -1,29 +1,17 @@
 """
 Export router — download fleet data as XLSX or CSV (ZIP).
 Supports: vehicles, drivers, trips, fuel, tolls, tyres, misc, profit_loss
-All data is filtered by the authenticated user's owner_id.
 """
 import csv
 import io
 import zipfile
 from datetime import datetime, date
 from decimal import Decimal
-from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query
 from fastapi.responses import StreamingResponse
-from sqlalchemy.orm import Session
 
-from app.database import get_db
-from app.models.vehicle import Vehicle
-from app.models.driver import Driver
-from app.models.trip import Trip
-from app.models.expense import Expense, ExpenseType
-from app.models.fuel_log import FuelLog
-from app.models.toll_log import TollLog
-from app.models.tyre_log import TyreLog
-from app.models.misc_expense import MiscExpense
-from app.models.user import User
+from app.db import supabase
 from app.services.auth_service import get_current_user
 
 try:
@@ -47,97 +35,102 @@ def _safe(val):
     return val
 
 
-def _build_datasets(types: list[str], db: Session, owner_id: UUID) -> dict:
+def _build_datasets(types: list[str], owner_id: str) -> dict:
     result = {}
 
     if "vehicles" in types:
-        rows = db.query(Vehicle).filter(Vehicle.owner_id == owner_id).all()
+        rows = supabase.table("vehicles").select("*").eq("owner_id", owner_id).execute().data
         result["Vehicles"] = (
             ["Registration No", "Make", "Model", "Year", "Type", "Fuel Type", "Status",
              "Insurance Expiry", "Fitness Expiry", "PUC Expiry", "Permit Expiry"],
-            [[_safe(v.registration_number), _safe(v.make), _safe(v.model), _safe(v.year),
-              _safe(v.vehicle_type), _safe(v.fuel_type), _safe(v.status),
-              _safe(v.insurance_expiry), _safe(v.fitness_expiry),
-              _safe(v.puc_expiry), _safe(v.permit_expiry)] for v in rows]
+            [[_safe(v.get("registration_number")), _safe(v.get("make")), _safe(v.get("model")),
+              _safe(v.get("year")), _safe(v.get("vehicle_type")), _safe(v.get("fuel_type")),
+              _safe(v.get("status")), _safe(v.get("insurance_expiry")), _safe(v.get("fitness_expiry")),
+              _safe(v.get("puc_expiry")), _safe(v.get("permit_expiry"))] for v in rows]
         )
 
     if "drivers" in types:
-        rows = db.query(Driver).filter(Driver.owner_id == owner_id).all()
+        rows = supabase.table("drivers").select("*").eq("owner_id", owner_id).execute().data
         result["Drivers"] = (
             ["Name", "Phone", "Alt Phone", "License No", "License Class", "License Expiry",
              "Transport Valid Till", "Blood Group", "Status"],
-            [[_safe(d.name), _safe(d.phone), _safe(d.alternate_phone),
-              _safe(d.license_number), _safe(d.license_class), _safe(d.license_expiry),
-              _safe(d.transport_validity), _safe(d.blood_group), _safe(d.status)] for d in rows]
+            [[_safe(d.get("name")), _safe(d.get("phone")), _safe(d.get("alternate_phone")),
+              _safe(d.get("license_number")), _safe(d.get("license_class")), _safe(d.get("license_expiry")),
+              _safe(d.get("transport_validity")), _safe(d.get("blood_group")), _safe(d.get("status"))] for d in rows]
         )
 
     if "trips" in types:
-        rows = db.query(Trip).filter(Trip.owner_id == owner_id).order_by(Trip.start_date.desc()).all()
+        rows = supabase.table("trips").select("*").eq("owner_id", owner_id).order("start_date", desc=True).execute().data
         result["Trips"] = (
             ["Date", "From", "To", "Driver", "Driver Phone", "Vehicle",
              "Distance (km)", "Freight (₹)", "Status", "Notes"],
-            [[_safe(t.start_date), _safe(t.origin), _safe(t.destination),
-              _safe(t.driver_name), _safe(t.driver_phone), _safe(t.vehicle_id),
-              _safe(t.distance_km), _safe(t.freight_amount),
-              _safe(t.status), _safe(t.notes)] for t in rows]
+            [[_safe(t.get("start_date")), _safe(t.get("origin")), _safe(t.get("destination")),
+              _safe(t.get("driver_name")), _safe(t.get("driver_phone")), _safe(t.get("vehicle_id")),
+              _safe(t.get("distance_km")), _safe(t.get("freight_amount")),
+              _safe(t.get("status")), _safe(t.get("notes"))] for t in rows]
         )
 
     if "fuel" in types:
-        rows = db.query(FuelLog).filter(FuelLog.owner_id == owner_id).order_by(FuelLog.date.desc()).all()
-        # Map vehicle_id → reg number
-        veh_map = {v.id: v.registration_number for v in db.query(Vehicle).filter(Vehicle.owner_id == owner_id).all()}
+        rows = supabase.table("fuel_logs").select("*").eq("owner_id", owner_id).order("date", desc=True).execute().data
+        vehicles = supabase.table("vehicles").select("id,registration_number").eq("owner_id", owner_id).execute().data
+        veh_map = {v["id"]: v["registration_number"] for v in vehicles}
         result["Fuel Log"] = (
             ["Date", "Vehicle", "Litres", "Amount (₹)", "Odometer (km)", "Fuel Station", "Notes"],
-            [[_safe(f.date), veh_map.get(f.vehicle_id, ""), _safe(f.litres),
-              _safe(f.amount), _safe(f.odometer_km), _safe(f.fuel_station), _safe(f.notes)] for f in rows]
+            [[_safe(f.get("date")), veh_map.get(f.get("vehicle_id"), ""), _safe(f.get("litres")),
+              _safe(f.get("amount")), _safe(f.get("odometer_km")), _safe(f.get("fuel_station")), _safe(f.get("notes"))] for f in rows]
         )
 
     if "tolls" in types:
-        rows = db.query(TollLog).filter(TollLog.owner_id == owner_id).order_by(TollLog.date.desc()).all()
-        veh_map = {v.id: v.registration_number for v in db.query(Vehicle).filter(Vehicle.owner_id == owner_id).all()}
+        rows = supabase.table("toll_logs").select("*").eq("owner_id", owner_id).order("date", desc=True).execute().data
+        vehicles = supabase.table("vehicles").select("id,registration_number").eq("owner_id", owner_id).execute().data
+        veh_map = {v["id"]: v["registration_number"] for v in vehicles}
         result["Tolls"] = (
             ["Date", "Vehicle", "Toll Plaza", "Route", "Payment Mode", "Amount (₹)", "Notes"],
-            [[_safe(t.date), veh_map.get(t.vehicle_id, ""), _safe(t.toll_plaza),
-              _safe(t.route), _safe(t.payment_mode), _safe(t.amount), _safe(t.notes)] for t in rows]
+            [[_safe(t.get("date")), veh_map.get(t.get("vehicle_id"), ""), _safe(t.get("toll_plaza")),
+              _safe(t.get("route")), _safe(t.get("payment_mode")), _safe(t.get("amount")), _safe(t.get("notes"))] for t in rows]
         )
 
     if "tyres" in types:
-        rows = db.query(TyreLog).filter(TyreLog.owner_id == owner_id).order_by(TyreLog.date.desc()).all()
-        veh_map = {v.id: v.registration_number for v in db.query(Vehicle).filter(Vehicle.owner_id == owner_id).all()}
+        rows = supabase.table("tyre_logs").select("*").eq("owner_id", owner_id).order("date", desc=True).execute().data
+        vehicles = supabase.table("vehicles").select("id,registration_number").eq("owner_id", owner_id).execute().data
+        veh_map = {v["id"]: v["registration_number"] for v in vehicles}
         result["Tyres"] = (
             ["Date", "Vehicle", "Type", "Brand", "Count", "Position", "Odometer (km)", "Amount (₹)", "Notes"],
-            [[_safe(t.date), veh_map.get(t.vehicle_id, ""), _safe(t.tyre_type),
-              _safe(t.tyre_brand), _safe(t.tyre_count), _safe(t.tyre_position),
-              _safe(t.odometer_km), _safe(t.amount), _safe(t.notes)] for t in rows]
+            [[_safe(t.get("date")), veh_map.get(t.get("vehicle_id"), ""), _safe(t.get("tyre_type")),
+              _safe(t.get("tyre_brand")), _safe(t.get("tyre_count")), _safe(t.get("tyre_position")),
+              _safe(t.get("odometer_km")), _safe(t.get("amount")), _safe(t.get("notes"))] for t in rows]
         )
 
     if "misc" in types:
-        rows = db.query(MiscExpense).filter(MiscExpense.owner_id == owner_id).order_by(MiscExpense.date.desc()).all()
-        veh_map = {v.id: v.registration_number for v in db.query(Vehicle).filter(Vehicle.owner_id == owner_id).all()}
+        rows = supabase.table("misc_expenses").select("*").eq("owner_id", owner_id).order("date", desc=True).execute().data
+        vehicles = supabase.table("vehicles").select("id,registration_number").eq("owner_id", owner_id).execute().data
+        veh_map = {v["id"]: v["registration_number"] for v in vehicles}
         result["Misc Expenses"] = (
             ["Date", "Vehicle", "Category", "Description", "Amount (₹)", "Notes"],
-            [[_safe(m.date), veh_map.get(m.vehicle_id, "") if m.vehicle_id else "",
-              _safe(m.category), _safe(m.description), _safe(m.amount), _safe(m.notes)] for m in rows]
+            [[_safe(m.get("date")), veh_map.get(m.get("vehicle_id"), "") if m.get("vehicle_id") else "",
+              _safe(m.get("category")), _safe(m.get("description")), _safe(m.get("amount")), _safe(m.get("notes"))] for m in rows]
         )
 
     if "profit_loss" in types:
-        trips = db.query(Trip).filter(Trip.owner_id == owner_id).order_by(Trip.start_date.desc()).all()
-        veh_map = {v.id: v.registration_number for v in db.query(Vehicle).filter(Vehicle.owner_id == owner_id).all()}
+        trips = supabase.table("trips").select("*").eq("owner_id", owner_id).order("start_date", desc=True).execute().data
+        vehicles = supabase.table("vehicles").select("id,registration_number").eq("owner_id", owner_id).execute().data
+        veh_map = {v["id"]: v["registration_number"] for v in vehicles}
         pl_rows = []
         for t in trips:
-            freight   = float(t.freight_amount or 0)
-            total_exp = sum(float(e.amount or 0) for e in t.expenses)
-            profit    = freight - total_exp
-            margin    = round((profit / freight * 100), 1) if freight else 0
-            fuel_exp  = sum(float(e.amount or 0) for e in t.expenses if e.expense_type == ExpenseType.FUEL)
-            toll_exp  = sum(float(e.amount or 0) for e in t.expenses if e.expense_type == ExpenseType.TOLL)
-            maint_exp = sum(float(e.amount or 0) for e in t.expenses if e.expense_type == ExpenseType.MAINTENANCE)
-            drv_exp   = sum(float(e.amount or 0) for e in t.expenses if e.expense_type == ExpenseType.DRIVER_PAYMENT)
+            freight = float(t.get("freight_amount") or 0)
+            exps = supabase.table("expenses").select("expense_type,amount").eq("trip_id", t["id"]).execute().data
+            total_exp = sum(float(e.get("amount") or 0) for e in exps)
+            profit = freight - total_exp
+            margin = round(profit / freight * 100, 1) if freight else 0
+            fuel_exp = sum(float(e.get("amount") or 0) for e in exps if e.get("expense_type") == "fuel")
+            toll_exp = sum(float(e.get("amount") or 0) for e in exps if e.get("expense_type") == "toll")
+            maint_exp = sum(float(e.get("amount") or 0) for e in exps if e.get("expense_type") == "maintenance")
+            drv_exp = sum(float(e.get("amount") or 0) for e in exps if e.get("expense_type") == "driver_payment")
             pl_rows.append([
-                _safe(t.start_date), _safe(t.origin), _safe(t.destination),
-                veh_map.get(t.vehicle_id, ""), _safe(t.driver_name),
+                _safe(t.get("start_date")), _safe(t.get("origin")), _safe(t.get("destination")),
+                veh_map.get(t.get("vehicle_id"), ""), _safe(t.get("driver_name")),
                 freight, total_exp, profit, f"{margin}%",
-                fuel_exp, toll_exp, maint_exp, drv_exp, _safe(t.status)
+                fuel_exp, toll_exp, maint_exp, drv_exp, _safe(t.get("status"))
             ])
         result["Profit & Loss"] = (
             ["Date", "From", "To", "Vehicle", "Driver", "Freight (₹)", "Total Expenses (₹)",
@@ -234,11 +227,10 @@ def export_data(
     format: str = Query("xlsx"),
     types: str = Query("vehicles,drivers,trips,fuel,tolls,tyres,misc,profit_loss"),
     org_name: str = Query("My Fleet"),
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: dict = Depends(get_current_user),
 ):
     selected = [t.strip().lower() for t in types.split(",") if t.strip()]
-    datasets = _build_datasets(selected, db, current_user.id)
+    datasets = _build_datasets(selected, current_user["id"])
 
     if not datasets:
         return {"error": "No data found"}

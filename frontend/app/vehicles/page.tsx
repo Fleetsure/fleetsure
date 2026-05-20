@@ -1,8 +1,10 @@
 "use client";
 import React, { useEffect, useState } from "react";
 import Header from "@/components/Header";
-import { getVehicles, createVehicle, updateVehicle, getInsights } from "@/lib/api";
+import { vehicleService } from "@/lib/services/vehicleService";
+import { insightService } from "@/lib/services/insightService";
 import { Plus, Truck, X, Search, AlertCircle, CheckCircle, ChevronDown, ChevronUp, Wrench, Navigation, AlertTriangle } from "lucide-react";
+import { parseLocalDate, fmtDate } from "@/lib/date";
 import { useLanguage } from "@/lib/LanguageContext";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -22,8 +24,10 @@ const FUEL_TYPES    = ["Diesel", "Petrol", "CNG", "Electric", "LNG", "Other"];
 
 function complianceBadge(dateStr: string | null | undefined) {
   if (!dateStr) return null;
-  const d = new Date(dateStr);
+  const d = parseLocalDate(dateStr);
+  if (!d) return null;
   const today = new Date();
+  today.setHours(0, 0, 0, 0);
   const daysLeft = Math.ceil((d.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
 
   if (daysLeft < 0) {
@@ -71,13 +75,13 @@ export default function VehiclesPage() {
   // Expanded compliance row
   const [expandedRow, setExpandedRow] = useState<string | null>(null);
 
-  const load = () => getVehicles().then(r => setVehicles(r.data)).finally(() => setLoading(false));
+  const load = () => vehicleService.getAll().then(r => setVehicles(r.data || [])).finally(() => setLoading(false));
   useEffect(() => {
     load();
     // Pull cost-per-km from insights (non-blocking)
-    getInsights().then(res => {
+    insightService.getAll().then(res => {
       const map: Record<string, number> = {};
-      (res.data.insights || []).forEach((ins: any) => {
+      (res.data || []).forEach((ins: any) => {
         if (ins.insight_type === "cost_per_km" && ins.vehicle_id && ins.meta?.cost_per_km) {
           map[ins.vehicle_id] = ins.meta.cost_per_km;
         }
@@ -126,9 +130,9 @@ export default function VehiclesPage() {
         permit_expiry:    form.permit_expiry     || null,
       };
       if (editVehicle) {
-        await updateVehicle(editVehicle.id, payload);
+        await vehicleService.update(editVehicle.id, payload);
       } else {
-        await createVehicle(payload);
+        await vehicleService.create(payload);
       }
       setShowForm(false);
       setForm({ ...EMPTY_FORM });
@@ -157,8 +161,11 @@ export default function VehiclesPage() {
 
   const expiringInsurance = vehicles.filter(v => {
     if (!v.insurance_expiry) return false;
-    const d = Math.ceil((new Date(v.insurance_expiry).getTime() - Date.now()) / 86400000);
-    return d >= 0 && d <= 30;
+    const d = parseLocalDate(v.insurance_expiry);
+    if (!d) return false;
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    const days = Math.ceil((d.getTime() - today.getTime()) / 86400000);
+    return days >= 0 && days <= 30;
   }).length;
 
   return (
@@ -291,10 +298,10 @@ export default function VehiclesPage() {
                               { icon: "⚙️",  label: t("vehicle.engine"),           val: v.engine_number },
                               { icon: "👤",  label: t("vehicle.owner"),            val: v.owner_name },
                               { icon: "🎨",  label: t("vehicle.color"),            val: v.color },
-                              { icon: "🛡️",  label: t("vehicle.insurance_expiry"), val: v.insurance_expiry },
-                              { icon: "📋",  label: t("vehicle.fitness_expiry"),   val: v.fitness_expiry },
-                              { icon: "💨",  label: t("vehicle.puc_expiry"),       val: v.puc_expiry },
-                              { icon: "📄",  label: t("vehicle.permit_expiry"),    val: v.permit_expiry },
+                              { icon: "🛡️",  label: t("vehicle.insurance_expiry"), val: v.insurance_expiry ? fmtDate(v.insurance_expiry) : null },
+                              { icon: "📋",  label: t("vehicle.fitness_expiry"),   val: v.fitness_expiry ? fmtDate(v.fitness_expiry) : null },
+                              { icon: "💨",  label: t("vehicle.puc_expiry"),       val: v.puc_expiry ? fmtDate(v.puc_expiry) : null },
+                              { icon: "📄",  label: t("vehicle.permit_expiry"),    val: v.permit_expiry ? fmtDate(v.permit_expiry) : null },
                             ].map(f => (
                               <div key={f.label}>
                                 <div style={{ fontSize: 10.5, color: "#aaa", fontWeight: 600, marginBottom: 2 }}>{f.icon} {f.label}</div>

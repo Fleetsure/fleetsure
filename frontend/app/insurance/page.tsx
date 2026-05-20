@@ -1,7 +1,9 @@
 "use client";
 import { useEffect, useState } from "react";
 import Header from "@/components/Header";
-import { getVehicles, getPolicies, createPolicy, deletePolicy } from "@/lib/api";
+import { insuranceService } from "@/lib/services/insuranceService";
+import { vehicleService } from "@/lib/services/vehicleService";
+import { fmtDate } from "@/lib/date";
 import { ShieldCheck, Plus, X, AlertTriangle, CheckCircle, Clock, Trash2 } from "lucide-react";
 
 const POLICY_TYPES = [
@@ -56,8 +58,8 @@ export default function InsurancePage() {
   }, []);
 
   const load = () => {
-    Promise.all([getPolicies(), getVehicles()])
-      .then(([p, v]) => { setPolicies(p.data); setVehicles(v.data); })
+    Promise.all([insuranceService.getAll(), vehicleService.getAll()])
+      .then(([p, v]) => { setPolicies(p.data || []); setVehicles(v.data || []); })
       .finally(() => setLoading(false));
   };
   useEffect(() => { load(); }, []);
@@ -67,7 +69,7 @@ export default function InsurancePage() {
   const handleSubmit = async (e: any) => {
     e.preventDefault(); setSaving(true);
     try {
-      await createPolicy({
+      await insuranceService.create({
         ...form,
         premium: form.premium ? parseFloat(form.premium) : null,
         start_date: form.start_date || null,
@@ -78,7 +80,7 @@ export default function InsurancePage() {
 
   const handleDelete = async (id: string) => {
     if (!confirm("Delete this record?")) return;
-    await deletePolicy(id); load();
+    await insuranceService.delete(id); load();
   };
 
   const visible = filterType === "all" ? policies : policies.filter(p => p.policy_type === filterType);
@@ -173,7 +175,7 @@ export default function InsurancePage() {
                   </div>
                   <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: "var(--text-muted)" }}>
                     <span>{p.insurer || "—"}</span>
-                    <span style={{ fontWeight: 600 }}>Exp: {new Date(p.expiry_date).toLocaleDateString("en-IN")}</span>
+                    <span style={{ fontWeight: 600 }}>Exp: {fmtDate(p.expiry_date)}</span>
                   </div>
                   {p.premium && <div style={{ fontSize: 12, color: "#888", marginTop: 2 }}>₹{Number(p.premium).toLocaleString("en-IN")}</div>}
                 </div>
@@ -199,7 +201,7 @@ export default function InsurancePage() {
                     </td>
                     <td style={{ padding: "12px 10px", color: "#555", fontFamily: "monospace", fontSize: 12.5 }}>{p.policy_number || "—"}</td>
                     <td style={{ padding: "12px 10px", color: "#555" }}>{p.insurer || "—"}</td>
-                    <td style={{ padding: "12px 10px", fontWeight: 600 }}>{new Date(p.expiry_date).toLocaleDateString("en-IN")}</td>
+                    <td style={{ padding: "12px 10px", fontWeight: 600 }}>{fmtDate(p.expiry_date)}</td>
                     <td style={{ padding: "12px 10px", color: "#555" }}>{p.premium ? `₹${Number(p.premium).toLocaleString("en-IN")}` : "—"}</td>
                     <td style={{ padding: "12px 10px" }}><StatusBadge status={p.status} days={p.days_left} /></td>
                     <td style={{ padding: "12px 10px" }}>
@@ -226,7 +228,7 @@ export default function InsurancePage() {
                 <label style={lbl}>Vehicle *</label>
                 <select required value={form.vehicle_id} onChange={e => set("vehicle_id", e.target.value)} style={inp}>
                   <option value="">Select vehicle…</option>
-                  {vehicles.map(v => <option key={v.id} value={v.id}>{v.reg_number} — {v.make} {v.model}</option>)}
+                  {vehicles.map(v => <option key={v.id} value={v.id}>{v.registration_number} — {v.make} {v.model}</option>)}
                 </select>
               </div>
               <div>

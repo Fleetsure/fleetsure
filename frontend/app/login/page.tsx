@@ -1,10 +1,8 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
-import { login } from "@/lib/api";
-import { GoogleLogin } from "@react-oauth/google";
-import axios from "axios";
+import { signInWithPopup } from "firebase/auth";
+import { auth, googleProvider } from "@/lib/firebase";
 
 const FEATURES = [
   { icon: "🚛", title: "Track Every Trip", desc: "Log trips, freight amounts, and routes in seconds." },
@@ -15,57 +13,34 @@ const FEATURES = [
 
 export default function LoginPage() {
   const router = useRouter();
-  const [form, setForm] = useState({ email: "", password: "" });
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const [gLoading, setGLoading] = useState(false);
 
-  const storeSession = (data: any) => {
-    // Clear ALL stale data from any previous account before writing new session
-    localStorage.clear();
-    localStorage.setItem("token", data.access_token);
-    localStorage.setItem("userName", data.name);
-    localStorage.setItem("userId", data.user_id);
-    if (data.org_name) localStorage.setItem("orgName", data.org_name);
-    if (data.org_logo) localStorage.setItem("orgLogo", data.org_logo);
-  };
+  useEffect(() => {
+    // If already signed in via Firebase, go straight to app
+    if (auth.currentUser) router.replace("/");
+  }, []);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError("");
+  const handleGoogleSignIn = async () => {
     setLoading(true);
+    setError("");
     try {
-      const res = await login(form);
-      storeSession(res.data);
-      router.push("/");
+      await signInWithPopup(auth, googleProvider);
+      // AppShell will handle upsert into users table on next render
+      router.replace("/");
     } catch (err: any) {
-      setError(err?.response?.data?.detail || "Invalid email or password.");
+      if (err?.code !== "auth/popup-closed-by-user") {
+        setError(err?.message || "Google sign-in failed. Try again.");
+      }
     } finally {
       setLoading(false);
     }
   };
 
-  const handleGoogleSuccess = async (credentialResponse: any) => {
-    setGLoading(true);
-    setError("");
-    try {
-      const apiBase = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1";
-      const res = await axios.post(`${apiBase}/auth/google`, {
-        credential: credentialResponse.credential,
-      });
-      storeSession(res.data);
-      router.push("/");
-    } catch (err: any) {
-      setError(err?.response?.data?.detail || "Google sign-in failed. Try again.");
-    } finally {
-      setGLoading(false);
-    }
-  };
-
   return (
-    <div style={{ minHeight: "100vh", display: "flex" }}>
+    <div style={{ minHeight: "100vh", width: "100%", display: "flex" }}>
 
-      {/* ── Left Panel — Branding ── */}
+      {/* Left Panel — Branding */}
       <div style={{
         flex: 1,
         background: "linear-gradient(145deg, #1a237e 0%, #283593 50%, #1565c0 100%)",
@@ -76,10 +51,8 @@ export default function LoginPage() {
         position: "relative",
         overflow: "hidden",
       }}>
-        {/* Background pattern */}
         <div style={{ position: "absolute", inset: 0, opacity: 0.05, backgroundImage: "radial-gradient(circle at 2px 2px, white 1px, transparent 0)", backgroundSize: "32px 32px" }} />
 
-        {/* Logo */}
         <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 56 }}>
           <img src="/logo.png" alt="FleetSure" style={{ width: 48, height: 48, borderRadius: 12 }} />
           <div>
@@ -88,7 +61,6 @@ export default function LoginPage() {
           </div>
         </div>
 
-        {/* Headline */}
         <h1 style={{ color: "white", fontSize: 36, fontWeight: 800, lineHeight: 1.25, margin: "0 0 16px", maxWidth: 420 }}>
           Run your fleet smarter. Know your profits daily.
         </h1>
@@ -96,7 +68,6 @@ export default function LoginPage() {
           Built for Indian fleet owners — track trips, expenses, and compliance without the paperwork chaos.
         </p>
 
-        {/* Feature list */}
         <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
           {FEATURES.map(f => (
             <div key={f.title} style={{ display: "flex", alignItems: "flex-start", gap: 16 }}>
@@ -109,7 +80,6 @@ export default function LoginPage() {
           ))}
         </div>
 
-        {/* Bottom badge */}
         <div style={{ marginTop: 56, display: "flex", alignItems: "center", gap: 8 }}>
           <div style={{ background: "rgba(255,255,255,0.15)", borderRadius: 20, padding: "6px 14px", display: "flex", alignItems: "center", gap: 6 }}>
             <div style={{ width: 7, height: 7, borderRadius: "50%", background: "#4ade80" }} />
@@ -118,7 +88,7 @@ export default function LoginPage() {
         </div>
       </div>
 
-      {/* ── Right Panel — Form ── */}
+      {/* Right Panel — Sign In */}
       <div style={{
         width: 480,
         display: "flex",
@@ -129,71 +99,40 @@ export default function LoginPage() {
         padding: "40px 48px",
       }}>
         <div style={{ width: "100%", flex: 1, display: "flex", flexDirection: "column", justifyContent: "center" }}>
-          <h2 style={{ fontSize: 26, fontWeight: 800, color: "#1a1a2e", margin: "0 0 6px" }}>Welcome back</h2>
-          <p style={{ color: "#888", fontSize: 14, margin: "0 0 32px" }}>Sign in to your fleet account</p>
+          <h2 style={{ fontSize: 26, fontWeight: 800, color: "#1a1a2e", margin: "0 0 6px" }}>Welcome to FleetSure</h2>
+          <p style={{ color: "#888", fontSize: 14, margin: "0 0 32px" }}>Sign in with your Google account to continue</p>
 
-          <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-            <div>
-              <label style={{ display: "block", fontSize: 13, fontWeight: 600, color: "#555", marginBottom: 6 }}>Email Address</label>
-              <input
-                type="email" required
-                value={form.email}
-                onChange={e => setForm({ ...form, email: e.target.value })}
-                placeholder="you@example.com"
-                style={{ width: "100%", padding: "11px 14px", borderRadius: 8, border: "1.5px solid #e0e0ee", background: "white", color: "#1a1a2e", fontSize: 14, boxSizing: "border-box", outline: "none" }}
-              />
+          {error && (
+            <div style={{ background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 8, padding: "10px 14px", color: "#dc2626", fontSize: 13, marginBottom: 16 }}>
+              {error}
             </div>
+          )}
 
-            <div>
-              <label style={{ display: "block", fontSize: 13, fontWeight: 600, color: "#555", marginBottom: 6 }}>Password</label>
-              <input
-                type="password" required
-                value={form.password}
-                onChange={e => setForm({ ...form, password: e.target.value })}
-                placeholder="••••••••"
-                style={{ width: "100%", padding: "11px 14px", borderRadius: 8, border: "1.5px solid #e0e0ee", background: "white", color: "#1a1a2e", fontSize: 14, boxSizing: "border-box", outline: "none" }}
-              />
-            </div>
+          <button
+            onClick={handleGoogleSignIn}
+            disabled={loading}
+            style={{
+              width: "100%", display: "flex", alignItems: "center", justifyContent: "center",
+              gap: 10, padding: "14px 16px", borderRadius: 8, border: "1.5px solid #e0e0ee",
+              background: "white", color: "#1a1a2e", fontSize: 15, fontWeight: 600,
+              cursor: loading ? "not-allowed" : "pointer", opacity: loading ? 0.7 : 1,
+              boxShadow: "0 1px 4px rgba(0,0,0,0.06)",
+            }}
+          >
+            <svg width="20" height="20" viewBox="0 0 48 48">
+              <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
+              <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/>
+              <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/>
+              <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.18 1.48-4.97 2.36-8.16 2.36-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/>
+            </svg>
+            {loading ? "Signing in…" : "Continue with Google"}
+          </button>
 
-            {error && (
-              <div style={{ background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 8, padding: "10px 14px", color: "#dc2626", fontSize: 13 }}>
-                {error}
-              </div>
-            )}
-
-            <button type="submit" disabled={loading} style={{ background: "#1E2D8E", color: "white", border: "none", borderRadius: 8, padding: "13px", fontSize: 15, fontWeight: 700, cursor: loading ? "not-allowed" : "pointer", opacity: loading ? 0.7 : 1, marginTop: 4 }}>
-              {loading ? "Signing in..." : "Sign In"}
-            </button>
-          </form>
-
-          {/* Divider */}
-          <div style={{ display: "flex", alignItems: "center", gap: 12, margin: "20px 0" }}>
-            <div style={{ flex: 1, height: 1, background: "#e0e0ee" }} />
-            <span style={{ color: "#aaa", fontSize: 12, fontWeight: 500 }}>or</span>
-            <div style={{ flex: 1, height: 1, background: "#e0e0ee" }} />
-          </div>
-
-          {/* Google button — placeholder until OAuth is configured */}
-          <div style={{ display: "flex", justifyContent: "center" }}>
-            <GoogleLogin
-              onSuccess={handleGoogleSuccess}
-              onError={() => setError("Google sign-in failed. Try again.")}
-              useOneTap
-              text="continue_with"
-              shape="rectangular"
-              size="large"
-              width="384"
-            />
-          </div>
-          {gLoading && <p style={{ textAlign: "center", color: "#888", fontSize: 13 }}>Signing in with Google…</p>}
-
-          <p style={{ textAlign: "center", marginTop: 24, fontSize: 14, color: "#888" }}>
-            Don&apos;t have an account?{" "}
-            <Link href="/register" style={{ color: "#1E2D8E", fontWeight: 700, textDecoration: "none" }}>Create one free</Link>
+          <p style={{ textAlign: "center", marginTop: 24, fontSize: 13, color: "#aaa", lineHeight: 1.6 }}>
+            By signing in you agree to our Terms of Service.
           </p>
         </div>
 
-        {/* Footer */}
         <p style={{ textAlign: "center", fontSize: 13, color: "#888", marginTop: 24, marginBottom: 0 }}>
           Made with ❤️ in Bengaluru
         </p>

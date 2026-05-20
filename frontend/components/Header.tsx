@@ -4,10 +4,12 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import LanguageSwitcher from "@/components/LanguageSwitcher";
+import { vehicleService } from "@/lib/services/vehicleService";
+import { driverService } from "@/lib/services/driverService";
+import { tripService } from "@/lib/services/tripService";
+import { partyService } from "@/lib/services/partyService";
 
 const InsightsPanel = dynamic(() => import("@/components/InsightsPanel"), { ssr: false });
-
-const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1";
 
 type Result = {
   id: string; label: string; sub: string;
@@ -57,21 +59,18 @@ export default function Header({ title, subtitle }: { title: string; subtitle?: 
     if (cache) return;
     setLoading(true);
     try {
-      const token = localStorage.getItem("token") || "";
-      const headers = { Authorization: `Bearer ${token}` };
-      const [vRes, dRes, tRes, pRes] = await Promise.all([
-        fetch(`${API}/vehicles`, { headers }),
-        fetch(`${API}/drivers`,  { headers }),
-        fetch(`${API}/trips`,    { headers }),
-        fetch(`${API}/parties`,  { headers }),
+      const [v, d, t, p] = await Promise.all([
+        vehicleService.getAll(),
+        driverService.getAll(),
+        tripService.getAll(),
+        partyService.getAll(),
       ]);
-      const [vehicles, drivers, trips, parties] = await Promise.all([
-        vRes.ok ? vRes.json() : [],
-        dRes.ok ? dRes.json() : [],
-        tRes.ok ? tRes.json() : [],
-        pRes.ok ? pRes.json() : [],
-      ]);
-      setCache({ vehicles, drivers, trips, parties });
+      setCache({
+        vehicles: v.data || [],
+        drivers:  d.data || [],
+        trips:    t.data || [],
+        parties:  p.data || [],
+      });
     } catch (_) {} finally { setLoading(false); }
   }, [cache]);
 
@@ -79,8 +78,8 @@ export default function Header({ title, subtitle }: { title: string; subtitle?: 
     if (!query.trim() || !cache) { setResults([]); return; }
     const q = query.toLowerCase();
     const vehicleResults: Result[] = (cache.vehicles || [])
-      .filter((v: any) => v.reg_number?.toLowerCase().includes(q) || v.make?.toLowerCase().includes(q) || v.model?.toLowerCase().includes(q))
-      .slice(0, 4).map((v: any) => ({ id: v.id, type: "vehicle" as const, label: v.reg_number || "Unknown", sub: [v.make, v.model].filter(Boolean).join(" ") || "Vehicle", href: "/vehicles" }));
+      .filter((v: any) => v.registration_number?.toLowerCase().includes(q) || v.make?.toLowerCase().includes(q) || v.model?.toLowerCase().includes(q))
+      .slice(0, 4).map((v: any) => ({ id: v.id, type: "vehicle" as const, label: v.registration_number || "Unknown", sub: [v.make, v.model].filter(Boolean).join(" ") || "Vehicle", href: "/vehicles" }));
     const driverResults: Result[] = (cache.drivers || [])
       .filter((d: any) => d.name?.toLowerCase().includes(q) || d.phone?.toLowerCase().includes(q))
       .slice(0, 4).map((d: any) => ({ id: d.id, type: "driver" as const, label: d.name || "Unknown", sub: d.phone || "Driver", href: "/drivers" }));

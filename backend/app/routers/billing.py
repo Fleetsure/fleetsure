@@ -2,7 +2,7 @@
 Billing & Subscription router — powered by Razorpay.
 GET  /billing/status            — current plan + days left
 POST /billing/subscribe/{plan}  — create subscription, return hosted payment URL
-POST /billing/webhook           — Razorpay webhook handler (called by Razorpay servers)
+POST /billing/webhook           — Razorpay webhook handler
 POST /billing/cancel            — cancel active subscription
 """
 
@@ -11,22 +11,17 @@ import hmac
 import hashlib
 import json
 from fastapi import APIRouter, Depends, HTTPException, Request
-from sqlalchemy.orm import Session
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 from pydantic import BaseModel
 
-from app.database import get_db
-from app.models.user import User
-from app.models.subscription import Subscription
+from app.db import supabase
 from app.services.auth_service import get_current_user
 
 router = APIRouter(prefix="/billing", tags=["Billing"])
 
-# ── Razorpay config ────────────────────────────────────────────────────────────
-
-RAZORPAY_KEY_ID      = os.getenv("RAZORPAY_KEY_ID", "")
-RAZORPAY_KEY_SECRET  = os.getenv("RAZORPAY_KEY_SECRET", "")
+RAZORPAY_KEY_ID         = os.getenv("RAZORPAY_KEY_ID", "")
+RAZORPAY_KEY_SECRET     = os.getenv("RAZORPAY_KEY_SECRET", "")
 RAZORPAY_WEBHOOK_SECRET = os.getenv("RAZORPAY_WEBHOOK_SECRET", "")
 
 PLAN_IDS = {
@@ -53,23 +48,20 @@ def get_razorpay_client():
         raise HTTPException(500, "Razorpay SDK not installed")
 
 
-def get_or_create_subscription(db: Session, user: User) -> Subscription:
-    sub = db.query(Subscription).filter(Subscription.user_id == user.id).first()
-    if not sub:
-        trial_end = datetime.now(timezone.utc) + timedelta(days=TRIAL_DAYS)
-        sub = Subscription(
-            user_id=user.id,
-            plan="trial",
-            status="trial",
-            trial_ends_at=trial_end,
-        )
-        db.add(sub)
-        db.commit()
-        db.refresh(sub)
-    return sub
+def get_or_create_subscription(user_id: str) -> dict:
+    res = supabase.table("subscriptions").select("*").eq("user_id", user_id).execute().data
+    if res:
+        return res[0]
+    trial_end = (datetime.now(timezone.utc) + timedelta(days=TRIAL_DAYS)).isoformat()
+    new_sub = {
+        "user_id": user_id,
+        "plan": "trial",
+        "status": "trial",
+        "trial_ends_at": trial_end,
+    }
+    created = supabase.table("subscriptions").insert(new_sub).execute().data
+    return created[0]
 
-
-# ── Schemas ────────────────────────────────────────────────────────────────────
 
 class BillingStatus(BaseModel):
     plan: str
@@ -87,45 +79,34 @@ class SubscribeResponse(BaseModel):
     plan: str
 
 
-# ── Endpoints ──────────────────────────────────────────────────────────────────
-
 @router.get("/status", response_model=BillingStatus)
-def get_billing_status(
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
-    sub = get_or_create_subscription(db, current_user)
+def get_billing_status(current_user: dict = Depends(get_current_user)):
+    sub = get_or_create_subscription(current_user["id"])
     now = datetime.now(timezone.utc)
 
     days_left = None
-    if sub.status in ("trial", "created") and sub.trial_ends_at:
-        # "created" = payment initiated but not completed; user still in trial period
-        delta = sub.trial_ends_at - now
-        days_left = max(0, delta.days)
-    elif sub.current_period_end:
-        delta = sub.current_period_end - now
-        days_left = max(0, delta.days)
+    if sub.get("status") in ("trial", "created") and sub.get("trial_ends_at"):
+        trial_end = datetime.fromisoformat(sub["trial_ends_at"].replace("Z", "+00:00"))
+        days_left = max(0, (trial_end - now).days)
+    elif sub.get("current_period_end"):
+        period_end = datetime.fromisoformat(sub["current_period_end"].replace("Z", "+00:00"))
+        days_left = max(0, (period_end - now).days)
 
-    # For display: if payment not completed, show as trial still
-    display_plan = sub.plan if sub.status not in ("created",) else "trial"
+    display_plan = sub["plan"] if sub.get("status") != "created" else "trial"
 
     return BillingStatus(
         plan=display_plan,
         plan_name=PLAN_NAMES.get(display_plan, display_plan.title()),
-        status=sub.status,
-        trial_ends_at=sub.trial_ends_at.isoformat() if sub.trial_ends_at else None,
-        current_period_end=sub.current_period_end.isoformat() if sub.current_period_end else None,
+        status=sub.get("status", "trial"),
+        trial_ends_at=sub.get("trial_ends_at"),
+        current_period_end=sub.get("current_period_end"),
         days_left=days_left,
-        razorpay_subscription_id=sub.razorpay_subscription_id,
+        razorpay_subscription_id=sub.get("razorpay_subscription_id"),
     )
 
 
 @router.post("/subscribe/{plan}", response_model=SubscribeResponse)
-def create_subscription(
-    plan: str,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
+def create_subscription(plan: str, current_user: dict = Depends(get_current_user)):
     if plan not in PLAN_IDS:
         raise HTTPException(400, f"Invalid plan. Choose: {list(PLAN_IDS.keys())}")
 
@@ -133,24 +114,22 @@ def create_subscription(
         raise HTTPException(500, "Razorpay not configured — contact support")
 
     client = get_razorpay_client()
+    sub = get_or_create_subscription(current_user["id"])
 
-    # Cancel existing Razorpay subscription if upgrading
-    sub = get_or_create_subscription(db, current_user)
-    if sub.razorpay_subscription_id:
+    if sub.get("razorpay_subscription_id"):
         try:
-            client.subscription.cancel(sub.razorpay_subscription_id, {"cancel_at_cycle_end": 0})
+            client.subscription.cancel(sub["razorpay_subscription_id"], {"cancel_at_cycle_end": 0})
         except Exception:
-            pass  # Ignore cancel errors — proceed with new subscription
+            pass
 
-    # Create new Razorpay subscription
-    notify_info: dict = {"notify_email": current_user.email}
-    if hasattr(current_user, "phone") and current_user.phone:
-        notify_info["notify_phone"] = current_user.phone
+    notify_info: dict = {"notify_email": current_user.get("email", "")}
+    if current_user.get("phone"):
+        notify_info["notify_phone"] = current_user["phone"]
 
     try:
         rz_sub = client.subscription.create({
             "plan_id": PLAN_IDS[plan],
-            "total_count": 12,        # 12 billing cycles (1 year)
+            "total_count": 12,
             "quantity": 1,
             "customer_notify": 1,
             "notify_info": notify_info,
@@ -158,11 +137,11 @@ def create_subscription(
     except Exception as e:
         raise HTTPException(502, f"Razorpay error: {e}")
 
-    # Save to DB
-    sub.plan                    = plan
-    sub.status                  = "created"
-    sub.razorpay_subscription_id = rz_sub["id"]
-    db.commit()
+    supabase.table("subscriptions").update({
+        "plan": plan,
+        "status": "created",
+        "razorpay_subscription_id": rz_sub["id"],
+    }).eq("user_id", current_user["id"]).execute()
 
     return SubscribeResponse(
         subscription_id=rz_sub["id"],
@@ -172,36 +151,26 @@ def create_subscription(
 
 
 @router.post("/cancel")
-def cancel_subscription(
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
-    sub = db.query(Subscription).filter(Subscription.user_id == current_user.id).first()
-    if not sub or not sub.razorpay_subscription_id:
+def cancel_subscription(current_user: dict = Depends(get_current_user)):
+    res = supabase.table("subscriptions").select("*").eq("user_id", current_user["id"]).execute().data
+    if not res or not res[0].get("razorpay_subscription_id"):
         raise HTTPException(404, "No active subscription found")
 
+    sub = res[0]
     client = get_razorpay_client()
     try:
-        client.subscription.cancel(sub.razorpay_subscription_id, {"cancel_at_cycle_end": 1})
+        client.subscription.cancel(sub["razorpay_subscription_id"], {"cancel_at_cycle_end": 1})
     except Exception as e:
         raise HTTPException(502, f"Razorpay error: {e}")
 
-    sub.status = "cancelled"
-    db.commit()
+    supabase.table("subscriptions").update({"status": "cancelled"}).eq("user_id", current_user["id"]).execute()
     return {"status": "cancelled", "message": "Subscription will end at current billing period"}
 
 
 @router.post("/webhook")
-async def razorpay_webhook(request: Request, db: Session = Depends(get_db)):
-    """
-    Razorpay calls this on every subscription event.
-    Configure in Razorpay Dashboard → Settings → Webhooks:
-      URL: https://<your-render-url>/api/v1/billing/webhook
-      Events: subscription.charged, subscription.cancelled, subscription.halted
-    """
+async def razorpay_webhook(request: Request):
     body = await request.body()
 
-    # Verify signature if webhook secret is configured
     if RAZORPAY_WEBHOOK_SECRET:
         sig = request.headers.get("X-Razorpay-Signature", "")
         expected = hmac.new(
@@ -223,30 +192,30 @@ async def razorpay_webhook(request: Request, db: Session = Depends(get_db)):
     if not rz_sub_id:
         return {"status": "ignored"}
 
-    sub = db.query(Subscription).filter(
-        Subscription.razorpay_subscription_id == rz_sub_id
-    ).first()
-    if not sub:
+    res = supabase.table("subscriptions").select("*").eq("razorpay_subscription_id", rz_sub_id).execute().data
+    if not res:
         return {"status": "not_found"}
 
+    updates = {}
     if event_type == "subscription.charged":
-        sub.status = "active"
-        # Update period end from Razorpay payload
+        updates["status"] = "active"
         period_end = sub_entity.get("current_end")
         if period_end:
-            sub.current_period_end = datetime.fromtimestamp(period_end, tz=timezone.utc)
+            updates["current_period_end"] = datetime.fromtimestamp(period_end, tz=timezone.utc).isoformat()
 
     elif event_type in ("subscription.cancelled", "subscription.completed"):
-        sub.status = "cancelled"
+        updates["status"] = "cancelled"
 
     elif event_type == "subscription.halted":
-        sub.status = "past_due"
+        updates["status"] = "past_due"
 
     elif event_type == "subscription.activated":
-        sub.status = "active"
+        updates["status"] = "active"
         period_end = sub_entity.get("current_end")
         if period_end:
-            sub.current_period_end = datetime.fromtimestamp(period_end, tz=timezone.utc)
+            updates["current_period_end"] = datetime.fromtimestamp(period_end, tz=timezone.utc).isoformat()
 
-    db.commit()
+    if updates:
+        supabase.table("subscriptions").update(updates).eq("razorpay_subscription_id", rz_sub_id).execute()
+
     return {"status": "ok"}

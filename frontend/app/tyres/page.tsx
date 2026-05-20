@@ -1,7 +1,9 @@
 "use client";
 import { useEffect, useState } from "react";
 import Header from "@/components/Header";
-import { getTyreLogs, addTyreLog, deleteTyreLog, getVehicles } from "@/lib/api";
+import { tyreService } from "@/lib/services/tyreService";
+import { vehicleService } from "@/lib/services/vehicleService";
+import { fmtDate, todayISO } from "@/lib/date";
 import { Plus, X, Trash2, Circle, Truck } from "lucide-react";
 import { useLanguage } from "@/lib/LanguageContext";
 
@@ -25,7 +27,7 @@ const TYRE_BRANDS = ["MRF", "Apollo", "Bridgestone", "CEAT", "JK Tyre", "Goodyea
 
 const EMPTY = {
   vehicle_id:    "",
-  date:          new Date().toISOString().slice(0, 10),
+  date:          todayISO(),
   amount:        "",
   tyre_brand:    "",
   tyre_count:    "1",
@@ -56,8 +58,8 @@ export default function TyresPage() {
   }, []);
 
   const load = async () => {
-    const [l, v] = await Promise.all([getTyreLogs(), getVehicles()]);
-    setLogs(l.data); setVehicles(v.data); setLoading(false);
+    const [l, v] = await Promise.all([tyreService.getAll(), vehicleService.getAll()]);
+    setLogs(l.data || []); setVehicles(v.data || []); setLoading(false);
   };
   useEffect(() => { load(); }, []);
 
@@ -66,7 +68,7 @@ export default function TyresPage() {
   const handleSubmit = async (e: any) => {
     e.preventDefault(); setSaving(true); setError("");
     try {
-      await addTyreLog({
+      await tyreService.add({
         ...form,
         amount:      parseFloat(form.amount),
         tyre_count:  parseInt(form.tyre_count) || 1,
@@ -83,7 +85,7 @@ export default function TyresPage() {
 
   const handleDelete = async (id: string) => {
     if (!confirm("Delete this tyre entry?")) return;
-    await deleteTyreLog(id); load();
+    await tyreService.delete(id); load();
   };
 
   const vehicleName = (id: string) => vehicles.find(v => v.id === id)?.registration_number || "—";
@@ -93,7 +95,7 @@ export default function TyresPage() {
     .filter(l => !filterType || l.tyre_type === filterType);
 
   const totalSpend  = logs.reduce((s, l) => s + parseFloat(l.amount || 0), 0);
-  const thisMonth   = logs.filter(l => l.date?.slice(0, 7) === new Date().toISOString().slice(0, 7))
+  const thisMonth   = logs.filter(l => l.date?.slice(0, 7) === todayISO().slice(0, 7))
                           .reduce((s, l) => s + parseFloat(l.amount || 0), 0);
   const newCount    = logs.filter(l => l.tyre_type === "new").length;
   const repairCount = logs.filter(l => l.tyre_type === "repair").length;
@@ -183,7 +185,7 @@ export default function TyresPage() {
                     </div>
                     <div style={{ textAlign: "right", flexShrink: 0, marginLeft: 12 }}>
                       <div style={{ fontWeight: 700, fontSize: 15, color: "#1E2D8E" }}>₹{parseFloat(l.amount).toLocaleString("en-IN")}</div>
-                      <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 2 }}>{new Date(l.date).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}</div>
+                      <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 2 }}>{fmtDate(l.date)}</div>
                       <button onClick={() => handleDelete(l.id)}
                         style={{ background: "none", border: "none", cursor: "pointer", color: "#ccc", padding: "4px 0", marginTop: 4 }}
                         onMouseEnter={e => (e.currentTarget.style.color = "#e53935")}
@@ -215,7 +217,7 @@ export default function TyresPage() {
                   const tc = TYPE_COLORS[l.tyre_type] || TYPE_COLORS.new;
                   return (
                     <tr key={l.id}>
-                      <td style={{ fontSize: 13 }}>{new Date(l.date).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}</td>
+                      <td style={{ fontSize: 13 }}>{fmtDate(l.date)}</td>
                       <td style={{ fontWeight: 600, color: "#1E2D8E" }}>{vehicleName(l.vehicle_id)}</td>
                       <td>
                         <span style={{ fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 6, background: tc.bg, color: tc.color }}>

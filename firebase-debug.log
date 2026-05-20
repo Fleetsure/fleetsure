@@ -1,0 +1,46 @@
+[debug] [2026-05-20T08:26:10.076Z] ----------------------------------------------------------------------
+[debug] [2026-05-20T08:26:10.077Z] Command:       /usr/local/bin/node /Users/shan/.npm-global/bin/firebase deploy --only hosting --dry-run
+[debug] [2026-05-20T08:26:10.078Z] CLI Version:   15.3.1
+[debug] [2026-05-20T08:26:10.078Z] Platform:      darwin
+[debug] [2026-05-20T08:26:10.078Z] Node Version:  v25.3.0
+[debug] [2026-05-20T08:26:10.078Z] Time:          Wed May 20 2026 13:56:10 GMT+0530 (India Standard Time)
+[debug] [2026-05-20T08:26:10.078Z] ----------------------------------------------------------------------
+[debug] 
+[debug] [2026-05-20T08:26:10.831Z] > command requires scopes: ["email","openid","https://www.googleapis.com/auth/cloudplatformprojects.readonly","https://www.googleapis.com/auth/firebase","https://www.googleapis.com/auth/cloud-platform"]
+[debug] [2026-05-20T08:26:10.831Z] > authorizing via signed-in user (notifications.ssb@scaler.com)
+[debug] [2026-05-20T08:26:10.831Z] [iam] checking project fleetsure-fc010 for permissions ["firebase.projects.get","firebasehosting.sites.update"]
+[debug] [2026-05-20T08:26:10.832Z] Checked if tokens are valid: false, expires at: 1779197201663
+[debug] [2026-05-20T08:26:10.832Z] Checked if tokens are valid: false, expires at: 1779197201663
+[debug] [2026-05-20T08:26:10.832Z] > refreshing access token with scopes: []
+[debug] [2026-05-20T08:26:10.832Z] >>> [apiv2][query] POST https://www.googleapis.com/oauth2/v3/token [none]
+[debug] [2026-05-20T08:26:10.832Z] >>> [apiv2][body] POST https://www.googleapis.com/oauth2/v3/token [omitted]
+[debug] [2026-05-20T08:26:10.988Z] <<< [apiv2][status] POST https://www.googleapis.com/oauth2/v3/token 400
+[debug] [2026-05-20T08:26:10.988Z] <<< [apiv2][body] POST https://www.googleapis.com/oauth2/v3/token [omitted]
+[error] Authentication Error: Your credentials are no longer valid. Please run firebase login --reauth
+
+For CI servers and headless environments, generate a new token with firebase login:ci
+[error] Authentication Error: Your credentials are no longer valid. Please run firebase login --reauth
+
+For CI servers and headless environments, generate a new token with firebase login:ci
+[debug] [2026-05-20T08:26:10.988Z] [iam] error while checking permissions, command may fail: Authentication Error: Your credentials are no longer valid. Please run firebase login --reauth
+
+For CI servers and headless environments, generate a new token with firebase login:ci
+[debug] [2026-05-20T08:26:10.989Z] Checked if tokens are valid: false, expires at: 1779197201663
+[debug] [2026-05-20T08:26:10.989Z] Checked if tokens are valid: false, expires at: 1779197201663
+[debug] [2026-05-20T08:26:10.989Z] > refreshing access token with scopes: []
+[debug] [2026-05-20T08:26:10.989Z] >>> [apiv2][query] POST https://www.googleapis.com/oauth2/v3/token [none]
+[debug] [2026-05-20T08:26:10.989Z] >>> [apiv2][body] POST https://www.googleapis.com/oauth2/v3/token [omitted]
+[debug] [2026-05-20T08:26:11.151Z] <<< [apiv2][status] POST https://www.googleapis.com/oauth2/v3/token 400
+[debug] [2026-05-20T08:26:11.151Z] <<< [apiv2][body] POST https://www.googleapis.com/oauth2/v3/token [omitted]
+[error] Authentication Error: Your credentials are no longer valid. Please run firebase login --reauth
+
+For CI servers and headless environments, generate a new token with firebase login:ci
+[error] Authentication Error: Your credentials are no longer valid. Please run firebase login --reauth
+
+For CI servers and headless environments, generate a new token with firebase login:ci
+[debug] [2026-05-20T08:26:11.152Z] Authentication Error: Your credentials are no longer valid. Please run firebase login --reauth
+
+For CI servers and headless environments, generate a new token with firebase login:ci
+[debug] [2026-05-20T08:26:11.153Z] Specified "public" directory "frontend/out" does not exist; Deploy to Hosting site "" may fail or be empty.
+[error] 
+[error] Error: Assertion failed: resolving hosting target of a site with no site name or target name. This should have caused an error earlier

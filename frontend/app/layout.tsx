@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import AppShell from "@/components/AppShell";
-import GoogleAuthProvider from "@/components/GoogleAuthProvider";
 import { LanguageProvider } from "@/lib/LanguageContext";
 
 export const metadata: Metadata = {
@@ -27,7 +26,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         `}} />
       </head>
       <body style={{ margin: 0, display: "flex", minHeight: "100vh" }}>
-        <GoogleAuthProvider><LanguageProvider><AppShell>{children}</AppShell></LanguageProvider></GoogleAuthProvider>
+        <LanguageProvider><AppShell>{children}</AppShell></LanguageProvider>
       </body>
     </html>
   );

@@ -1,11 +1,14 @@
 "use client";
 import { useEffect, useState } from "react";
 import Header from "@/components/Header";
-import { getFuelLogs, addFuelLog, deleteFuelLog, getFuelAnalytics, getVehicles, getTrips } from "@/lib/api";
+import { fuelService } from "@/lib/services/fuelService";
+import { vehicleService } from "@/lib/services/vehicleService";
+import { tripService } from "@/lib/services/tripService";
+import { fmtDate, todayISO } from "@/lib/date";
 import { Fuel, Plus, X, AlertTriangle, TrendingDown, TrendingUp, Truck, Trash2 } from "lucide-react";
 import { useLanguage } from "@/lib/LanguageContext";
 
-const EMPTY = { vehicle_id: "", trip_id: "", date: new Date().toISOString().slice(0, 10), odometer_km: "", litres: "", rate: "", amount: "", fuel_station: "", notes: "" };
+const EMPTY = { vehicle_id: "", trip_id: "", date: todayISO(), odometer_km: "", litres: "", rate: "", amount: "", fuel_station: "", notes: "" };
 
 export default function FuelPage() {
   const { t } = useLanguage();
@@ -32,10 +35,10 @@ export default function FuelPage() {
 
   const load = async () => {
     try {
-      const [l, a, v, t] = await Promise.all([getFuelLogs(), getFuelAnalytics(), getVehicles(), getTrips()]);
-      setLogs(l.data);
-      setAnalytics(a.data);
-      setVehicles(v.data);
+      const [l, a, v, t] = await Promise.all([fuelService.getAll(), fuelService.getAnalytics(), vehicleService.getAll(), tripService.getAll()]);
+      setLogs(l.data || []);
+      setAnalytics(a.data || []);
+      setVehicles(v.data || []);
       setTrips(t.data || []);
     } catch {
       // non-blocking — page stays usable even if one endpoint is slow
@@ -97,11 +100,15 @@ export default function FuelPage() {
   const handleSubmit = async (e: any) => {
     e.preventDefault(); setSaving(true); setError("");
     try {
-      await addFuelLog({
-        ...form,
+      await fuelService.add({
+        vehicle_id:  form.vehicle_id,
+        trip_id:     form.trip_id     || null,
+        date:        form.date,
+        fuel_station: form.fuel_station || null,
+        notes:       form.notes        || null,
         odometer_km: form.odometer_km ? parseFloat(form.odometer_km) : null,
-        litres: parseFloat(form.litres),
-        amount: parseFloat(form.amount),
+        litres:      parseFloat(form.litres),
+        amount:      parseFloat(form.amount),
       });
       setShowForm(false); setForm({ ...EMPTY }); setManual(new Set()); load();
     } catch (err: any) {
@@ -111,7 +118,7 @@ export default function FuelPage() {
 
   const handleDelete = async (id: string) => {
     if (!confirm("Delete this fuel entry?")) return;
-    await deleteFuelLog(id); load();
+    await fuelService.delete(id); load();
   };
 
   const vehicleName = (id: string) => {
@@ -196,7 +203,7 @@ export default function FuelPage() {
                     </div>
                     <div style={{ textAlign: "right", flexShrink: 0, marginLeft: 12 }}>
                       <div style={{ fontWeight: 700, fontSize: 15, color: "#1E2D8E" }}>₹{parseFloat(l.amount).toLocaleString("en-IN")}</div>
-                      <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 2 }}>{new Date(l.date).toLocaleDateString("en-IN")}</div>
+                      <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 2 }}>{fmtDate(l.date)}</div>
                       <button onClick={() => handleDelete(l.id)} style={{ background: "none", border: "none", cursor: "pointer", color: "#e53935", padding: "4px 0", marginTop: 4 }}>
                         <Trash2 size={13} />
                       </button>
@@ -212,7 +219,7 @@ export default function FuelPage() {
                 <tbody>
                   {logs.map((l: any) => (
                     <tr key={l.id}>
-                      <td>{new Date(l.date).toLocaleDateString("en-IN")}</td>
+                      <td>{fmtDate(l.date)}</td>
                       <td style={{ fontWeight: 600, color: "#1E2D8E", fontSize: 12.5 }}>{vehicleName(l.vehicle_id)}</td>
                       <td>{parseFloat(l.odometer_km).toLocaleString("en-IN")} km</td>
                       <td>{parseFloat(l.litres).toFixed(2)} L</td>

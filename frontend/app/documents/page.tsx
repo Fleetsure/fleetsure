@@ -1,7 +1,9 @@
 "use client";
 import { useEffect, useState, useRef } from "react";
 import Header from "@/components/Header";
-import { getVehicles, getDocuments, uploadDocument, downloadDocument, deleteDocument } from "@/lib/api";
+import { documentService } from "@/lib/services/documentService";
+import { vehicleService } from "@/lib/services/vehicleService";
+import { todayISO } from "@/lib/date";
 import { FileText, Upload, X, Trash2, Download, File, Image, Plus, Search } from "lucide-react";
 
 const DOC_TYPES = ["RC Book", "Insurance", "Fitness", "Permit", "PUC", "Road Tax", "Invoice", "Other"];
@@ -46,8 +48,8 @@ export default function DocumentsPage() {
   }, []);
 
   const load = () => {
-    Promise.all([getDocuments(), getVehicles()])
-      .then(([d, v]) => { setDocs(d.data); setVehicles(v.data); })
+    Promise.all([documentService.getAll(), vehicleService.getAll()])
+      .then(([d, v]) => { setDocs(d.data || []); setVehicles(v.data || []); })
       .finally(() => setLoading(false));
   };
   useEffect(() => { load(); }, []);
@@ -72,7 +74,7 @@ export default function DocumentsPage() {
     if (!fileData) { alert("Please select a file."); return; }
     setSaving(true);
     try {
-      await uploadDocument({
+      await documentService.upload({
         name: form.name || fileData.name,
         doc_type: form.doc_type,
         vehicle_id: form.vehicle_id || null,
@@ -90,7 +92,8 @@ export default function DocumentsPage() {
 
   const handleDownload = async (doc: any) => {
     try {
-      const res = await downloadDocument(doc.id);
+      const res = await documentService.download(doc.id);
+      if (!res.success || !res.data) { alert("Download failed."); return; }
       const { content_b64, mime_type, file_name } = res.data;
       const link = document.createElement("a");
       link.href = `data:${mime_type};base64,${content_b64}`;
@@ -101,7 +104,7 @@ export default function DocumentsPage() {
 
   const handleDelete = async (id: string, name: string) => {
     if (!confirm(`Delete "${name}"?`)) return;
-    await deleteDocument(id); load();
+    await documentService.delete(id); load();
   };
 
   const visible = docs.filter(d => {
@@ -142,7 +145,7 @@ export default function DocumentsPage() {
               </div>
               <select value={filterVehicle} onChange={e => setFilterVehicle(e.target.value)} style={{ ...inp, flex: 1, fontSize: 13 }}>
                 <option value="">All Vehicles</option>
-                {vehicles.map(v => <option key={v.id} value={v.id}>{v.reg_number}</option>)}
+                {vehicles.map(v => <option key={v.id} value={v.id}>{v.registration_number}</option>)}
               </select>
             </div>
             <button className="btn-primary" onClick={() => setShowForm(true)} style={{ justifyContent: isMobile ? "center" : undefined }}>
@@ -182,7 +185,7 @@ export default function DocumentsPage() {
                   </div>
                   {d.notes && <div style={{ fontSize: 12, color: "#888" }}>{d.notes}</div>}
                   <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
-                    {d.has_file && (
+                    {!!d.content_b64 && (
                       <button onClick={() => handleDownload(d)}
                         style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 6, padding: "7px 0", background: "#1E2D8E", color: "white", border: "none", borderRadius: 8, fontSize: 12.5, fontWeight: 600, cursor: "pointer" }}>
                         <Download size={13} /> Download
@@ -243,7 +246,7 @@ export default function DocumentsPage() {
                   <label style={lbl}>Vehicle (optional)</label>
                   <select value={form.vehicle_id} onChange={e => set("vehicle_id", e.target.value)} style={inp}>
                     <option value="">All / Fleet</option>
-                    {vehicles.map(v => <option key={v.id} value={v.id}>{v.reg_number}</option>)}
+                    {vehicles.map(v => <option key={v.id} value={v.id}>{v.registration_number}</option>)}
                   </select>
                 </div>
               </div>

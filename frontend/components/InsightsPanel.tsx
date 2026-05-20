@@ -1,21 +1,9 @@
 "use client";
 import { useEffect, useState, useCallback } from "react";
 import { X, RefreshCw, Bell, AlertTriangle, Info, TrendingUp, Truck, ReceiptText, ShieldAlert } from "lucide-react";
-import { getInsights, refreshInsights, markInsightRead, dismissInsight, markAllRead } from "@/lib/api";
+import { insightService } from "@/lib/services/insightService";
 
-type Insight = {
-  id: string;
-  insight_type: string;
-  severity: "info" | "warning" | "critical";
-  title: string;
-  body: string | null;
-  meta: Record<string, any> | null;
-  vehicle_id: string | null;
-  trip_id: string | null;
-  is_read: boolean;
-  is_dismissed: boolean;
-  created_at: string;
-};
+import type { Insight } from "@/lib/types";
 
 const SEVERITY_STYLES: Record<string, { bg: string; border: string; color: string; label: string }> = {
   info:     { bg: "#f0f4ff", border: "#c5cef9", color: "#1E2D8E", label: "Info"     },
@@ -57,12 +45,13 @@ export default function InsightsPanel({ onClose, onUnreadChange }: Props) {
 
   const load = useCallback(async () => {
     try {
-      const res = await getInsights();
-      const data = res.data;
-      setInsights(data.insights || []);
-      setTotal(data.total || 0);
-      setUnread(data.unread || 0);
-      onUnreadChange?.(data.unread || 0);
+      const res = await insightService.getAll();
+      const items: Insight[] = res.data || [];
+      setInsights(items);
+      setTotal(items.length);
+      const unreadCount = items.filter(i => !i.is_read).length;
+      setUnread(unreadCount);
+      onUnreadChange?.(unreadCount);
     } catch (_) {}
   }, [onUnreadChange]);
 
@@ -74,14 +63,13 @@ export default function InsightsPanel({ onClose, onUnreadChange }: Props) {
   const handleRefresh = async () => {
     setRefreshing(true);
     try {
-      await refreshInsights();
       await load();
     } finally { setRefreshing(false); }
   };
 
   const handleDismiss = async (id: string) => {
     try {
-      await dismissInsight(id);
+      await insightService.dismiss(id);
       setInsights(prev => prev.filter(i => i.id !== id));
       setTotal(t => t - 1);
     } catch (_) {}
@@ -89,7 +77,7 @@ export default function InsightsPanel({ onClose, onUnreadChange }: Props) {
 
   const handleMarkAllRead = async () => {
     try {
-      await markAllRead();
+      await insightService.markAllRead();
       setInsights(prev => prev.map(i => ({ ...i, is_read: true })));
       setUnread(0);
       onUnreadChange?.(0);
@@ -100,7 +88,7 @@ export default function InsightsPanel({ onClose, onUnreadChange }: Props) {
     const ins = insights.find(i => i.id === id);
     if (!ins || ins.is_read) return;
     try {
-      await markInsightRead(id);
+      await insightService.markRead(id);
       setInsights(prev => prev.map(i => i.id === id ? { ...i, is_read: true } : i));
       const newUnread = Math.max(0, unread - 1);
       setUnread(newUnread);
@@ -242,7 +230,7 @@ export default function InsightsPanel({ onClose, onUnreadChange }: Props) {
                           )}
 
                           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginLeft: 40 }}>
-                            <span style={{ fontSize: 11, color: "var(--text-muted)" }}>{timeAgo(ins.created_at)}</span>
+                            <span style={{ fontSize: 11, color: "var(--text-muted)" }}>{ins.created_at ? timeAgo(ins.created_at) : ""}</span>
                             <button
                               onClick={e => { e.stopPropagation(); handleDismiss(ins.id); }}
                               style={{ background: "none", border: "none", cursor: "pointer", fontSize: 11, color: "var(--text-muted)", padding: "2px 6px", borderRadius: 4 }}

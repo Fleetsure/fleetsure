@@ -2,24 +2,20 @@
 import { useEffect, useState, useCallback } from "react";
 import Header from "@/components/Header";
 import LocationInput from "@/components/LocationInput";
-import {
-  getMarketplaceLoads, getMyLoads, postReturnLoad, cancelReturnLoad,
-  expressInterest, getInterestsReceived, getInterestsSent, updateInterest,
-  getVehicles,
-} from "@/lib/api";
+import { marketplaceService } from "@/lib/services/marketplaceService";
+import { vehicleService } from "@/lib/services/vehicleService";
 import {
   Truck, Plus, X, MessageCircle, Search, CheckCircle,
   Clock, Star, ChevronRight, MapPin, Package,
   IndianRupee, RefreshCw,
 } from "lucide-react";
 import { useLanguage } from "@/lib/LanguageContext";
+import { fmtDate, todayISO } from "@/lib/date";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 const fmt = (n: number) => "₹" + n.toLocaleString("en-IN");
-const fmtDate = (d: string) =>
-  new Date(d).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
-const today = () => new Date().toISOString().slice(0, 10);
+const today = () => todayISO();
 
 const STATUS_STYLE: Record<string, { bg: string; color: string; label: string }> = {
   open:      { bg: "#e8f5e9", color: "#2e7d32", label: "Open" },
@@ -239,7 +235,7 @@ function PostForm({ vehicles, onSuccess, onClose }: { vehicles: any[]; onSuccess
         contact_phone: form.contact_phone || undefined,
         notes: form.notes || undefined,
       };
-      await postReturnLoad(payload);
+      await marketplaceService.post(payload);
       onSuccess();
     } catch (err: any) {
       setError(err?.response?.data?.detail || "Failed to post. Please try again.");
@@ -369,7 +365,7 @@ function InterestModal({ load, onClose, onSuccess }: { load: any; onClose: () =>
     setSaving(true);
     setError("");
     try {
-      await expressInterest(load.id, { message: message.trim() || undefined });
+      await marketplaceService.expressInterest(load.id, { message: message.trim() || undefined });
       onSuccess();
     } catch (err: any) {
       setError(err?.response?.data?.detail || "Failed. Please try again.");
@@ -456,11 +452,11 @@ export default function MarketplacePage() {
     setLoading(true);
     try {
       const [l, ml, r, s, v] = await Promise.all([
-        getMarketplaceLoads(),
-        getMyLoads(),
-        getInterestsReceived(),
-        getInterestsSent(),
-        getVehicles(),
+        marketplaceService.getLoads(),
+        marketplaceService.getMyLoads(),
+        marketplaceService.getInterestsReceived(),
+        marketplaceService.getInterestsSent(),
+        vehicleService.getAll(),
       ]);
       setLoads(l.data || []);
       setMyLoads(ml.data || []);
@@ -475,12 +471,12 @@ export default function MarketplacePage() {
 
   const handleCancel = async (id: string) => {
     if (!confirm("Cancel this listing?")) return;
-    await cancelReturnLoad(id);
+    await marketplaceService.cancel(id);
     loadAll();
   };
 
   const handleInterestAction = async (interestId: string, action: "accepted" | "rejected") => {
-    await updateInterest(interestId, { status: action });
+    await marketplaceService.updateInterest(interestId, { status: action });
     loadAll();
   };
 
@@ -691,7 +687,7 @@ export default function MarketplacePage() {
                       <StarRating
                         value={0}
                         onChange={async (v) => {
-                          await updateInterest(i.id, { rating: v });
+                          await marketplaceService.updateInterest(i.id, { rating: v });
                           loadAll();
                         }}
                       />

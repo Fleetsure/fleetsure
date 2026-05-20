@@ -3,6 +3,8 @@ import { useState, useEffect, useRef, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import Header from "@/components/Header";
 import { useLanguage } from "@/lib/LanguageContext";
+import { authService } from "@/lib/services/authService";
+import { supabase } from "@/lib/supabase";
 import {
   UserCircle, Bell, Lock, Palette,
   Settings, CreditCard, Download,
@@ -531,12 +533,11 @@ function ExportSettings() {
     setError(""); setExporting(true); setDone(false);
 
     const orgName = localStorage.getItem("orgName") || "My Fleet";
-    const url = `${process.env.NEXT_PUBLIC_API_URL}/export/?format=${format}&types=${types}&org_name=${encodeURIComponent(orgName)}`;
 
     try {
-      const res = await fetch(url);
-      if (!res.ok) throw new Error("Export failed");
-      const blob = await res.blob();
+      const res = await authService.exportData(format, types, orgName);
+      if (!res.success || !res.data) throw new Error("Export failed");
+      const blob = res.data;
       const a = document.createElement("a");
       a.href = URL.createObjectURL(blob);
       a.download = `fleetsure_export_${new Date().toISOString().slice(0,10)}.${format === "xlsx" ? "xlsx" : "zip"}`;
@@ -737,14 +738,9 @@ function BillingSettings() {
     return () => window.removeEventListener("resize", check);
   }, []);
 
-  const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1";
-  const token = typeof window !== "undefined" ? localStorage.getItem("token") : "";
-
   useEffect(() => {
-    if (!token) return;
-    fetch(`${API}/billing/status`, { headers: { Authorization: `Bearer ${token}` } })
-      .then(r => r.ok ? r.json() : null)
-      .then(d => { if (d) setBillingStatus(d); })
+    authService.getBillingStatus()
+      .then(r => { if (r.success && r.data) setBillingStatus(r.data); })
       .catch(() => {});
   }, []);
 
@@ -757,14 +753,10 @@ function BillingSettings() {
     setUpgrading(planId);
     setError("");
     try {
-      const res = await fetch(`${API}/billing/subscribe/${planId}`, {
-        method: "POST",
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.detail || "Failed to create subscription");
-      if (data.short_url) {
-        window.open(data.short_url, "_blank");
+      const res = await authService.subscribePlan(planId);
+      if (!res.success) throw new Error(res.error || "Failed to create subscription");
+      if (res.data?.short_url) {
+        window.open(res.data.short_url, "_blank");
       }
     } catch (e: any) {
       setError(e.message || "Something went wrong");
@@ -1195,13 +1187,9 @@ function NotificationSettings() {
   const [testing, setTesting] = useState(false);
   const [testMsg, setTestMsg] = useState("");
 
-  const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1";
-  const headers = () => ({ "Content-Type": "application/json", Authorization: `Bearer ${localStorage.getItem("token") || ""}` });
-
   useEffect(() => {
-    fetch(`${API}/notifications/settings`, { headers: headers() })
-      .then(r => r.json())
-      .then(data => { setS(prev => ({ ...prev, ...data })); setLoading(false); })
+    authService.getNotificationSettings()
+      .then(r => { if (r.success && r.data) setS(prev => ({ ...prev, ...r.data })); setLoading(false); })
       .catch(() => setLoading(false));
   }, []);
 
@@ -1211,9 +1199,7 @@ function NotificationSettings() {
   const save = async () => {
     setSaving(true);
     try {
-      await fetch(`${API}/notifications/settings`, {
-        method: "PUT", headers: headers(), body: JSON.stringify(s),
-      });
+      await authService.updateNotificationSettings(s);
       setSaved(true);
       setTimeout(() => setSaved(false), 2500);
     } finally { setSaving(false); }
@@ -1222,12 +1208,11 @@ function NotificationSettings() {
   const sendTestAlert = async () => {
     setTesting(true); setTestMsg("");
     try {
-      const r = await fetch(`${API}/notifications/test/compliance`, { method: "POST", headers: headers() });
-      const data = await r.json();
-      if (r.ok) {
+      const r = await authService.sendTestAlert();
+      if (r.success) {
         setTestMsg("✓ Test email sent! Check your inbox.");
       } else {
-        setTestMsg(`✗ Failed: ${data.detail || "Check Render logs"}`);
+        setTestMsg(`✗ Failed: ${r.error || "Check Render logs"}`);
       }
     } catch { setTestMsg("✗ Network error — is backend running?"); }
     finally { setTesting(false); setTimeout(() => setTestMsg(""), 6000); }
@@ -1382,36 +1367,31 @@ function SettingsInner() {
   }, []);
 
   useEffect(() => {
-    // Always fetch fresh profile from backend
-    const token = localStorage.getItem("token");
-    const apiBase = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1";
-    if (token) {
-      fetch(`${apiBase}/auth/me`, { headers: { Authorization: `Bearer ${token}` } })
-        .then(r => r.json())
-        .then(data => {
-          setFormValues(prev => ({
-            ...prev,
-            name:     data.name     || "",
-            email:    data.email    || "",
-            phone:    data.phone    || "",
-            org_name: data.org_name || "",
-          }));
-          if (data.org_logo) setOrgLogo(data.org_logo);
-          if (data.org_name) localStorage.setItem("orgName", data.org_name);
-          if (data.org_logo) localStorage.setItem("orgLogo", data.org_logo);
-          if (data.name)     localStorage.setItem("userName", data.name);
-          window.dispatchEvent(new Event("orgSettingsUpdated"));
-        })
-        .catch(() => {
-          // Fallback to localStorage if backend unreachable
-          setFormValues(prev => ({
-            ...prev,
-            name:     localStorage.getItem("userName") || "",
-            org_name: localStorage.getItem("orgName")  || "",
-          }));
-          setOrgLogo(localStorage.getItem("orgLogo") || "");
-        });
-    }
+    authService.getProfile()
+      .then(r => {
+        const data = r.data;
+        if (!data) return;
+        setFormValues(prev => ({
+          ...prev,
+          name:     data.name     || "",
+          email:    data.email    || "",
+          phone:    data.phone    || "",
+          org_name: data.org_name || "",
+        }));
+        if (data.org_logo) setOrgLogo(data.org_logo);
+        if (data.org_name) localStorage.setItem("orgName", data.org_name);
+        if (data.org_logo) localStorage.setItem("orgLogo", data.org_logo);
+        if (data.name)     localStorage.setItem("userName", data.name);
+        window.dispatchEvent(new Event("orgSettingsUpdated"));
+      })
+      .catch(() => {
+        setFormValues(prev => ({
+          ...prev,
+          name:     localStorage.getItem("userName") || "",
+          org_name: localStorage.getItem("orgName")  || "",
+        }));
+        setOrgLogo(localStorage.getItem("orgLogo") || "");
+      });
   }, []);
 
   const content = CONTENT[active];
@@ -1427,24 +1407,15 @@ function SettingsInner() {
   // Auto-navigate handled directly in handleSearch below
 
   const handleSave = async () => {
-    const token = localStorage.getItem("token");
-    const apiBase = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1";
-
-    // Persist to backend so data survives fresh logins
     try {
-      await fetch(`${apiBase}/auth/me`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({
-          name:     formValues.name     || undefined,
-          phone:    formValues.phone    || undefined,
-          org_name: formValues.org_name || undefined,
-          org_logo: orgLogo             || undefined,
-        }),
+      await authService.updateProfile({
+        name:     formValues.name     || undefined,
+        phone:    formValues.phone    || undefined,
+        org_name: formValues.org_name || undefined,
+        org_logo: orgLogo             || undefined,
       });
-    } catch (_) {} // silent fail — localStorage still updated below
+    } catch (_) {}
 
-    // Always update localStorage + sidebar
     if (formValues.org_name !== undefined) localStorage.setItem("orgName", formValues.org_name);
     if (orgLogo)                           localStorage.setItem("orgLogo", orgLogo);
     if (formValues.name !== undefined)     localStorage.setItem("userName", formValues.name);

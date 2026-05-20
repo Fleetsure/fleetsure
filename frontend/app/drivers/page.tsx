@@ -1,7 +1,8 @@
 "use client";
 import React, { useEffect, useState } from "react";
 import Header from "@/components/Header";
-import { getDrivers, createDriver, updateDriver, getDriverLedger, addDriverPayment, deleteDriverPayment } from "@/lib/api";
+import { driverService } from "@/lib/services/driverService";
+import { fmtDate, daysUntil, todayISO } from "@/lib/date";
 import { Plus, Users, X, Phone, ChevronDown, ChevronRight, Edit2, Wallet, Trash2 } from "lucide-react";
 import { useLanguage } from "@/lib/LanguageContext";
 
@@ -18,10 +19,10 @@ const PAYMENT_COLORS: Record<string, { color: string; bg: string; sign: string }
 function DriverLedgerModal({ driver, onClose }: { driver: any; onClose: () => void }) {
   const [ledger, setLedger]   = useState<any>(null);
   const [showAdd, setShowAdd] = useState(false);
-  const [form, setForm]       = useState({ date: new Date().toISOString().slice(0, 10), type: "advance", amount: "", notes: "" });
+  const [form, setForm]       = useState({ date: todayISO(), type: "advance", amount: "", notes: "" });
   const [saving, setSaving]   = useState(false);
 
-  const load = () => getDriverLedger(driver.id).then((r: any) => setLedger(r.data));
+  const load = () => driverService.getLedger(driver.id).then(r => setLedger(r.data || []));
   useEffect(() => { load(); }, [driver.id]);
 
   const set = (k: string, v: string) => setForm(p => ({ ...p, [k]: v }));
@@ -29,16 +30,16 @@ function DriverLedgerModal({ driver, onClose }: { driver: any; onClose: () => vo
   const handleAdd = async (e: any) => {
     e.preventDefault(); setSaving(true);
     try {
-      await addDriverPayment({ driver_id: driver.id, ...form, amount: parseFloat(form.amount) });
+      await driverService.addPayment({ driver_id: driver.id, ...form, amount: parseFloat(form.amount) });
       setShowAdd(false);
-      setForm({ date: new Date().toISOString().slice(0, 10), type: "advance", amount: "", notes: "" });
+      setForm({ date: todayISO(), type: "advance", amount: "", notes: "" });
       load();
     } finally { setSaving(false); }
   };
 
   const handleDelete = async (id: string) => {
     if (!confirm("Delete this entry?")) return;
-    await deleteDriverPayment(id); load();
+    await driverService.deletePayment(id); load();
   };
 
   const pc = (type: string) => PAYMENT_COLORS[type] || PAYMENT_COLORS.advance;
@@ -116,7 +117,7 @@ function DriverLedgerModal({ driver, onClose }: { driver: any; onClose: () => vo
           const c = pc(p.type);
           return (
             <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 12px", borderRadius: 9, background: c.bg, border: `1px solid ${c.color}22`, marginBottom: 6 }}>
-              <div style={{ minWidth: 70, fontSize: 11, color: "#888" }}>{new Date(p.date).toLocaleDateString("en-IN")}</div>
+              <div style={{ minWidth: 70, fontSize: 11, color: "#888" }}>{fmtDate(p.date)}</div>
               <span style={{ fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 6, background: c.color, color: "white" }}>{p.type}</span>
               <div style={{ flex: 1, fontSize: 12.5, color: "#333" }}>{p.notes || "—"}</div>
               <div style={{ fontWeight: 800, fontSize: 14, color: c.color }}>{c.sign}₹{parseFloat(p.amount).toLocaleString("en-IN")}</div>
@@ -142,7 +143,7 @@ const EMPTY_FORM = {
 // ── Compliance badge ──────────────────────────────────────────────────────────
 function expiryBadge(dateStr?: string | null) {
   if (!dateStr) return null;
-  const days = Math.ceil((new Date(dateStr).getTime() - Date.now()) / 86400000);
+  const days = daysUntil(dateStr) ?? 0;
   if (days < 0) return { label: "Expired", color: "#b71c1c", bg: "#fce4ec" };
   if (days <= 30) return { label: `${days}d left`, color: "#e65100", bg: "#fff3e0" };
   if (days <= 90) return { label: `${days}d left`, color: "#f57f17", bg: "#fffde7" };
@@ -180,7 +181,7 @@ export default function DriversPage() {
   }, []);
 
 
-  const load = () => getDrivers().then(r => setDrivers(r.data)).finally(() => setLoading(false));
+  const load = () => driverService.getAll().then(r => setDrivers(r.data || [])).finally(() => setLoading(false));
   useEffect(() => { load(); }, []);
 
   const openAdd = () => {
@@ -222,9 +223,9 @@ export default function DriversPage() {
     };
     try {
       if (editingId) {
-        await updateDriver(editingId, payload);
+        await driverService.update(editingId, payload);
       } else {
-        await createDriver(payload);
+        await driverService.create(payload);
       }
       setShowForm(false);
       load();

@@ -1,9 +1,11 @@
 "use client";
 import { useEffect, useState } from "react";
 import Header from "@/components/Header";
-import { getVehicles, getDrivers } from "@/lib/api";
+import { vehicleService } from "@/lib/services/vehicleService";
+import { driverService } from "@/lib/services/driverService";
 import { useLanguage } from "@/lib/LanguageContext";
 import { HeartPulse, AlertTriangle, CheckCircle, Clock, Truck, Users, ChevronUp, ChevronDown } from "lucide-react";
+import { parseLocalDate, fmtDate } from "@/lib/date";
 
 type Vehicle = {
   id: string;
@@ -40,7 +42,8 @@ function getStatus(dateStr: string | null): { status: ComplianceStatus; daysLeft
   if (!dateStr) return { status: "missing", daysLeft: null };
   const today = new Date();
   today.setHours(0, 0, 0, 0);
-  const expiry = new Date(dateStr);
+  const expiry = parseLocalDate(dateStr);
+  if (!expiry) return { status: "missing", daysLeft: null };
   const diff = Math.floor((expiry.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
   if (diff < 0)  return { status: "expired",       daysLeft: diff };
   if (diff <= 30) return { status: "expiring_soon", daysLeft: diff };
@@ -86,7 +89,7 @@ function StatusBadge({ dateStr }: { dateStr: string | null }) {
 
 export default function FleetHealthPage() {
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
-  const [drivers, setDrivers]   = useState<DriverRecord[]>([]);
+  const [drivers, setDrivers]   = useState<any[]>([]);
   const [loading, setLoading]   = useState(true);
   const [sortField, setSortField] = useState<string | null>(null);
   const [sortAsc, setSortAsc]     = useState(true);
@@ -100,8 +103,8 @@ export default function FleetHealthPage() {
   }, []);
 
   useEffect(() => {
-    Promise.all([getVehicles(), getDrivers()])
-      .then(([v, d]) => { setVehicles(v.data); setDrivers(d.data || []); })
+    Promise.all([vehicleService.getAll(), driverService.getAll()])
+      .then(([v, d]) => { setVehicles((v.data || []) as Vehicle[]); setDrivers(d.data || []); })
       .finally(() => setLoading(false));
   }, []);
 
@@ -168,8 +171,8 @@ export default function FleetHealthPage() {
   );
   const driverAlerts = driverRows.flatMap(r =>
     r.checks
-      .filter(c => c.status === "expired" || c.status === "expiring_soon")
-      .map(c => ({ entity: r.name, sub: r.phone, type: "driver" as const, ...c }))
+      .filter((c: any) => c.status === "expired" || c.status === "expiring_soon")
+      .map((c: any) => ({ entity: r.name, sub: r.phone, type: "driver" as const, ...c }))
   );
   const alerts = [...vehicleAlerts, ...driverAlerts]
     .sort((a, b) => (a.daysLeft ?? -9999) - (b.daysLeft ?? -9999));
@@ -352,7 +355,7 @@ export default function FleetHealthPage() {
                           <StatusBadge dateStr={c.dateStr} />
                           {c.dateStr && (
                             <div style={{ fontSize: 11, color: "#bbb", marginTop: 3, textAlign: "center" }}>
-                              {new Date(c.dateStr).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "2-digit" })}
+                              {fmtDate(c.dateStr)}
                             </div>
                           )}
                         </td>
@@ -413,12 +416,12 @@ export default function FleetHealthPage() {
                       <td style={{ padding: "12px 16px", fontSize: 13, color: "#555" }}>
                         {d.license_number || <span style={{ color: "#ccc" }}>—</span>}
                       </td>
-                      {d.checks.map(c => (
+                      {d.checks.map((c: any) => (
                         <td key={c.key} style={{ padding: "12px 16px" }}>
                           <StatusBadge dateStr={c.dateStr} />
                           {c.dateStr && (
                             <div style={{ fontSize: 11, color: "#bbb", marginTop: 3, textAlign: "center" }}>
-                              {new Date(c.dateStr).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "2-digit" })}
+                              {fmtDate(c.dateStr)}
                             </div>
                           )}
                         </td>

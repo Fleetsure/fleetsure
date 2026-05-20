@@ -1,7 +1,10 @@
 "use client";
 import { useEffect, useState } from "react";
 import Header from "@/components/Header";
-import { getVehicles, getTrips, getDrivers, getVehiclePnL, getDailySummary } from "@/lib/api";
+import { vehicleService } from "@/lib/services/vehicleService";
+import { tripService } from "@/lib/services/tripService";
+import { driverService } from "@/lib/services/driverService";
+import { analyticsService } from "@/lib/services/analyticsService";
 import {
   Truck, Users, Route, TrendingUp, CheckCircle, ChevronRight,
   TrendingDown, AlertTriangle, IndianRupee, BarChart2, MessageCircle, Sparkles, ChevronLeft
@@ -9,6 +12,7 @@ import {
 import Link from "next/link";
 import OnboardingChecklist from "@/components/OnboardingChecklist";
 import { useLanguage } from "@/lib/LanguageContext";
+import { todayISO, fmtDate as fmtDateStr } from "@/lib/date";
 
 const GREETING_EMOJIS = ["🚀", "💪", "🌟", "⚡", "🔥", "✨", "🎯", "💼", "🏆", "😎"];
 
@@ -74,17 +78,17 @@ export default function Dashboard() {
 
   useEffect(() => {
     // Load core data independently from P&L so a backend error on one doesn't blank everything
-    Promise.all([getVehicles(), getTrips(), getDrivers()])
+    Promise.all([vehicleService.getAll(), tripService.getAll(), driverService.getAll()])
       .then(([v, t, d]) => {
-        setVehicles(v.data);
-        setTrips(t.data);
-        setDrivers(d.data);
+        setVehicles(v.data || []);
+        setTrips(t.data || []);
+        setDrivers(d.data || []);
       })
       .catch(() => {})
       .finally(() => setLoading(false));
 
     // P&L loads separately — if it fails, rest of dashboard still works
-    getVehiclePnL()
+    analyticsService.getVehiclePnL()
       .then(p => setPnlData(p.data || []))
       .catch(() => {});
   }, []);
@@ -106,10 +110,10 @@ export default function Dashboard() {
   const handleWhatsAppSummary = async () => {
     setWaLoading(true);
     try {
-      const res = await getDailySummary();
+      const res = await analyticsService.getDailySummary();
       const d = res.data;
 
-      const today = new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
+      const today = fmtDateStr(todayISO());
       const lines: string[] = [];
 
       lines.push(`🚛 *FleetSure Daily Report*`);
@@ -516,7 +520,7 @@ export default function Dashboard() {
                   <tr key={t.id}>
                     <td style={{ fontWeight: 600 }}>{t.origin} → {t.destination}</td>
                     <td>{t.driver_name}</td>
-                    <td>{t.start_date}</td>
+                    <td>{fmtDateStr(t.start_date)}</td>
                     <td style={{ fontWeight: 600, color: "#1E2D8E" }}>₹{Number(t.freight_amount).toLocaleString("en-IN")}</td>
                     <td><span className={`badge badge-${t.status}`}>{t.status.replace("_", " ")}</span></td>
                   </tr>

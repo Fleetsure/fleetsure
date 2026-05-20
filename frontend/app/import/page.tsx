@@ -2,8 +2,7 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 import Header from "@/components/Header";
 import { Upload, FileSpreadsheet, CheckCircle, AlertCircle, ChevronDown, X, ArrowRight, Loader2 } from "lucide-react";
-
-const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1";
+import { api } from "@/lib/api";
 
 const ENTITY_LABELS: Record<string, string> = {
   vehicles: "🚛 Vehicles",
@@ -174,8 +173,6 @@ export default function ImportPage() {
     return () => window.removeEventListener("resize", check);
   }, []);
 
-  const token = typeof window !== "undefined" ? localStorage.getItem("token") : "";
-
   const handleFile = useCallback(async (file: File) => {
     if (!file) return;
     setError("");
@@ -187,13 +184,11 @@ export default function ImportPage() {
     formData.append("file", file);
 
     try {
-      const res = await fetch(`${API}/import/preview`, {
-        method: "POST",
-        headers: { Authorization: `Bearer ${token}` },
-        body: formData,
+      const res = await api.post("/import/preview", formData, {
+        headers: { "Content-Type": "multipart/form-data" },
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.detail || "Preview failed");
+      const data = res.data;
+      if (!data) throw new Error("Preview failed");
 
       setPreviews(data);
       setActiveSheet(0);
@@ -212,7 +207,7 @@ export default function ImportPage() {
     } finally {
       setLoading(false);
     }
-  }, [token]);
+  }, []);
 
   const onDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -255,17 +250,9 @@ export default function ImportPage() {
         rows: s.rows,
       }));
 
-      const res = await fetch(`${API}/import/confirm`, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ sheets: confirmSheets }),
-      });
-
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.detail || "Import failed");
+      const res = await api.post("/import/confirm", { sheets: confirmSheets });
+      const data = res.data;
+      if (!data) throw new Error("Import failed");
       setResults(data);
     } catch (e: any) {
       setError(e.message || "Import failed");
