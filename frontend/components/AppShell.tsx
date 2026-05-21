@@ -47,7 +47,6 @@ function OnboardingModal({ onDone }: { onDone: () => void }) {
         }));
       }
       if (error) throw error;
-      localStorage.setItem(`onboarded_${uid}`, "1");
       onDone();
     } catch (err: any) {
       setError(err.message || "Failed to save. Please try again.");
@@ -132,9 +131,6 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   }, []);
 
   const checkAndUpsertUser = async (firebaseUser: any) => {
-    // Skip check if onboarding was already completed this session or ever
-    if (localStorage.getItem(`onboarded_${firebaseUser.uid}`)) return;
-
     const { data: existing } = await supabase
       .from("users")
       .select("id, org_name, name, is_active")
@@ -142,28 +138,24 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       .single();
 
     if (!existing) {
-      // Check if this is a brand new Firebase account (created within last 2 minutes)
-      const createdAt = firebaseUser.metadata?.creationTime;
-      const isNewAccount = createdAt && (Date.now() - new Date(createdAt).getTime()) < 2 * 60 * 1000;
-      if (isNewAccount) {
-        // Genuinely new user — show onboarding to collect name + org
-        setShowOnboarding(true);
-      } else {
-        // Existing Firebase account but deleted from Supabase — sign out
-        await signOut(auth);
-        router.replace("/login");
-      }
-      return;
+      // New user — insert basic row and show onboarding
+      await supabase.from("users").insert({
+        id: firebaseUser.uid,
+        email: firebaseUser.email,
+        name: firebaseUser.displayName || firebaseUser.email,
+        google_picture: firebaseUser.photoURL || null,
+        is_active: true,
+      });
+      setShowOnboarding(true);
     } else if (!existing.is_active) {
-      // Deactivated user — sign out
+      // Deactivated/deleted user — sign out
       await signOut(auth);
       router.replace("/login");
     } else if (!existing.org_name) {
+      // Has row but no org_name — show onboarding
       setShowOnboarding(true);
-    } else {
-      // Already has org_name — mark as onboarded so we never check again
-      localStorage.setItem(`onboarded_${firebaseUser.uid}`, "1");
     }
+    // else: fully onboarded, do nothing
   };
 
   useEffect(() => {
