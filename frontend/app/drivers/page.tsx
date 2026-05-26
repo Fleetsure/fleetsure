@@ -246,7 +246,7 @@ export default function DriversPage() {
         <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: isMobile ? 10 : 14, marginBottom: isMobile ? 16 : 24 }}>
           {[
             { label: t("driver.total"),     value: drivers.length },
-            { label: t("driver.available"), value: drivers.filter(d => d.status === "available").length },
+            { label: t("driver.available"), value: drivers.filter(d => d.status === "active").length },
             { label: t("driver.on_trip"),   value: drivers.filter(d => d.status === "on_trip").length },
           ].map(s => (
             <div key={s.label} className="stat-card" style={{ textAlign: "center" }}>
@@ -407,10 +407,11 @@ export default function DriversPage() {
               <div style={{ fontSize: 12, fontWeight: 700, color: "#aaa", letterSpacing: "0.5px" }}>DRIVER DETAILS</div>
 
               {[
-                { label: "Full Name *",     key: "name",           placeholder: "Ramesh Kumar" },
-                { label: "Phone *",         key: "phone",          placeholder: "9876543210" },
-                { label: "Alternate Phone", key: "alternate_phone", placeholder: "Optional" },
-                { label: "Father's Name",   key: "father_name",    placeholder: "Shiv Kumar" },
+                { label: "Full Name *",     key: "name",           placeholder: "Ramesh Kumar",  maxLength: undefined },
+                { label: "Phone *",         key: "phone",          placeholder: "9876543210",    maxLength: 10 },
+                { label: "Alternate Phone", key: "alternate_phone", placeholder: "Optional",     maxLength: 10 },
+                { label: "Father's Name",   key: "father_name",    placeholder: "Shiv Kumar",   maxLength: undefined },
+                { label: "License Number",  key: "license_number", placeholder: "KA0120220012345", maxLength: undefined },
               ].map(f => (
                 <div key={f.key}>
                   <label style={{ fontSize: 12, fontWeight: 600, color: "#555", display: "block", marginBottom: 4 }}>{f.label}</label>
@@ -418,6 +419,7 @@ export default function DriversPage() {
                     value={(form as any)[f.key]}
                     onChange={e => setForm(p => ({ ...p, [f.key]: e.target.value }))}
                     placeholder={f.placeholder}
+                    maxLength={f.maxLength}
                     style={{ width: "100%", padding: "8px 12px", border: "1.5px solid #e8e8f0", borderRadius: 8, fontSize: 13.5, boxSizing: "border-box" }} />
                 </div>
               ))}

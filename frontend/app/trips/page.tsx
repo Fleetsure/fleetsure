@@ -2,13 +2,18 @@
 import { useEffect, useState } from "react";
 import Header from "@/components/Header";
 import { tripService } from "@/lib/services/tripService";
+import { fuelService } from "@/lib/services/fuelService";
+import { tollService } from "@/lib/services/tollService";
+import { miscExpenseService } from "@/lib/services/miscExpenseService";
 import { vehicleService } from "@/lib/services/vehicleService";
 import { driverService } from "@/lib/services/driverService";
-import { lookupService } from "@/lib/services/lookupService";
-import { Plus, X, Route, MessageCircle, FileDown, Zap, AlertTriangle, CheckCircle, Clock } from "lucide-react";
+import { downloadTripPdf } from "@/lib/tripPdf";
+import { Plus, X, Route, MessageCircle, FileDown, Zap, AlertTriangle, CheckCircle, Clock, Trash2 } from "lucide-react";
 import LocationInput from "@/components/LocationInput";
 import { useLanguage } from "@/lib/LanguageContext";
 import { fmtDate, todayISO } from "@/lib/date";
+import { mergeMileage } from "@/lib/mileageStore";
+import { autoSyncTripToTyres } from "@/lib/tyreStore";
 
 // ── WhatsApp trip sheet generator ─────────────────────────────────────────────
 function shareOnWhatsApp(trip: any, detail: any, vehicleReg: string) {
@@ -83,8 +88,22 @@ const EMPTY_FORM = {
 };
 
 const EMPTY_EXP = {
-  expense_type: "fuel", amount: "", description: "",
+  expense_type: "fuel", amount: "", description: "", litres: "",
+  toll_plaza: "", payment_mode: "cash",
   date: todayISO(),
+};
+
+// Maps trip expense_type → misc_expenses category
+const EXPENSE_TO_MISC_CAT: Record<string, string> = {
+  maintenance:       "other",
+  oil:               "other",
+  police_challan:    "fine",
+  rto:               "other",
+  telephone:         "other",
+  loading_unloading: "loading_unloading",
+  driver_payment:    "other",
+  tyre:              "other",
+  other:             "other",
 };
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -94,6 +113,27 @@ const fmt = (n: number) =>
 
 const expLabel = (t: string) =>
   EXPENSE_TYPES.find(e => e.value === t)?.label ?? t;
+
+async function geocode(place: string): Promise<{ lat: number; lon: number } | null> {
+  try {
+    const res = await fetch(
+      `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(place)}&format=json&limit=1`,
+      { headers: { "Accept-Language": "en" } }
+    );
+    const data = await res.json();
+    if (!data.length) return null;
+    return { lat: parseFloat(data[0].lat), lon: parseFloat(data[0].lon) };
+  } catch { return null; }
+}
+
+function haversineKm(lat1: number, lon1: number, lat2: number, lon2: number) {
+  const R = 6371;
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const a = Math.sin(dLat / 2) ** 2 +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLon / 2) ** 2;
+  return Math.round(R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)) * 1.3);
+}
 
 // ── Sub-components ────────────────────────────────────────────────────────────
 
@@ -180,9 +220,13 @@ export default function TripsPage() {
   const [detLoading, setDetLoading] = useState(false);
   const [statusBusy, setStatusBusy] = useState(false);
 
+  const [distCalc, setDistCalc] = useState<"idle" | "loading" | "done" | "error">("idle");
+
   // Expense form (inside drawer)
   const [expForm, setExpForm]       = useState({ ...EMPTY_EXP, date: todayISO() });
   const [showExpForm, setShowExpForm] = useState(false);
+  const [showSettleForm, setShowSettleForm] = useState(false);
+  const [settleAmount, setSettleAmount]     = useState("");
   const [pdfModal, setPdfModal]   = useState(false);
   const [pdfOpts, setPdfOpts]     = useState({
     showProfit: false,
@@ -195,22 +239,14 @@ export default function TripsPage() {
 
   const load = () =>
     Promise.all([tripService.getAll(), vehicleService.getAll(), driverService.getAll()])
-      .then(([t, v, d]) => { setTrips(t.data || []); setVehicles(v.data || []); setDrivers(d.data || []); })
+      .then(([t, v, d]) => { setTrips(t.data || []); setVehicles(mergeMileage(v.data || [])); setDrivers(d.data || []); })
       .finally(() => setLoading(false));
 
-  // Fetch vehicle suggestions when origin changes (debounced)
   const handleOriginChange = (value: string) => {
     setForm(p => ({ ...p, origin: value }));
-    if (value.trim().length < 3) { setVehicleSuggestions([]); return; }
-    const timer = setTimeout(() => {
-      lookupService.suggestVehicles(value.trim())
-        .then(r => setVehicleSuggestions(r.data?.suggestions || []))
-        .catch(() => {});
-    }, 600);
-    return () => clearTimeout(timer);
+    setVehicleSuggestions([]);
   };
 
-  // Fetch fatigue status when driver changes
   const handleDriverChange = (driverId: string) => {
     const driver = drivers.find(d => d.id === driverId);
     setForm(p => ({
@@ -219,12 +255,7 @@ export default function TripsPage() {
       driver_name:  driver?.name  || "",
       driver_phone: driver?.phone || "",
     }));
-    if (!driverId) { setFatigueStatus(null); return; }
-    setFatigueLoading(true);
-    lookupService.driverFatigueCheck(driverId)
-      .then(r => setFatigueStatus(r.data))
-      .catch(() => setFatigueStatus(null))
-      .finally(() => setFatigueLoading(false));
+    setFatigueStatus(null);
   };
 
   // Apply a vehicle suggestion to the form
@@ -234,6 +265,22 @@ export default function TripsPage() {
   };
 
   useEffect(() => { load(); }, []);
+
+  // Auto-calculate distance from origin + destination
+  useEffect(() => {
+    if (form.origin.trim().length < 3 || form.destination.trim().length < 3) return;
+    setDistCalc("loading");
+    const timer = setTimeout(async () => {
+      const [from, to] = await Promise.all([geocode(form.origin), geocode(form.destination)]);
+      if (from && to) {
+        setForm(p => ({ ...p, distance_km: String(haversineKm(from.lat, from.lon, to.lat, to.lon)) }));
+        setDistCalc("done");
+      } else {
+        setDistCalc("error");
+      }
+    }, 900);
+    return () => clearTimeout(timer);
+  }, [form.origin, form.destination]);
 
   // ── Trip sheet ──────────────────────────────────────────────────────────────
 
@@ -272,6 +319,7 @@ export default function TripsPage() {
       setTrips(prev => prev.map(t => t.id === trip.id ? updated : t));
       setSelTrip((p: any) => p?.id === trip.id ? updated : p);
       setDetail((p: any) => p ? { ...p, status: next } : p);
+      if (next === "completed") autoSyncTripToTyres(trip);
     } catch {}
     finally { setStatusBusy(false); }
   };
@@ -293,21 +341,84 @@ export default function TripsPage() {
 
   const handleAddExpense = async () => {
     if (!expForm.amount || !selTrip) return;
+    if (expForm.expense_type === "fuel" && !expForm.litres) {
+      setExpErr("Litres filled is required for fuel entries."); return;
+    }
     setAddingExp(true); setExpErr("");
     try {
-      await tripService.addExpense(selTrip.id, {
-        expense_type: expForm.expense_type,
-        amount: parseFloat(expForm.amount),
-        description: expForm.description || null,
-        date: expForm.date,
-      });
+      if (expForm.expense_type === "fuel") {
+        // Write to fuel_logs → syncs to Fuel module automatically
+        await fuelService.add({
+          vehicle_id:   selTrip.vehicle_id,
+          trip_id:      selTrip.id,
+          date:         expForm.date,
+          litres:       parseFloat(expForm.litres),
+          amount:       parseFloat(expForm.amount),
+          fuel_station: expForm.description || null,
+          notes:        null,
+          odometer_km:  null,
+        });
+      } else if (expForm.expense_type === "toll") {
+        // Write to toll_logs → syncs to Tolls module automatically
+        await tollService.add({
+          vehicle_id:   selTrip.vehicle_id,
+          trip_id:      selTrip.id,
+          date:         expForm.date,
+          amount:       parseFloat(expForm.amount),
+          toll_plaza:   expForm.toll_plaza || null,
+          route:        null,
+          payment_mode: expForm.payment_mode || "cash",
+          notes:        expForm.description || null,
+        });
+      } else {
+        // All other types → misc_expenses → syncs to Misc Expenses module
+        const miscCat = EXPENSE_TO_MISC_CAT[expForm.expense_type] ?? "other";
+        await miscExpenseService.add({
+          vehicle_id:  selTrip.vehicle_id,
+          trip_id:     selTrip.id,
+          date:        expForm.date,
+          amount:      parseFloat(expForm.amount),
+          category:    miscCat,
+          description: expForm.description || expLabel(expForm.expense_type),
+          notes:       null,
+        });
+      }
       setExpForm({ ...EMPTY_EXP, date: todayISO() });
       setShowExpForm(false);
       await refreshDetail();
     } catch (err: any) {
-      const d = err.response?.data?.detail;
+      const d = err?.response?.data?.detail ?? err?.message;
       setExpErr(Array.isArray(d) ? d.map((x: any) => x.msg).join(", ") : d || "Failed to add expense");
     } finally { setAddingExp(false); }
+  };
+
+  // ── Delete expense ──────────────────────────────────────────────────────────
+
+  const handleDeleteExpense = async (exp: any) => {
+    if (!confirm("Delete this expense?")) return;
+    const id: string = exp.id;
+    if (id.startsWith("fl_"))      await fuelService.delete(id.slice(3));
+    else if (id.startsWith("tl_")) await tollService.delete(id.slice(3));
+    else if (id.startsWith("me_")) await miscExpenseService.delete(id.slice(3));
+    else                           await tripService.deleteExpense(id);
+    await refreshDetail();
+  };
+
+  // ── Settle driver advance ───────────────────────────────────────────────────
+
+  const handleSettle = async () => {
+    if (!settleAmount || !selTrip) return;
+    await miscExpenseService.add({
+      vehicle_id:  selTrip.vehicle_id,
+      trip_id:     selTrip.id,
+      date:        todayISO(),
+      amount:      parseFloat(settleAmount),
+      category:    "other",
+      description: `Driver payment — advance settlement`,
+      notes:       null,
+    });
+    setSettleAmount(""); setShowSettleForm(false);
+    await refreshDetail();
   };
 
   // ── Create trip ─────────────────────────────────────────────────────────────
@@ -330,6 +441,7 @@ export default function TripsPage() {
       setForm({ ...EMPTY_FORM, start_date: todayISO() });
       setVehicleSuggestions([]);
       setFatigueStatus(null);
+      setDistCalc("idle");
       load();
     } catch (err: any) {
       const d = err.response?.data?.detail;
@@ -342,7 +454,26 @@ export default function TripsPage() {
   const filtered   = filter === "all" ? trips : trips.filter(t => t.status === filter);
   const vehicleMap = Object.fromEntries(vehicles.map(v => [v.id, v]));
 
-  const expenses     = detail?.expenses ?? [];
+  // Merge all dedicated expense tables so the trip P&L is always complete.
+  // Entries added from a module (fuel/tolls/misc) with trip_id appear here automatically.
+  // Entries added from the trip form are routed directly to the correct table.
+  const fuelLogExpenses = (detail?.fuel_logs ?? []).map((fl: any) => ({
+    id: `fl_${fl.id}`, expense_type: "fuel", amount: fl.amount, date: fl.date,
+    description: `${Number(fl.litres).toFixed(1)} L${fl.fuel_station ? ` · ${fl.fuel_station}` : ""}`,
+    _label: "Fuel (HSD)",
+  }));
+  const tollLogExpenses = (detail?.toll_logs ?? []).map((tl: any) => ({
+    id: `tl_${tl.id}`, expense_type: "toll", amount: tl.amount, date: tl.date,
+    description: [tl.toll_plaza, tl.payment_mode === "fastag" ? "FASTag" : tl.payment_mode ? "Cash" : null].filter(Boolean).join(" · ") || null,
+    _label: "Toll / Bridge",
+  }));
+  const miscExpEntries = (detail?.misc_expenses ?? []).map((me: any) => ({
+    id: `me_${me.id}`, expense_type: me.category, amount: me.amount, date: me.date,
+    description: me.description || null,
+    _label: me.description || me.category,
+  }));
+  const expenses = [...(detail?.expenses ?? []), ...fuelLogExpenses, ...tollLogExpenses, ...miscExpEntries]
+    .sort((a: any, b: any) => a.date.localeCompare(b.date));
   const totalExp     = expenses.reduce((s: number, e: any) => s + Number(e.amount), 0);
   const freight      = Number(detail?.freight_amount ?? selTrip?.freight_amount ?? 0);
   const profit       = freight - totalExp;
@@ -634,7 +765,8 @@ export default function TripsPage() {
                     { label: "LR No.",    value: detail?.doc_number },
                     { label: "Material",  value: detail?.material },
                     { label: "Weight",    value: detail?.weight_tonnes ? `${detail.weight_tonnes} T` : null },
-                    { label: "Distance",  value: selTrip.distance_km ? `${selTrip.distance_km} km` : null },
+                    { label: "Distance",    value: selTrip.distance_km ? `${selTrip.distance_km} km` : null },
+                    { label: "Proj. Fuel", value: (() => { const veh = vehicleMap[selTrip.vehicle_id]; return (selTrip.distance_km && veh?.avg_mileage_kmpl) ? `~${(selTrip.distance_km / veh.avg_mileage_kmpl).toFixed(1)} L` : null; })() },
                   ].map(f => (
                     <div key={f.label}>
                       <div style={{ color: "#bbb", fontSize: 10.5, marginBottom: 1 }}>{f.label}</div>
@@ -675,11 +807,38 @@ export default function TripsPage() {
                       </select>
                     </div>
                     <div>
-                      <label style={{ fontSize: 11, color: "#666", display: "block", marginBottom: 3 }}>Amount (₹)</label>
+                      <label style={{ fontSize: 11, color: "#666", display: "block", marginBottom: 3 }}>Amount (₹) *</label>
                       <input type="number" placeholder="0" value={expForm.amount}
                         onChange={e => setExpForm(p => ({ ...p, amount: e.target.value }))}
                         style={{ width: "100%", padding: "7px 8px", border: "1.5px solid #e8e8f0", borderRadius: 7, fontSize: 12.5, boxSizing: "border-box" }} />
                     </div>
+                    {expForm.expense_type === "fuel" && (
+                      <div style={{ gridColumn: "1 / -1" }}>
+                        <label style={{ fontSize: 11, color: "#666", display: "block", marginBottom: 3 }}>Litres filled *</label>
+                        <input type="number" min="0.1" step="0.01" placeholder="e.g. 80.5" value={expForm.litres}
+                          onChange={e => setExpForm(p => ({ ...p, litres: e.target.value }))}
+                          style={{ width: "100%", padding: "7px 8px", border: "1.5px solid #e8e8f0", borderRadius: 7, fontSize: 12.5, boxSizing: "border-box" }} />
+                      </div>
+                    )}
+                    {expForm.expense_type === "toll" && (
+                      <>
+                        <div style={{ gridColumn: "1 / -1" }}>
+                          <label style={{ fontSize: 11, color: "#666", display: "block", marginBottom: 3 }}>Toll Plaza (optional)</label>
+                          <input type="text" placeholder="e.g. Mumbai-Pune Expressway" value={expForm.toll_plaza}
+                            onChange={e => setExpForm(p => ({ ...p, toll_plaza: e.target.value }))}
+                            style={{ width: "100%", padding: "7px 8px", border: "1.5px solid #e8e8f0", borderRadius: 7, fontSize: 12.5, boxSizing: "border-box" }} />
+                        </div>
+                        <div>
+                          <label style={{ fontSize: 11, color: "#666", display: "block", marginBottom: 3 }}>Payment Mode</label>
+                          <select value={expForm.payment_mode}
+                            onChange={e => setExpForm(p => ({ ...p, payment_mode: e.target.value }))}
+                            style={{ width: "100%", padding: "7px 8px", border: "1.5px solid #e8e8f0", borderRadius: 7, fontSize: 12.5, boxSizing: "border-box" }}>
+                            <option value="cash">Cash</option>
+                            <option value="fastag">FASTag</option>
+                          </select>
+                        </div>
+                      </>
+                    )}
                     <div>
                       <label style={{ fontSize: 11, color: "#666", display: "block", marginBottom: 3 }}>Date</label>
                       <input type="date" value={expForm.date}
@@ -687,8 +846,12 @@ export default function TripsPage() {
                         style={{ width: "100%", padding: "7px 8px", border: "1.5px solid #e8e8f0", borderRadius: 7, fontSize: 12.5, boxSizing: "border-box" }} />
                     </div>
                     <div>
-                      <label style={{ fontSize: 11, color: "#666", display: "block", marginBottom: 3 }}>Note (optional)</label>
-                      <input type="text" placeholder="e.g. NH-48 Toll" value={expForm.description}
+                      <label style={{ fontSize: 11, color: "#666", display: "block", marginBottom: 3 }}>
+                        {expForm.expense_type === "fuel" ? "Fuel Station (optional)" : expForm.expense_type === "toll" ? "Notes (optional)" : "Note (optional)"}
+                      </label>
+                      <input type="text"
+                        placeholder={expForm.expense_type === "fuel" ? "e.g. HP Petrol Pump, NH-48" : "e.g. NH-48 Toll"}
+                        value={expForm.description}
                         onChange={e => setExpForm(p => ({ ...p, description: e.target.value }))}
                         style={{ width: "100%", padding: "7px 8px", border: "1.5px solid #e8e8f0", borderRadius: 7, fontSize: 12.5, boxSizing: "border-box" }} />
                     </div>
@@ -717,21 +880,31 @@ export default function TripsPage() {
                 <table style={{ width: "100%", fontSize: 12.5 }}>
                   <thead>
                     <tr>
-                      {["Category", "Date", "Note", "Amount"].map((h, i) => (
-                        <th key={h} style={{ textAlign: i === 3 ? "right" : "left", padding: "5px 4px", color: "#bbb", fontWeight: 600, fontSize: 11, borderBottom: "1px solid #f0f0f0" }}>{h}</th>
+                      {["Category", "Date", "Note", "Amount", ""].map((h, i) => (
+                        <th key={h + i} style={{ textAlign: i === 3 ? "right" : "left", padding: "5px 4px", color: "#bbb", fontWeight: 600, fontSize: 11, borderBottom: "1px solid #f0f0f0" }}>{h}</th>
                       ))}
                     </tr>
                   </thead>
                   <tbody>
                     {expenses.map((e: any) => (
                       <tr key={e.id}>
-                        <td style={{ padding: "7px 4px", fontWeight: 600, color: "#444" }}>{expLabel(e.expense_type)}</td>
+                        <td style={{ padding: "7px 4px", fontWeight: 600, color: "#444" }}>{e._label ?? expLabel(e.expense_type)}</td>
                         <td style={{ padding: "7px 4px", color: "#999" }}>{fmtDate(e.date)}</td>
-                        <td style={{ padding: "7px 4px", color: "#aaa", maxWidth: 110, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                        <td style={{ padding: "7px 4px", color: "#aaa", maxWidth: 100, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                           {e.description || "—"}
                         </td>
                         <td style={{ padding: "7px 4px", textAlign: "right", fontWeight: 700, color: "#c62828" }}>
                           {fmt(Number(e.amount))}
+                        </td>
+                        <td style={{ padding: "7px 4px", textAlign: "right" }}>
+                          {!["completed", "cancelled"].includes(selTrip?.status) && (
+                            <button onClick={() => handleDeleteExpense(e)}
+                              style={{ background: "none", border: "none", cursor: "pointer", color: "#ddd", padding: 2 }}
+                              onMouseEnter={ev => (ev.currentTarget.style.color = "#e53935")}
+                              onMouseLeave={ev => (ev.currentTarget.style.color = "#ddd")}>
+                              <Trash2 size={11} />
+                            </button>
+                          )}
                         </td>
                       </tr>
                     ))}
@@ -761,14 +934,36 @@ export default function TripsPage() {
                     </div>
                   ))}
                   <div style={{ height: 1, background: "#e8e8f0", margin: "6px 0" }} />
-                  <div style={{ display: "flex", justifyContent: "space-between" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                     <span style={{ fontWeight: 700 }}>
                       {driverBal >= 0 ? "Driver Owes Back" : "Additional Pay to Driver"}
                     </span>
-                    <span style={{ fontWeight: 800, color: driverBal >= 0 ? "#2e7d32" : "#c62828" }}>
-                      {fmt(Math.abs(driverBal))}
-                    </span>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <span style={{ fontWeight: 800, color: driverBal >= 0 ? "#2e7d32" : "#c62828" }}>
+                        {fmt(Math.abs(driverBal))}
+                      </span>
+                      {driverBal < 0 && !["completed", "cancelled"].includes(selTrip?.status) && (
+                        <button onClick={() => { setSettleAmount(String(Math.abs(driverBal))); setShowSettleForm(v => !v); }}
+                          style={{ padding: "3px 10px", background: "#1E2D8E", color: "#fff", border: "none", borderRadius: 6, fontSize: 11, fontWeight: 600, cursor: "pointer" }}>
+                          Pay Driver
+                        </button>
+                      )}
+                    </div>
                   </div>
+                  {showSettleForm && (
+                    <div style={{ marginTop: 8, padding: "10px 12px", background: "#eef0fb", borderRadius: 8, display: "flex", gap: 8, alignItems: "center" }}>
+                      <span style={{ fontSize: 12, color: "#555", flexShrink: 0 }}>Amount (₹)</span>
+                      <input type="number" min={1} value={settleAmount}
+                        onChange={e => setSettleAmount(e.target.value)}
+                        style={{ flex: 1, padding: "5px 8px", border: "1.5px solid #c5cef9", borderRadius: 6, fontSize: 13 }} />
+                      <button onClick={handleSettle}
+                        style={{ padding: "5px 12px", background: "#1E2D8E", color: "#fff", border: "none", borderRadius: 6, fontSize: 12, fontWeight: 700, cursor: "pointer" }}>
+                        Log
+                      </button>
+                      <button onClick={() => setShowSettleForm(false)}
+                        style={{ background: "none", border: "none", cursor: "pointer", color: "#aaa", fontSize: 12 }}>✕</button>
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -972,7 +1167,7 @@ export default function TripsPage() {
                 {[
                   { label: "Start Date *", key: "start_date",  type: "date",   required: true },
                   { label: "End Date",     key: "end_date",    type: "date",   required: false },
-                  { label: "Distance (km)",key: "distance_km", type: "number", required: false, placeholder: "1200" },
+                  { label: distCalc === "loading" ? "Distance (km) — calculating…" : distCalc === "done" ? "Distance (km) — estimated ✓" : distCalc === "error" ? "Distance (km) — enter manually" : "Distance (km)", key: "distance_km", type: "number", required: false, placeholder: "1200" },
                 ].map(f => (
                   <div key={f.key}>
                     <label style={{ fontSize: 12, fontWeight: 600, color: "#555", display: "block", marginBottom: 4 }}>{f.label}</label>
@@ -983,6 +1178,23 @@ export default function TripsPage() {
                   </div>
                 ))}
               </div>
+
+              {/* Projected fuel banner */}
+              {(() => {
+                const veh = vehicles.find(v => v.id === form.vehicle_id);
+                const dist = parseFloat(form.distance_km);
+                if (!veh?.avg_mileage_kmpl || !dist || isNaN(dist)) return null;
+                const litres = (dist / veh.avg_mileage_kmpl).toFixed(1);
+                return (
+                  <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 14px", background: "#e8f5e9", borderRadius: 8, border: "1px solid #a5d6a7", fontSize: 13 }}>
+                    <span style={{ fontSize: 18 }}>⛽</span>
+                    <div>
+                      <span style={{ fontWeight: 700, color: "#2e7d32" }}>Projected Fuel: ~{litres} litres</span>
+                      <span style={{ color: "#555", marginLeft: 8 }}>({dist} km ÷ {veh.avg_mileage_kmpl} km/l)</span>
+                    </div>
+                  </div>
+                );
+              })()}
 
               {/* Notes */}
               <div>
@@ -1056,14 +1268,14 @@ export default function TripsPage() {
               </button>
               <button onClick={async () => {
                 const selected = Object.entries(pdfOpts.expTypes).filter(([,v]) => v).map(([k]) => k);
-                const expTypes = selected.join(",") || "none";
+                const vehicleReg = vehicles.find((v: any) => v.id === selTrip.vehicle_id)?.registration_number || selTrip.vehicle_id;
+                const orgName = (typeof window !== "undefined" && localStorage.getItem("orgName")) || "FleetSure";
                 try {
-                  const res = await lookupService.getTripPdf(selTrip.id, expTypes, pdfOpts.showProfit);
-                  if (!res.success || !res.data) throw new Error("Failed");
-                  const a = document.createElement("a");
-                  a.href = URL.createObjectURL(res.data);
-                  a.download = `tripsheet_${selTrip.origin}_${selTrip.destination}.pdf`;
-                  a.click();
+                  await downloadTripPdf({
+                    orgName, trip: selTrip, detail,
+                    vehicleReg, showProfit: pdfOpts.showProfit,
+                    expTypes: selected.length > 0 ? selected : ["all"],
+                  });
                   setPdfModal(false);
                 } catch (err) {
                   alert("Failed to generate PDF. Please try again.");

@@ -6,6 +6,7 @@ import { insightService } from "@/lib/services/insightService";
 import { Plus, Truck, X, Search, AlertCircle, CheckCircle, ChevronDown, ChevronUp, Wrench, Navigation, AlertTriangle } from "lucide-react";
 import { parseLocalDate, fmtDate } from "@/lib/date";
 import { useLanguage } from "@/lib/LanguageContext";
+import { mergeMileage, saveMileage } from "@/lib/mileageStore";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -14,7 +15,7 @@ const EMPTY_FORM = {
   vehicle_type: "truck", fuel_type: "", chassis_number: "",
   engine_number: "", vehicle_class: "", owner_name: "", rto_code: "",
   color: "", insurance_expiry: "", fitness_expiry: "", puc_expiry: "", permit_expiry: "",
-  status: "active",
+  status: "active", avg_mileage_kmpl: "",
 };
 
 const VEHICLE_TYPES = ["truck", "mini_truck", "trailer", "tanker", "container", "other"];
@@ -75,7 +76,7 @@ export default function VehiclesPage() {
   // Expanded compliance row
   const [expandedRow, setExpandedRow] = useState<string | null>(null);
 
-  const load = () => vehicleService.getAll().then(r => setVehicles(r.data || [])).finally(() => setLoading(false));
+  const load = () => vehicleService.getAll().then(r => setVehicles(mergeMileage(r.data || []))).finally(() => setLoading(false));
   useEffect(() => {
     load();
     // Pull cost-per-km from insights (non-blocking)
@@ -108,6 +109,7 @@ export default function VehiclesPage() {
       insurance_expiry: v.insurance_expiry || "", fitness_expiry: v.fitness_expiry || "",
       puc_expiry: v.puc_expiry || "", permit_expiry: v.permit_expiry || "",
       status: v.status || "active",
+      avg_mileage_kmpl: v.avg_mileage_kmpl != null ? String(v.avg_mileage_kmpl) : "",
     });
     setEditVehicle(v);
     setError("");
@@ -124,15 +126,18 @@ export default function VehiclesPage() {
       const payload = {
         ...form,
         year: form.year ? parseInt(form.year) : null,
-        insurance_expiry: form.insurance_expiry || null,
-        fitness_expiry:   form.fitness_expiry   || null,
-        puc_expiry:       form.puc_expiry       || null,
-        permit_expiry:    form.permit_expiry     || null,
+        insurance_expiry:  form.insurance_expiry  || null,
+        fitness_expiry:    form.fitness_expiry    || null,
+        puc_expiry:        form.puc_expiry        || null,
+        permit_expiry:     form.permit_expiry     || null,
+        avg_mileage_kmpl:  form.avg_mileage_kmpl  ? parseFloat(form.avg_mileage_kmpl) : null,
       };
       if (editVehicle) {
         await vehicleService.update(editVehicle.id, payload);
+        saveMileage(editVehicle.id, payload.avg_mileage_kmpl ?? null);
       } else {
-        await vehicleService.create(payload);
+        const res = await vehicleService.create(payload);
+        if (res.data?.id) saveMileage(res.data.id, payload.avg_mileage_kmpl ?? null);
       }
       setShowForm(false);
       setForm({ ...EMPTY_FORM });
@@ -271,7 +276,14 @@ export default function VehiclesPage() {
                       </td>
                       <td>
                         <div>{v.fuel_type || <span style={{ color: "#ccc" }}>—</span>}</div>
-                        <div style={{ fontSize: 11, color: "#aaa", textTransform: "capitalize" }}>{v.vehicle_type?.replace("_", " ")}</div>
+                        <div style={{ fontSize: 11, color: "#aaa", textTransform: "capitalize" }}>
+                          {v.vehicle_type?.replace("_", " ")}
+                          {v.avg_mileage_kmpl != null && (
+                            <span style={{ marginLeft: 6, padding: "1px 5px", borderRadius: 4, background: "#e8f5e9", color: "#2e7d32", fontWeight: 700, textTransform: "none" }}>
+                              {v.avg_mileage_kmpl} km/l
+                            </span>
+                          )}
+                        </div>
                       </td>
                       <td><ComplianceDot dateStr={v.insurance_expiry} /></td>
                       <td><ComplianceDot dateStr={v.fitness_expiry} /></td>
@@ -298,6 +310,7 @@ export default function VehiclesPage() {
                               { icon: "⚙️",  label: t("vehicle.engine"),           val: v.engine_number },
                               { icon: "👤",  label: t("vehicle.owner"),            val: v.owner_name },
                               { icon: "🎨",  label: t("vehicle.color"),            val: v.color },
+                              { icon: "⛽",  label: "Avg Mileage",                 val: v.avg_mileage_kmpl != null ? `${v.avg_mileage_kmpl} km/l` : null },
                               { icon: "🛡️",  label: t("vehicle.insurance_expiry"), val: v.insurance_expiry ? fmtDate(v.insurance_expiry) : null },
                               { icon: "📋",  label: t("vehicle.fitness_expiry"),   val: v.fitness_expiry ? fmtDate(v.fitness_expiry) : null },
                               { icon: "💨",  label: t("vehicle.puc_expiry"),       val: v.puc_expiry ? fmtDate(v.puc_expiry) : null },
@@ -400,6 +413,17 @@ export default function VehiclesPage() {
                       <option value="maintenance">{t("vehicle.in_maintenance")}</option>
                       <option value="inactive">{t("status.cancelled")}</option>
                     </select>
+                  </div>
+                  <div>
+                    <label style={labelStyle}>Avg Mileage (km/l)</label>
+                    <input
+                      type="number" step="0.1" min="0" max="30"
+                      value={form.avg_mileage_kmpl}
+                      onChange={e => set("avg_mileage_kmpl", e.target.value)}
+                      placeholder="e.g. 3.5"
+                      style={inputStyle}
+                    />
+                    <div style={{ fontSize: 11, color: "#aaa", marginTop: 3 }}>Used to project fuel consumption per trip</div>
                   </div>
                 </div>
               </div>

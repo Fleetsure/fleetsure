@@ -1,6 +1,5 @@
 import { supabase } from "@/lib/supabase";
-import { query, getUid, ok, fail } from "./_base";
-import { api } from "@/lib/api";
+import { query, getUid, ok } from "./_base";
 import type { Document, ServiceResponse } from "@/lib/types";
 
 export const documentService = {
@@ -20,24 +19,18 @@ export const documentService = {
     return { success: true, data };
   },
 
-  async upload(data: Omit<Document, "id" | "owner_id" | "created_at">): Promise<ServiceResponse<Document>> {
-    return query(
-      supabase.from("documents").insert({ ...data, owner_id: getUid() }).select().single()
-    );
+  // Download uses base64 already fetched by getAll — no network call needed
+  download(doc: Document): void {
+    if (!doc.content_b64) return;
+    const link = document.createElement("a");
+    link.href = `data:${doc.mime_type || "application/octet-stream"};base64,${doc.content_b64}`;
+    link.download = doc.file_name || doc.name;
+    link.click();
   },
 
   async delete(id: string): Promise<ServiceResponse<null>> {
     return query(
       supabase.from("documents").delete().eq("id", id).eq("owner_id", getUid())
     );
-  },
-
-  async download(id: string): Promise<ServiceResponse<{ content_b64: string; mime_type: string; file_name: string }>> {
-    try {
-      const res = await api.get(`/documents/${id}/download`);
-      return ok(res.data);
-    } catch (e) {
-      return fail(e);
-    }
   },
 };

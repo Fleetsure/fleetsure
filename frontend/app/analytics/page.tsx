@@ -7,14 +7,17 @@ import { TrendingUp, TrendingDown, Truck, Route, BarChart2, PieChart } from "luc
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-const fmt = (n: number) =>
-  "₹" + Math.abs(n).toLocaleString("en-IN", { maximumFractionDigits: 0 });
+const fmt = (n: number | null | undefined) => {
+  const safe = n ?? 0;
+  return "₹" + Math.abs(safe).toLocaleString("en-IN", { maximumFractionDigits: 0 });
+};
 
-const fmtShort = (n: number): string => {
-  if (n >= 1_00_00_000) return "₹" + (n / 1_00_00_000).toFixed(1) + "Cr";
-  if (n >= 1_00_000)    return "₹" + (n / 1_00_000).toFixed(1) + "L";
-  if (n >= 1_000)       return "₹" + (n / 1_000).toFixed(1) + "K";
-  return "₹" + n.toFixed(0);
+const fmtShort = (n: number | null | undefined): string => {
+  const safe = n ?? 0;
+  if (safe >= 1_00_00_000) return "₹" + (safe / 1_00_00_000).toFixed(1) + "Cr";
+  if (safe >= 1_00_000)    return "₹" + (safe / 1_00_000).toFixed(1) + "L";
+  if (safe >= 1_000)       return "₹" + (safe / 1_000).toFixed(1) + "K";
+  return "₹" + safe.toFixed(0);
 };
 
 // Donut segment colors for expense categories
@@ -173,8 +176,13 @@ const PERIOD_OPTIONS = [
   { label: "Last 6 months", value: 180 },
 ];
 
+const STATUS_COLOR: Record<string, string> = {
+  completed: "#2e7d32", in_progress: "#e65100", planned: "#1565c0", cancelled: "#c62828",
+};
+
 export default function AnalyticsPage() {
   const { t } = useLanguage();
+  const [activeTab, setActiveTab] = useState<"overview" | "trips" | "drivers">("overview");
   const [period, setPeriod]       = useState(30);
   const [isMobile, setIsMobile]   = useState(false);
   const [loading, setLoading]     = useState(true);
@@ -183,6 +191,8 @@ export default function AnalyticsPage() {
   const [monthly, setMonthly]     = useState<any[]>([]);
   const [vehicles, setVehicles]   = useState<any[]>([]);
   const [expenses, setExpenses]   = useState<any[]>([]);
+  const [tripPnl, setTripPnl]     = useState<any[]>([]);
+  const [drivers, setDrivers]     = useState<any[]>([]);
 
   useEffect(() => {
     const check = () => setIsMobile(window.innerWidth < 768);
@@ -198,12 +208,16 @@ export default function AnalyticsPage() {
       analyticsService.getMonthly(),
       analyticsService.getVehicles(days),
       analyticsService.getExpenses(days),
+      analyticsService.getTripProfitability(days),
+      analyticsService.getDriverSummary(days),
     ])
-      .then(([ov, mo, ve, ex]) => {
+      .then(([ov, mo, ve, ex, tp, dr]) => {
         setOverview(ov.data);
         setMonthly(mo.data?.months || []);
         setVehicles(ve.data?.vehicles || []);
         setExpenses(ex.data?.categories || []);
+        setTripPnl(tp.data || []);
+        setDrivers(dr.data || []);
       })
       .finally(() => setLoading(false));
   }, []);
@@ -218,23 +232,137 @@ export default function AnalyticsPage() {
 
       <div style={{ padding: pad }}>
 
-        {/* Period selector */}
-        <div style={{ display: "flex", gap: 8, marginBottom: isMobile ? 14 : 20, flexWrap: "wrap" }}>
-          {PERIOD_OPTIONS.map(opt => (
-            <button key={opt.value} onClick={() => setPeriod(opt.value)}
-              style={{
-                padding: "6px 16px", borderRadius: 20, fontSize: 12.5, fontWeight: 600,
-                border: "none", cursor: "pointer",
-                background: period === opt.value ? "#1E2D8E" : "#f0f1fa",
-                color:      period === opt.value ? "#fff" : "#666",
-              }}>
-              {opt.label}
-            </button>
-          ))}
+        {/* Tab + Period row */}
+        <div style={{ display: "flex", gap: 12, marginBottom: isMobile ? 14 : 20, flexWrap: "wrap", alignItems: "center", justifyContent: "space-between" }}>
+          <div style={{ display: "flex", gap: 4, background: "#f0f1fa", borderRadius: 10, padding: 4, width: "fit-content" }}>
+            {([["overview", "Overview"], ["trips", "Trip P&L"], ["drivers", "By Driver"]] as const).map(([key, label]) => (
+              <button key={key} onClick={() => setActiveTab(key)}
+                style={{ padding: "6px 16px", borderRadius: 7, border: "none", cursor: "pointer", fontSize: 12.5, fontWeight: 600,
+                  background: activeTab === key ? "white" : "transparent",
+                  color: activeTab === key ? "#1E2D8E" : "#888",
+                  boxShadow: activeTab === key ? "0 1px 4px rgba(0,0,0,0.1)" : "none" }}>
+                {label}
+              </button>
+            ))}
+          </div>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            {PERIOD_OPTIONS.map(opt => (
+              <button key={opt.value} onClick={() => setPeriod(opt.value)}
+                style={{
+                  padding: "6px 16px", borderRadius: 20, fontSize: 12.5, fontWeight: 600,
+                  border: "none", cursor: "pointer",
+                  background: period === opt.value ? "#1E2D8E" : "#f0f1fa",
+                  color:      period === opt.value ? "#fff" : "#666",
+                }}>
+                {opt.label}
+              </button>
+            ))}
+          </div>
         </div>
 
         {loading ? (
           <div style={{ textAlign: "center", color: "#aaa", padding: "60px 0", fontSize: 14 }}>{t("common.loading")}</div>
+        ) : activeTab === "trips" ? (
+          /* ── TRIP P&L TAB ─────────────────────────────────────────────── */
+          <div className="card">
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16 }}>
+              <Route size={16} color="#1E2D8E" />
+              <span style={{ fontWeight: 700, fontSize: 14 }}>Trip Profitability</span>
+              <span style={{ fontSize: 11.5, color: "#aaa", marginLeft: 4 }}>Sorted by date</span>
+            </div>
+            {tripPnl.length === 0 ? (
+              <div style={{ textAlign: "center", color: "#aaa", padding: "32px 0", fontSize: 13 }}>No trips in this period</div>
+            ) : isMobile ? (
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                {tripPnl.map((tp: any) => (
+                  <div key={tp.id} style={{ border: "1.5px solid #f0f0f8", borderRadius: 10, padding: "12px 14px" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 6 }}>
+                      <div>
+                        <div style={{ fontWeight: 700, fontSize: 13, color: "#1a1a2e" }}>{tp.route}</div>
+                        <div style={{ fontSize: 11, color: "#aaa" }}>{tp.driver} · {tp.vehicle} · {tp.date}</div>
+                      </div>
+                      <span style={{ fontSize: 10, fontWeight: 700, padding: "2px 8px", borderRadius: 10, background: `${STATUS_COLOR[tp.status] || "#888"}18`, color: STATUS_COLOR[tp.status] || "#888" }}>
+                        {tp.status.replace("_", " ")}
+                      </span>
+                    </div>
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 4, textAlign: "center" }}>
+                      <div><div style={{ fontSize: 12, fontWeight: 700, color: "#1E2D8E" }}>{fmtShort(tp.freight)}</div><div style={{ fontSize: 10, color: "#aaa" }}>Freight</div></div>
+                      <div><div style={{ fontSize: 12, fontWeight: 700, color: "#ef5350" }}>{fmtShort(tp.expenses)}</div><div style={{ fontSize: 10, color: "#aaa" }}>Expenses</div></div>
+                      <div><div style={{ fontSize: 12, fontWeight: 800, color: tp.profit >= 0 ? "#2e7d32" : "#c62828" }}>{tp.profit < 0 ? "−" : ""}{fmtShort(Math.abs(tp.profit))}</div><div style={{ fontSize: 10, color: "#aaa" }}>{tp.margin_pct}% margin</div></div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+                <thead>
+                  <tr style={{ borderBottom: "2px solid #f0f0f8" }}>
+                    {["Route", "Driver", "Vehicle", "Date", "Status", "Freight", "Expenses", "Net Profit", "Margin"].map(h => (
+                      <th key={h} style={{ padding: "8px 10px", textAlign: ["Freight","Expenses","Net Profit","Margin"].includes(h) ? "right" : "left", fontSize: 11, fontWeight: 700, color: "#aaa", textTransform: "uppercase" }}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {tripPnl.map((tp: any, i: number) => (
+                    <tr key={tp.id} style={{ borderBottom: "1px solid #f8f8fc", background: i % 2 === 0 ? "white" : "#fafafa" }}>
+                      <td style={{ padding: "9px 10px", fontWeight: 600, color: "#1a1a2e", maxWidth: 180 }}>{tp.route}</td>
+                      <td style={{ padding: "9px 10px", color: "#555" }}>{tp.driver}</td>
+                      <td style={{ padding: "9px 10px", fontFamily: "monospace", fontSize: 12 }}>{tp.vehicle}</td>
+                      <td style={{ padding: "9px 10px", color: "#888", fontSize: 12 }}>{tp.date}</td>
+                      <td style={{ padding: "9px 10px" }}>
+                        <span style={{ fontSize: 10, fontWeight: 700, padding: "2px 8px", borderRadius: 10, background: `${STATUS_COLOR[tp.status] || "#888"}18`, color: STATUS_COLOR[tp.status] || "#888" }}>
+                          {tp.status.replace("_", " ")}
+                        </span>
+                      </td>
+                      <td style={{ padding: "9px 10px", textAlign: "right", fontWeight: 600, color: "#1E2D8E" }}>{fmtShort(tp.freight)}</td>
+                      <td style={{ padding: "9px 10px", textAlign: "right", color: "#ef5350" }}>{fmtShort(tp.expenses)}</td>
+                      <td style={{ padding: "9px 10px", textAlign: "right", fontWeight: 800, fontSize: 14, color: tp.profit >= 0 ? "#2e7d32" : "#c62828" }}>
+                        {tp.profit < 0 ? "−" : ""}{fmtShort(Math.abs(tp.profit))}
+                      </td>
+                      <td style={{ padding: "9px 10px", textAlign: "right", color: tp.margin_pct >= 20 ? "#2e7d32" : tp.margin_pct >= 10 ? "#e65100" : "#c62828" }}>
+                        {tp.freight > 0 ? `${tp.margin_pct}%` : "—"}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+        ) : activeTab === "drivers" ? (
+          /* ── DRIVER SUMMARY TAB ───────────────────────────────────────── */
+          <div className="card">
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16 }}>
+              <Truck size={16} color="#1E2D8E" />
+              <span style={{ fontWeight: 700, fontSize: 14 }}>Driver Performance</span>
+              <span style={{ fontSize: 11.5, color: "#aaa", marginLeft: 4 }}>Ranked by revenue generated</span>
+            </div>
+            {drivers.length === 0 ? (
+              <div style={{ textAlign: "center", color: "#aaa", padding: "32px 0", fontSize: 13 }}>No driver data in this period</div>
+            ) : (
+              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+                <thead>
+                  <tr style={{ borderBottom: "2px solid #f0f0f8" }}>
+                    {["#", "Driver", "Trips", "Completed", "Revenue", "Expenses", "Avg / Trip"].map(h => (
+                      <th key={h} style={{ padding: "8px 10px", textAlign: ["Revenue","Expenses","Avg / Trip"].includes(h) ? "right" : ["Trips","Completed"].includes(h) ? "center" : "left", fontSize: 11, fontWeight: 700, color: "#aaa", textTransform: "uppercase" }}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {drivers.map((d: any, i: number) => (
+                    <tr key={d.driver} style={{ borderBottom: "1px solid #f8f8fc", background: i % 2 === 0 ? "white" : "#fafafa" }}>
+                      <td style={{ padding: "9px 10px", textAlign: "center", fontWeight: 700, color: i === 0 ? "#2e7d32" : "#aaa", fontSize: 12 }}>{i + 1}</td>
+                      <td style={{ padding: "9px 10px", fontWeight: 600, color: "#1a1a2e" }}>{d.driver}</td>
+                      <td style={{ padding: "9px 10px", textAlign: "center", color: "#555" }}>{d.trips}</td>
+                      <td style={{ padding: "9px 10px", textAlign: "center", color: "#2e7d32", fontWeight: 600 }}>{d.completed}</td>
+                      <td style={{ padding: "9px 10px", textAlign: "right", fontWeight: 700, color: "#1E2D8E" }}>{fmtShort(d.revenue)}</td>
+                      <td style={{ padding: "9px 10px", textAlign: "right", color: "#ef5350" }}>{fmtShort(d.expenses)}</td>
+                      <td style={{ padding: "9px 10px", textAlign: "right", color: "#555" }}>{fmtShort(d.avg_freight)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
         ) : (
           <>
             {/* ── KPI Cards ──────────────────────────────────────────────── */}
@@ -479,3 +607,4 @@ export default function AnalyticsPage() {
     </div>
   );
 }
+

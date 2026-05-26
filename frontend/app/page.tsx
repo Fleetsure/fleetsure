@@ -23,22 +23,24 @@ function getGreeting() {
   return "Good evening";
 }
 
-function fmt(n: number) {
-  if (n >= 100000) return `₹${(n / 100000).toFixed(1)}L`;
-  if (n >= 1000)   return `₹${(n / 1000).toFixed(1)}K`;
-  return `₹${n.toLocaleString("en-IN")}`;
+function fmt(n: number | null | undefined) {
+  const safe = n ?? 0;
+  if (safe >= 100000) return `₹${(safe / 100000).toFixed(1)}L`;
+  if (safe >= 1000)   return `₹${(safe / 1000).toFixed(1)}K`;
+  return `₹${safe.toLocaleString("en-IN")}`;
 }
 
-function MarginBar({ pct }: { pct: number }) {
-  const clamped = Math.max(0, Math.min(100, pct));
-  const color   = pct < 0 ? "#e53935" : pct < 15 ? "#f57c00" : "#2e7d32";
+function MarginBar({ pct }: { pct: number | null | undefined }) {
+  const safe    = pct ?? 0;
+  const clamped = Math.max(0, Math.min(100, safe));
+  const color   = safe < 0 ? "#e53935" : safe < 15 ? "#f57c00" : "#2e7d32";
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
       <div style={{ flex: 1, height: 6, background: "#f0f0f5", borderRadius: 99, overflow: "hidden" }}>
         <div style={{ width: `${clamped}%`, height: "100%", background: color, borderRadius: 99, transition: "width 0.4s" }} />
       </div>
       <span style={{ fontSize: 12, fontWeight: 700, color, minWidth: 36, textAlign: "right" }}>
-        {pct.toFixed(1)}%
+        {safe.toFixed(1)}%
       </span>
     </div>
   );
@@ -97,12 +99,12 @@ export default function Dashboard() {
   const inTripVehicles = vehicles.filter(v => v.status === "in_trip").length;
   const completedTrips = trips.filter(t => t.status === "completed").length;
   const totalRevenue   = trips.filter(t => t.status === "completed").reduce((s, t) => s + parseFloat(t.freight_amount || 0), 0);
-  const availDrivers   = drivers.filter(d => d.status === "available").length;
+  const availDrivers   = drivers.filter(d => d.status === "active").length;
 
   // Fleet-level P&L aggregates
-  const fleetRevenue   = pnlData.reduce((s, v) => s + v.total_revenue, 0);
-  const fleetExpenses  = pnlData.reduce((s, v) => s + v.total_expenses, 0);
-  const fleetProfit    = pnlData.reduce((s, v) => s + v.profit, 0);
+  const fleetRevenue   = pnlData.reduce((s, v) => s + (v.revenue  ?? 0), 0);
+  const fleetExpenses  = pnlData.reduce((s, v) => s + (v.expenses ?? 0), 0);
+  const fleetProfit    = pnlData.reduce((s, v) => s + (v.profit   ?? 0), 0);
   const fleetMargin    = fleetRevenue > 0 ? (fleetProfit / fleetRevenue) * 100 : 0;
   const worstVehicle   = pnlData.length > 0 ? pnlData[pnlData.length - 1] : null;
 
@@ -207,7 +209,7 @@ export default function Dashboard() {
       list.push({
         emoji: "🏆",
         headline: `${best.reg_number} is your star truck`,
-        detail: `${best.margin_percent.toFixed(1)}% profit margin across ${best.completed_trips} trips — highest in your fleet.`,
+        detail: `${(best.margin_pct ?? 0).toFixed(1)}% profit margin across ${best.completed_trips} trips — highest in your fleet.`,
         color: "#2e7d32", bg: "#e8f5e9",
       });
     }
@@ -226,7 +228,7 @@ export default function Dashboard() {
       if (worst.profit < 0) {
         list.push({
           emoji: "⚠️",
-          headline: `${worst.reg_number} needs attention`,
+          headline: `${worst.registration_number} needs attention`,
           detail: `Running at a loss of ${fmt(Math.abs(worst.profit))}. Check fuel costs and trip freight on this truck.`,
           color: "#c62828", bg: "#fce4ec",
         });
@@ -414,7 +416,7 @@ export default function Dashboard() {
               <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", borderRadius: 9, background: "#fff3e0", border: "1px solid #ffcc80", marginBottom: 16 }}>
                 <AlertTriangle size={16} color="#e65100" />
                 <span style={{ fontSize: 13, color: "#bf360c" }}>
-                  <strong>{worstVehicle.reg_number}</strong> is running at a loss of {fmt(Math.abs(worstVehicle.profit))} — review its trip costs.
+                  <strong>{worstVehicle.registration_number}</strong> is running at a loss of {fmt(Math.abs(worstVehicle.profit))} — review its trip costs.
                 </span>
               </div>
             )}
@@ -444,7 +446,7 @@ export default function Dashboard() {
                               <Truck size={15} color="#1E2D8E" />
                             </div>
                             <div>
-                              <div style={{ fontWeight: 700, color: "#1a1a2e", fontSize: 13.5 }}>{v.reg_number}</div>
+                              <div style={{ fontWeight: 700, color: "#1a1a2e", fontSize: 13.5 }}>{v.registration_number}</div>
                               <div style={{ fontSize: 11, color: "#aaa" }}>{v.make} {v.model}</div>
                             </div>
                             {isBest  && <span style={{ fontSize: 10, fontWeight: 700, padding: "2px 7px", borderRadius: 99, background: "#e8f5e9", color: "#2e7d32" }}>★ Best</span>}
@@ -455,10 +457,9 @@ export default function Dashboard() {
                           <span style={{ fontWeight: 600 }}>{v.completed_trips}</span>
                           <span style={{ color: "#bbb", fontSize: 11 }}>/{v.total_trips}</span>
                         </td>
-                        <td style={{ padding: "12px 10px", textAlign: "right", fontWeight: 700, color: "#1565c0" }}>{fmt(v.total_revenue)}</td>
+                        <td style={{ padding: "12px 10px", textAlign: "right", fontWeight: 700, color: "#1565c0" }}>{fmt(v.revenue)}</td>
                         <td style={{ padding: "12px 10px", textAlign: "right", color: "#b71c1c" }}>
-                          <div>{fmt(v.total_expenses)}</div>
-                          {v.total_fuel_cost > 0 && <div style={{ fontSize: 10.5, color: "#aaa" }}>Fuel: {fmt(v.total_fuel_cost)}</div>}
+                          <div>{fmt(v.expenses)}</div>
                         </td>
                         <td style={{ padding: "12px 10px", textAlign: "right" }}>
                           <span style={{ fontWeight: 800, fontSize: 14, color: v.profit >= 0 ? "#2e7d32" : "#e53935", display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 3 }}>
@@ -467,7 +468,7 @@ export default function Dashboard() {
                           </span>
                         </td>
                         <td style={{ padding: "12px 10px" }}>
-                          <MarginBar pct={v.margin_percent} />
+                          <MarginBar pct={v.margin_pct} />
                         </td>
                       </tr>
                     );

@@ -1,5 +1,5 @@
 import { supabase } from "@/lib/supabase";
-import { query, getUid } from "./_base";
+import { query, ok, getUid } from "./_base";
 import type { Trip, Expense, ServiceResponse } from "@/lib/types";
 
 export const tripService = {
@@ -11,9 +11,22 @@ export const tripService = {
   },
 
   async getById(id: string): Promise<ServiceResponse<Trip>> {
-    return query(
-      supabase.from("trips").select("*, expenses(*)").eq("id", id).eq("owner_id", getUid()).single()
-    );
+    const uid = getUid();
+    const [tripRes, fuelRes, tollRes, miscRes, expRes] = await Promise.all([
+      query(supabase.from("trips").select("*").eq("id", id).eq("owner_id", uid).single()),
+      query(supabase.from("fuel_logs").select("*").eq("trip_id", id).eq("owner_id", uid).order("date", { ascending: false })),
+      query(supabase.from("toll_logs").select("*").eq("trip_id", id).eq("owner_id", uid).order("date", { ascending: false })),
+      query(supabase.from("misc_expenses").select("*").eq("trip_id", id).eq("owner_id", uid).order("date", { ascending: false })),
+      query(supabase.from("expenses").select("*").eq("trip_id", id).order("date", { ascending: false })),
+    ]);
+    if (!tripRes.success || !tripRes.data) return tripRes as ServiceResponse<Trip>;
+    return ok({
+      ...(tripRes.data as any),
+      fuel_logs:     fuelRes.data    ?? [],
+      toll_logs:     tollRes.data    ?? [],
+      misc_expenses: miscRes.data    ?? [],
+      expenses:      expRes.data     ?? [],
+    } as Trip);
   },
 
   async create(data: Omit<Trip, "id" | "owner_id" | "status"> & { status?: string }): Promise<ServiceResponse<Trip>> {
@@ -37,6 +50,12 @@ export const tripService = {
   async addExpense(tripId: string, data: Omit<Expense, "id" | "trip_id">): Promise<ServiceResponse<Expense>> {
     return query(
       supabase.from("expenses").insert({ ...data, trip_id: tripId }).select().single()
+    );
+  },
+
+  async deleteExpense(id: string): Promise<ServiceResponse<null>> {
+    return query(
+      supabase.from("expenses").delete().eq("id", id)
     );
   },
 };

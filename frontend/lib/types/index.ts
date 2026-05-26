@@ -14,8 +14,10 @@ export interface User {
   org_name?: string;
   org_logo?: string;
   google_picture?: string;
+  gst_number?: string;
   is_active: boolean;
   created_at?: string;
+  last_login_at?: string;
 }
 
 // ── Vehicle ───────────────────────────────────────────────
@@ -33,6 +35,7 @@ export interface Vehicle {
   fitness_expiry?: string;
   permit_expiry?: string;
   puc_expiry?: string;
+  avg_mileage_kmpl?: number | null;
   created_at?: string;
 }
 
@@ -87,6 +90,9 @@ export interface Trip {
   status: string;
   notes?: string;
   expenses?: Expense[];
+  fuel_logs?: FuelLog[];
+  toll_logs?: TollLog[];
+  misc_expenses?: MiscExpense[];
 }
 
 export interface Expense {

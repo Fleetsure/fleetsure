@@ -1,74 +1,41 @@
 import { supabase } from "@/lib/supabase";
 import { auth } from "@/lib/firebase";
-import { api } from "@/lib/api";
 import { ok, fail, getUid } from "./_base";
 import type { User, ServiceResponse } from "@/lib/types";
 
 export const authService = {
   async getProfile(): Promise<ServiceResponse<User>> {
     try {
-      const uid = getUid();
+      const uid    = getUid();
       const fbUser = auth.currentUser;
       const { data, error } = await supabase.from("users").select("*").eq("id", uid).single();
       if (error) throw error;
       return ok({ ...data, google_picture: fbUser?.photoURL || data.google_picture } as User);
-    } catch (e) {
-      return fail(e);
-    }
+    } catch (e) { return fail(e); }
   },
 
   async updateProfile(updates: Partial<User>): Promise<ServiceResponse<User>> {
     try {
-      const uid = getUid();
       const { data, error } = await supabase
-        .from("users")
-        .update(updates)
-        .eq("id", uid)
-        .select()
-        .single();
+        .from("users").update(updates).eq("id", getUid()).select().single();
       if (error) throw error;
       return ok(data as User);
-    } catch (e) {
-      return fail(e);
-    }
+    } catch (e) { return fail(e); }
   },
 
   async getBillingStatus(): Promise<ServiceResponse<any>> {
-    try { return ok((await api.get("/billing/status")).data); }
-    catch (e) { return fail(e); }
-  },
-
-  async subscribePlan(plan: string): Promise<ServiceResponse<any>> {
-    try { return ok((await api.post(`/billing/subscribe/${plan}`)).data); }
-    catch (e) { return fail(e); }
-  },
-
-  async cancelBilling(): Promise<ServiceResponse<any>> {
-    try { return ok((await api.post("/billing/cancel")).data); }
-    catch (e) { return fail(e); }
-  },
-
-  async exportData(format: "xlsx" | "csv" = "xlsx", types?: string, orgName?: string): Promise<ServiceResponse<Blob>> {
     try {
-      const res = await api.get("/export/", { params: { format, types, org_name: orgName }, responseType: "blob" });
-      return ok(res.data);
-    } catch (e) {
-      return fail(e);
-    }
-  },
-
-  async getNotificationSettings(): Promise<ServiceResponse<any>> {
-    try { return ok((await api.get("/notifications/settings")).data); }
-    catch (e) { return fail(e); }
-  },
-
-  async updateNotificationSettings(settings: any): Promise<ServiceResponse<any>> {
-    try { return ok((await api.put("/notifications/settings", settings)).data); }
-    catch (e) { return fail(e); }
-  },
-
-  async sendTestAlert(): Promise<ServiceResponse<any>> {
-    try { return ok((await api.post("/notifications/test/compliance")).data); }
-    catch (e) { return fail(e); }
+      const { data, error } = await supabase
+        .from("subscriptions").select("*").eq("user_id", getUid()).maybeSingle();
+      if (error) throw error;
+      if (!data) return ok({ plan: "trial", status: "trial", days_left: 60 });
+      const trialEnd  = data.trial_ends_at ? new Date(data.trial_ends_at) : null;
+      const periodEnd = data.ends_at ? new Date(data.ends_at) : null;
+      const refDate = periodEnd || trialEnd;
+      const daysLeft = refDate
+        ? Math.max(0, Math.ceil((refDate.getTime() - Date.now()) / 86_400_000))
+        : 0;
+      return ok({ ...data, days_left: daysLeft });
+    } catch (e) { return fail(e); }
   },
 };

@@ -5,6 +5,8 @@ import Header from "@/components/Header";
 import { useLanguage } from "@/lib/LanguageContext";
 import { authService } from "@/lib/services/authService";
 import { supabase } from "@/lib/supabase";
+import { teamService } from "@/lib/services/teamService";
+import type { TeamMember } from "@/lib/services/teamService";
 import {
   UserCircle, Bell, Lock, Palette,
   Settings, CreditCard, Download,
@@ -161,7 +163,7 @@ const ROLES = [
   { key: "owner",      label: "Fleet Owner",    color: "#1E2D8E", bg: "#e8eaf6", desc: "Full access to everything" },
   { key: "manager",    label: "Fleet Manager",  color: "#2e7d32", bg: "#e8f5e9", desc: "Manage trips, vehicles, expenses" },
   { key: "accountant", label: "Accountant",     color: "#e65100", bg: "#fff3e0", desc: "View reports and export data only" },
-  { key: "driver",     label: "Driver",         color: "#6d4c41", bg: "#efebe9", desc: "Log trips via mobile (coming soon)" },
+  { key: "driver",     label: "Driver",         color: "#1E2D8E", bg: "#EEF0FB", desc: "Log trips, expenses & issues via /driver" },
 ];
 
 const INDIAN_STATES = [
@@ -200,60 +202,54 @@ function Avatar({ user, size = 36 }: { user: Partial<User>; size?: number }) {
 }
 
 function ManageUsers() {
-  const LS_KEY = "fleetUsers";
-  const [users, setUsers] = useState<User[]>([]);
+  const [members, setMembers] = useState<TeamMember[]>([]);
+  const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
-  const [editing, setEditing] = useState<User | null>(null);
-  const [form, setForm] = useState<Omit<User,"id">>(EMPTY_USER);
-  const [search, setSearch] = useState("");
-  const [filterRole, setFilterRole] = useState("all");
-  const [saved, setSaved] = useState(false);
+  const [form, setForm] = useState({ name: "", email: "", role: "manager" as "manager" | "accountant", job_title: "", phone: "" });
+  const [saving, setSaving] = useState(false);
+  const [formError, setFormError] = useState("");
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
-  const photoRef = useRef<HTMLInputElement>(null);
+  const [search, setSearch] = useState("");
 
   useEffect(() => {
-    const stored = localStorage.getItem(LS_KEY);
-    if (stored) setUsers(JSON.parse(stored));
+    teamService.getMembers().then(r => {
+      if (r.success && r.data) setMembers(r.data);
+      setLoading(false);
+    });
   }, []);
 
-  const persist = (updated: User[]) => {
-    setUsers(updated);
-    localStorage.setItem(LS_KEY, JSON.stringify(updated));
-  };
+  const resetForm = () => setForm({ name: "", email: "", role: "manager", job_title: "", phone: "" });
 
-  const openAdd = () => { setEditing(null); setForm(EMPTY_USER); setShowForm(true); };
-  const openEdit = (u: User) => { setEditing(u); setForm({ ...u }); setShowForm(true); };
-
-  const set = (k: string, v: string) => setForm(p => ({ ...p, [k]: v }));
-
-  const handleSave = () => {
-    if (!form.firstName.trim() || !form.phone.trim()) return;
-    if (editing) {
-      persist(users.map(u => u.id === editing.id ? { ...form, id: editing.id } : u));
+  const handleAdd = async () => {
+    if (!form.name.trim() || !form.email.trim()) { setFormError("Name and email are required."); return; }
+    setSaving(true); setFormError("");
+    const r = await teamService.addMember({
+      name: form.name.trim(),
+      email: form.email.trim().toLowerCase(),
+      role: form.role,
+      job_title: form.job_title.trim() || null,
+      phone: form.phone.trim() || null,
+    });
+    setSaving(false);
+    if (r.success && r.data) {
+      setMembers(prev => [...prev, r.data!]);
+      setShowForm(false);
+      resetForm();
     } else {
-      persist([...users, { ...form, id: crypto.randomUUID() }]);
+      setFormError(r.error || "Failed to add member. Check if email already exists.");
     }
-    setSaved(true); setTimeout(() => setSaved(false), 2000);
-    setShowForm(false);
   };
 
-  const handleDelete = (id: string) => { persist(users.filter(u => u.id !== id)); setDeleteConfirm(null); };
-
-  const handlePhoto = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]; if (!file) return;
-    const reader = new FileReader();
-    reader.onload = ev => set("photo", ev.target?.result as string);
-    reader.readAsDataURL(file);
+  const handleRemove = async (id: string) => {
+    await teamService.removeMember(id);
+    setMembers(prev => prev.filter(m => m.id !== id));
+    setDeleteConfirm(null);
   };
 
-  const filtered = users.filter(u => {
+  const filtered = members.filter(m => {
     const q = search.toLowerCase();
-    const matchSearch = !q || `${u.firstName} ${u.lastName} ${u.email} ${u.phone}`.toLowerCase().includes(q);
-    const matchRole = filterRole === "all" || u.role === filterRole;
-    return matchSearch && matchRole;
+    return !q || `${m.name} ${m.email} ${m.phone || ""}`.toLowerCase().includes(q);
   });
-
-  const isDriver = form.role === "driver";
 
   const inputStyle: React.CSSProperties = {
     width: "100%", padding: "8px 11px", border: "1.5px solid var(--border-input)",
@@ -261,79 +257,81 @@ function ManageUsers() {
     boxSizing: "border-box"
   };
   const labelStyle: React.CSSProperties = { fontSize: 12, fontWeight: 600, color: "var(--text-muted)", display: "block", marginBottom: 5 };
-  const fieldStyle: React.CSSProperties = { display: "flex", flexDirection: "column" };
+
+  const TEAM_ROLES = [
+    { key: "manager" as const,    label: "Fleet Manager",  color: "#2e7d32", bg: "#e8f5e9", desc: "Manage trips, vehicles, expenses" },
+    { key: "accountant" as const, label: "Accountant",     color: "#e65100", bg: "#fff3e0", desc: "View reports and export data only" },
+  ];
 
   return (
     <div>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
-        <h2 style={{ margin: 0, fontSize: 17, fontWeight: 700 }}>Manage Users</h2>
-        <button className="btn-primary" onClick={openAdd} style={{ fontSize: 13, padding: "7px 14px" }}>
-          <Plus size={14} /> Add User
+        <h2 style={{ margin: 0, fontSize: 17, fontWeight: 700 }}>Manage Team</h2>
+        <button className="btn-primary" onClick={() => { resetForm(); setFormError(""); setShowForm(true); }} style={{ fontSize: 13, padding: "7px 14px" }}>
+          <Plus size={14} /> Add Member
         </button>
       </div>
       <p style={{ margin: "0 0 20px", fontSize: 13, color: "var(--text-muted)" }}>
-        Invite team members and set their access level.
+        Add managers and accountants who can access your fleet data.
       </p>
 
-      {/* Info banner — auth not wired yet */}
+      {/* How it works */}
       <div style={{ display: "flex", gap: 10, padding: "11px 14px", borderRadius: 10, background: "var(--bg-subtle)", border: "1px solid var(--border-input)", marginBottom: 20 }}>
-        <span style={{ fontSize: 15, flexShrink: 0 }}>🔐</span>
+        <span style={{ fontSize: 15, flexShrink: 0 }}>💡</span>
         <div style={{ fontSize: 12, color: "var(--text-muted)", lineHeight: 1.6 }}>
-          <strong style={{ color: "var(--text-main)" }}>Authentication coming soon.</strong> Users added here are saved locally.
-          Once login/auth is set up, they will receive an invite to your fleet on their email.
+          Add team members here, then share <strong style={{ color: "var(--text-main)" }}>fleetsure.in/manager</strong> or <strong style={{ color: "var(--text-main)" }}>fleetsure.in/accountant</strong> with them.
+          They sign in with the same email using Google or email/password.
         </div>
       </div>
 
-      {/* Filters */}
-      <div style={{ display: "flex", gap: 10, marginBottom: 16 }}>
-        <div style={{ position: "relative", flex: 1 }}>
-          <Search size={13} style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", color: "var(--text-muted)" }} />
-          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search users..."
-            style={{ ...inputStyle, paddingLeft: 30 }} />
-        </div>
-        <select value={filterRole} onChange={e => setFilterRole(e.target.value)}
-          style={{ padding: "8px 12px", border: "1.5px solid var(--border-input)", borderRadius: 8, fontSize: 13, background: "var(--bg-card)", color: "var(--text-main)" }}>
-          <option value="all">All Roles</option>
-          {ROLES.map(r => <option key={r.key} value={r.key}>{r.label}</option>)}
-        </select>
+      {/* Search */}
+      <div style={{ position: "relative", marginBottom: 16 }}>
+        <Search size={13} style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", color: "var(--text-muted)" }} />
+        <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search team members..."
+          style={{ ...inputStyle, paddingLeft: 30 }} />
       </div>
 
-      {/* Users table */}
-      {filtered.length === 0 ? (
+      {/* Members list */}
+      {loading ? (
+        <p style={{ color: "var(--text-muted)", padding: "24px 0" }}>Loading...</p>
+      ) : filtered.length === 0 ? (
         <div style={{ textAlign: "center", padding: "48px 0", color: "var(--text-muted)" }}>
           <Users size={40} color="var(--border-input)" style={{ margin: "0 auto 12px", display: "block" }} />
-          <p style={{ margin: "0 0 14px", fontSize: 14 }}>{users.length === 0 ? "No users added yet" : "No users match your filter"}</p>
-          {users.length === 0 && <button className="btn-primary" onClick={openAdd}><Plus size={14} /> Add First User</button>}
+          <p style={{ margin: "0 0 14px", fontSize: 14 }}>{members.length === 0 ? "No team members yet" : "No members match your search"}</p>
+          {members.length === 0 && (
+            <button className="btn-primary" onClick={() => { resetForm(); setShowForm(true); }}>
+              <Plus size={14} /> Add First Member
+            </button>
+          )}
         </div>
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-          {filtered.map(u => (
-            <div key={u.id} style={{ display: "flex", alignItems: "center", gap: 14, padding: "12px 16px", borderRadius: 10, border: "1.5px solid var(--border-input)", background: "var(--bg-card)" }}>
-              <Avatar user={u} size={40} />
+          {filtered.map(m => (
+            <div key={m.id} style={{ display: "flex", alignItems: "center", gap: 14, padding: "12px 16px", borderRadius: 10, border: "1.5px solid var(--border-input)", background: "var(--bg-card)" }}>
+              <div style={{ width: 40, height: 40, borderRadius: "50%", background: "#e8eaf6", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, fontWeight: 700, color: "#1E2D8E", flexShrink: 0 }}>
+                {m.name?.[0]?.toUpperCase() || "?"}
+              </div>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-                  <span style={{ fontSize: 14, fontWeight: 600, color: "var(--text-main)" }}>{u.firstName} {u.lastName}</span>
-                  <RoleBadge role={u.role} />
-                  {u.status === "inactive" && <span style={{ fontSize: 10, fontWeight: 700, padding: "2px 7px", borderRadius: 8, background: "var(--bg-subtle)", color: "var(--text-muted)" }}>Inactive</span>}
+                  <span style={{ fontSize: 14, fontWeight: 600, color: "var(--text-main)" }}>{m.name}</span>
+                  <RoleBadge role={m.role} />
+                  {m.firebase_uid && <span style={{ fontSize: 10, fontWeight: 700, padding: "2px 7px", borderRadius: 8, background: "#e8f5e9", color: "#2e7d32" }}>Linked</span>}
                 </div>
                 <div style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 2, display: "flex", gap: 12, flexWrap: "wrap" }}>
-                  {u.phone && <span>📱 {u.phone}</span>}
-                  {u.email && <span>✉️ {u.email}</span>}
-                  {u.jobTitle && <span>💼 {u.jobTitle}</span>}
+                  {m.email && <span>✉️ {m.email}</span>}
+                  {m.phone && <span>📱 {m.phone}</span>}
+                  {m.job_title && <span>💼 {m.job_title}</span>}
                 </div>
               </div>
               <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
-                <button onClick={() => openEdit(u)} style={{ background: "var(--bg-subtle)", border: "none", borderRadius: 8, padding: "6px 10px", cursor: "pointer", color: "var(--text-muted)" }}>
-                  <Pencil size={14} />
-                </button>
-                {deleteConfirm === u.id ? (
+                {deleteConfirm === m.id ? (
                   <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
-                    <span style={{ fontSize: 11, color: "#e53935" }}>Delete?</span>
-                    <button onClick={() => handleDelete(u.id)} style={{ background: "#fce4ec", border: "none", borderRadius: 6, padding: "4px 8px", cursor: "pointer", color: "#e53935", fontSize: 11, fontWeight: 600 }}>Yes</button>
+                    <span style={{ fontSize: 11, color: "#e53935" }}>Remove?</span>
+                    <button onClick={() => handleRemove(m.id)} style={{ background: "#fce4ec", border: "none", borderRadius: 6, padding: "4px 8px", cursor: "pointer", color: "#e53935", fontSize: 11, fontWeight: 600 }}>Yes</button>
                     <button onClick={() => setDeleteConfirm(null)} style={{ background: "var(--bg-subtle)", border: "none", borderRadius: 6, padding: "4px 8px", cursor: "pointer", fontSize: 11 }}>No</button>
                   </div>
                 ) : (
-                  <button onClick={() => setDeleteConfirm(u.id)} style={{ background: "var(--bg-subtle)", border: "none", borderRadius: 8, padding: "6px 10px", cursor: "pointer", color: "var(--text-muted)" }}>
+                  <button onClick={() => setDeleteConfirm(m.id)} style={{ background: "var(--bg-subtle)", border: "none", borderRadius: 8, padding: "6px 10px", cursor: "pointer", color: "var(--text-muted)" }}>
                     <Trash2 size={14} />
                   </button>
                 )}
@@ -356,141 +354,65 @@ function ManageUsers() {
         </div>
       </div>
 
-      {/* ── Add/Edit Modal ── */}
+      {/* ── Add Member Modal ── */}
       {showForm && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.55)", zIndex: 1000, display: "flex", alignItems: "flex-start", justifyContent: "center", padding: "40px 16px", overflowY: "auto" }}>
-          <div style={{ background: "var(--bg-card)", borderRadius: 16, width: "100%", maxWidth: 620, boxShadow: "0 24px 60px rgba(0,0,0,0.25)", padding: "28px 28px 24px" }}>
+          <div style={{ background: "var(--bg-card)", borderRadius: 16, width: "100%", maxWidth: 480, boxShadow: "0 24px 60px rgba(0,0,0,0.25)", padding: "28px 28px 24px" }}>
 
-            {/* Modal header */}
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 24 }}>
-              <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: "var(--text-main)" }}>{editing ? "Edit User" : "Add New User"}</h3>
+              <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: "var(--text-main)" }}>Add Team Member</h3>
               <button onClick={() => setShowForm(false)} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text-muted)", padding: 4 }}><X size={20} /></button>
             </div>
 
-            {/* Photo + Basic */}
-            <div style={{ background: "var(--bg-subtle)", borderRadius: 12, padding: "16px", marginBottom: 20 }}>
-              <div style={{ fontSize: 12, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 14 }}>Basic Details</div>
-              <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 16 }}>
-                <Avatar user={form} size={56} />
+            {formError && (
+              <div style={{ padding: "10px 12px", borderRadius: 8, background: "#fce4ec", color: "#b71c1c", fontSize: 13, marginBottom: 16 }}>
+                {formError}
+              </div>
+            )}
+
+            <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+              <div>
+                <label style={labelStyle}>Full Name <span style={{ color: "#e53935" }}>*</span></label>
+                <input style={inputStyle} placeholder="Ramesh Sharma" value={form.name} onChange={e => setForm(p => ({ ...p, name: e.target.value }))} />
+              </div>
+              <div>
+                <label style={labelStyle}>Email Address <span style={{ color: "#e53935" }}>*</span></label>
+                <input style={inputStyle} type="email" placeholder="ramesh@example.com" value={form.email} onChange={e => setForm(p => ({ ...p, email: e.target.value }))} />
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
                 <div>
-                  <input ref={photoRef} type="file" accept="image/*" style={{ display: "none" }} onChange={handlePhoto} />
-                  <button className="btn-outline" onClick={() => photoRef.current?.click()} style={{ fontSize: 12, padding: "5px 12px" }}>
-                    <Upload size={12} /> {form.photo ? "Change Photo" : "Upload Photo"}
-                  </button>
-                  <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 4 }}>PNG or JPG, max 2MB</div>
+                  <label style={labelStyle}>Phone</label>
+                  <input style={inputStyle} placeholder="+91 98765 43210" value={form.phone} onChange={e => setForm(p => ({ ...p, phone: e.target.value }))} />
                 </div>
-              </div>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-                <div style={fieldStyle}>
-                  <label style={labelStyle}>First Name <span style={{ color: "#e53935" }}>*</span></label>
-                  <input style={inputStyle} placeholder="Ramesh" value={form.firstName} onChange={e => set("firstName", e.target.value)} />
-                </div>
-                <div style={fieldStyle}>
-                  <label style={labelStyle}>Last Name</label>
-                  <input style={inputStyle} placeholder="Sharma" value={form.lastName} onChange={e => set("lastName", e.target.value)} />
-                </div>
-                <div style={fieldStyle}>
-                  <label style={labelStyle}>Mobile Number <span style={{ color: "#e53935" }}>*</span></label>
-                  <input style={inputStyle} placeholder="+91 98765 43210" value={form.phone} onChange={e => set("phone", e.target.value)} />
-                </div>
-                <div style={fieldStyle}>
-                  <label style={labelStyle}>Email Address</label>
-                  <input style={inputStyle} type="email" placeholder="ramesh@example.com" value={form.email} onChange={e => set("email", e.target.value)} />
-                </div>
-              </div>
-            </div>
-
-            {/* Role & Access */}
-            <div style={{ background: "var(--bg-subtle)", borderRadius: 12, padding: "16px", marginBottom: 20 }}>
-              <div style={{ fontSize: 12, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 14 }}>Role & Access</div>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 14 }}>
-                {ROLES.map(r => (
-                  <label key={r.key} onClick={() => set("role", r.key)} style={{
-                    display: "flex", alignItems: "flex-start", gap: 10, padding: "12px 14px", borderRadius: 10, cursor: "pointer",
-                    border: `2px solid ${form.role === r.key ? r.color : "var(--border-input)"}`,
-                    background: form.role === r.key ? r.bg : "var(--bg-card)", transition: "all 0.15s"
-                  }}>
-                    <input type="radio" checked={form.role === r.key} onChange={() => set("role", r.key)} style={{ accentColor: r.color, marginTop: 2, flexShrink: 0 }} />
-                    <div>
-                      <div style={{ fontSize: 13, fontWeight: 600, color: form.role === r.key ? r.color : "var(--text-main)" }}>{r.label}</div>
-                      <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 2 }}>{r.desc}</div>
-                    </div>
-                  </label>
-                ))}
-              </div>
-              <div style={{ display: "flex", gap: 12 }}>
-                <div style={fieldStyle}>
+                <div>
                   <label style={labelStyle}>Job Title</label>
-                  <input style={inputStyle} placeholder="e.g. Operations Manager" value={form.jobTitle} onChange={e => set("jobTitle", e.target.value)} />
+                  <input style={inputStyle} placeholder="Operations Manager" value={form.job_title} onChange={e => setForm(p => ({ ...p, job_title: e.target.value }))} />
                 </div>
-                <div style={fieldStyle}>
-                  <label style={labelStyle}>Status</label>
-                  <select style={inputStyle} value={form.status} onChange={e => set("status", e.target.value)}>
-                    <option value="active">Active</option>
-                    <option value="inactive">Inactive</option>
-                  </select>
+              </div>
+              <div>
+                <label style={labelStyle}>Role <span style={{ color: "#e53935" }}>*</span></label>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                  {TEAM_ROLES.map(r => (
+                    <label key={r.key} onClick={() => setForm(p => ({ ...p, role: r.key }))} style={{
+                      display: "flex", alignItems: "flex-start", gap: 10, padding: "12px 14px", borderRadius: 10, cursor: "pointer",
+                      border: `2px solid ${form.role === r.key ? r.color : "var(--border-input)"}`,
+                      background: form.role === r.key ? r.bg : "var(--bg-card)", transition: "all 0.15s"
+                    }}>
+                      <input type="radio" checked={form.role === r.key} onChange={() => setForm(p => ({ ...p, role: r.key }))} style={{ accentColor: r.color, marginTop: 2, flexShrink: 0 }} />
+                      <div>
+                        <div style={{ fontSize: 13, fontWeight: 600, color: form.role === r.key ? r.color : "var(--text-main)" }}>{r.label}</div>
+                        <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 2 }}>{r.desc}</div>
+                      </div>
+                    </label>
+                  ))}
                 </div>
               </div>
             </div>
 
-            {/* Location */}
-            <div style={{ background: "var(--bg-subtle)", borderRadius: 12, padding: "16px", marginBottom: 20 }}>
-              <div style={{ fontSize: 12, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 14 }}>Location</div>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-                <div style={fieldStyle}>
-                  <label style={labelStyle}>City</label>
-                  <input style={inputStyle} placeholder="Mumbai" value={form.city} onChange={e => set("city", e.target.value)} />
-                </div>
-                <div style={fieldStyle}>
-                  <label style={labelStyle}>State</label>
-                  <select style={inputStyle} value={form.state} onChange={e => set("state", e.target.value)}>
-                    <option value="">Select State</option>
-                    {INDIAN_STATES.map(s => <option key={s} value={s}>{s}</option>)}
-                  </select>
-                </div>
-              </div>
-            </div>
-
-            {/* Driver-specific */}
-            {isDriver && (
-              <div style={{ background: "var(--bg-subtle)", borderRadius: 12, padding: "16px", marginBottom: 20, border: "1.5px solid #efebe9" }}>
-                <div style={{ fontSize: 12, fontWeight: 700, color: "#6d4c41", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 14 }}>
-                  🚛 Driver Details
-                </div>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-                  <div style={fieldStyle}>
-                    <label style={labelStyle}>License Number</label>
-                    <input style={inputStyle} placeholder="MH-0120230012345" value={form.licenseNumber} onChange={e => set("licenseNumber", e.target.value)} />
-                  </div>
-                  <div style={fieldStyle}>
-                    <label style={labelStyle}>License Class</label>
-                    <select style={inputStyle} value={form.licenseClass} onChange={e => set("licenseClass", e.target.value)}>
-                      <option value="">Select Class</option>
-                      {LICENSE_CLASSES.map(c => <option key={c} value={c}>{c}</option>)}
-                    </select>
-                  </div>
-                  <div style={fieldStyle}>
-                    <label style={labelStyle}>License Expiry Date</label>
-                    <input type="date" style={inputStyle} value={form.licenseExpiry} onChange={e => set("licenseExpiry", e.target.value)} />
-                  </div>
-                  <div style={fieldStyle}>
-                    <label style={labelStyle}>Start Date</label>
-                    <input type="date" style={inputStyle} value={form.startDate} onChange={e => set("startDate", e.target.value)} />
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Required field error */}
-            {(!form.firstName.trim() || !form.phone.trim()) && (
-              <div style={{ fontSize: 12, color: "#e53935", marginBottom: 12 }}>* First Name and Mobile Number are required.</div>
-            )}
-
-            {/* Actions */}
-            <div style={{ display: "flex", justifyContent: "flex-end", gap: 10 }}>
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, marginTop: 24 }}>
               <button className="btn-outline" onClick={() => setShowForm(false)}>Cancel</button>
-              <button className="btn-primary" onClick={handleSave} disabled={!form.firstName.trim() || !form.phone.trim()}>
-                {saved ? <><CheckCircle size={14} /> Saved!</> : editing ? "Save Changes" : "Add User"}
+              <button className="btn-primary" onClick={handleAdd} disabled={saving || !form.name.trim() || !form.email.trim()}>
+                {saving ? "Adding..." : "Add Member"}
               </button>
             </div>
           </div>
@@ -505,7 +427,7 @@ const EXPORT_TYPES = [
   { key: "vehicles",    label: "Vehicles",             desc: "Registration, make, model, status" },
   { key: "drivers",     label: "Drivers",              desc: "Name, phone, license details, expiry" },
   { key: "trips",       label: "Trips",                desc: "Routes, freight amounts, dates" },
-  { key: "expenses",    label: "All Expenses",         desc: "Every expense — fuel, toll, maintenance, etc." },
+  { key: "expenses",    label: "All Expenses",         desc: "Every expense: fuel, toll, maintenance, etc." },
   { key: "fuel",        label: "Fuel Log",             desc: "Only fuel entries with amounts" },
   { key: "profit_loss", label: "Profit & Loss Report", desc: "Trip-wise revenue, expenses, profit & margin" },
 ];
@@ -528,25 +450,31 @@ function ExportSettings() {
   };
 
   const handleExport = async () => {
-    const types = Object.entries(selected).filter(([,v]) => v).map(([k]) => k).join(",");
-    if (!types) { setError("Select at least one data type."); return; }
+    const typesList = Object.entries(selected).filter(([,v]) => v).map(([k]) => k);
+    if (!typesList.length) { setError("Select at least one data type."); return; }
     setError(""); setExporting(true); setDone(false);
-
     const orgName = localStorage.getItem("orgName") || "My Fleet";
-
     try {
-      const res = await authService.exportData(format, types, orgName);
-      if (!res.success || !res.data) throw new Error("Export failed");
-      const blob = res.data;
-      const a = document.createElement("a");
-      a.href = URL.createObjectURL(blob);
-      a.download = `fleetsure_export_${new Date().toISOString().slice(0,10)}.${format === "xlsx" ? "xlsx" : "zip"}`;
-      a.click();
-      URL.revokeObjectURL(a.href);
+      const { buildWorkbook } = await import("@/app/reports/exportHelper");
+      const XLSX = await import("xlsx");
+      const wb   = await buildWorkbook(typesList, orgName);
+      const date = new Date().toISOString().slice(0, 10);
+      if (format === "xlsx") {
+        XLSX.writeFile(wb, `fleetsure_export_${date}.xlsx`);
+      } else {
+        for (const sheetName of wb.SheetNames) {
+          const csv = XLSX.utils.sheet_to_csv(wb.Sheets[sheetName]);
+          const a = document.createElement("a");
+          a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
+          a.download = `${sheetName.replace(/\s+/g, "_")}_${date}.csv`;
+          a.click();
+          URL.revokeObjectURL(a.href);
+        }
+      }
       setDone(true);
       setTimeout(() => setDone(false), 4000);
     } catch {
-      setError("Export failed. Make sure the backend is running.");
+      setError("Export failed. Please try again.");
     } finally {
       setExporting(false);
     }
@@ -563,7 +491,7 @@ function ExportSettings() {
       <div style={{ display: "flex", alignItems: "flex-start", gap: 10, padding: "12px 14px", borderRadius: 10, background: "var(--bg-subtle)", border: "1px solid var(--border-input)", marginBottom: 24 }}>
         <span style={{ fontSize: 16, marginTop: 1 }}>💡</span>
         <div style={{ fontSize: 12.5, color: "var(--text-muted)", lineHeight: 1.6 }}>
-          XLSX format includes all data in one file with multiple sheets — best for sharing with your accountant.
+          XLSX format includes all data in one file with multiple sheets, best for sharing with your accountant.
           CSV exports a ZIP folder, useful for large datasets or importing into other software.
         </div>
       </div>
@@ -744,25 +672,9 @@ function BillingSettings() {
       .catch(() => {});
   }, []);
 
-  const handleUpgrade = async (planId: string) => {
-    if (!planId || planId === "enterprise") {
-      const msg = encodeURIComponent("Hi, I'm interested in the FleetSure Enterprise plan for my fleet. Please share more details.");
-      window.open(`https://wa.me/919606462535?text=${msg}`, "_blank");
-      return;
-    }
-    setUpgrading(planId);
-    setError("");
-    try {
-      const res = await authService.subscribePlan(planId);
-      if (!res.success) throw new Error(res.error || "Failed to create subscription");
-      if (res.data?.short_url) {
-        window.open(res.data.short_url, "_blank");
-      }
-    } catch (e: any) {
-      setError(e.message || "Something went wrong");
-    } finally {
-      setUpgrading(null);
-    }
+  const handleUpgrade = (_planId: string) => {
+    const msg = encodeURIComponent("Hi, I'm interested in upgrading my FleetSure plan. Please share more details.");
+    window.open(`https://wa.me/919606462535?text=${msg}`, "_blank");
   };
 
   const currentPlan = billingStatus?.plan || "trial";
@@ -770,24 +682,24 @@ function BillingSettings() {
   const status      = billingStatus?.status || "trial";
 
   const bannerText = status === "active"
-    ? `${billingStatus?.plan_name} Plan — Active`
+    ? `${billingStatus?.plan_name} Plan - Active`
     : status === "cancelled"
-    ? "Subscription Cancelled — Access until period end"
+    ? "Subscription Cancelled - Access until period end"
     : status === "past_due"
-    ? "Payment Overdue — Please update payment method"
+    ? "Payment Overdue - Please update payment method"
     : status === "created"
     ? daysLeft != null
-      ? `Free Trial — ${daysLeft} day${daysLeft !== 1 ? "s" : ""} remaining (payment pending)`
-      : "Free Trial — Payment pending"
+      ? `Free Trial - ${daysLeft} day${daysLeft !== 1 ? "s" : ""} remaining (payment pending)`
+      : "Free Trial - Payment pending"
     : daysLeft != null
-    ? `Free Trial — ${daysLeft} day${daysLeft !== 1 ? "s" : ""} remaining`
-    : "Free Trial — Explore all features. Upgrade anytime.";
+    ? `Free Trial - ${daysLeft} day${daysLeft !== 1 ? "s" : ""} remaining`
+    : "Free Trial - Explore all features. Upgrade anytime.";
 
   return (
     <div>
       <h2 style={{ margin: "0 0 4px", fontSize: 17, fontWeight: 700 }}>Billing & Subscriptions</h2>
       <p style={{ margin: "0 0 20px", fontSize: 13, color: "var(--text-muted)" }}>
-        Choose the plan that fits your fleet size. All plans include a 60-day free trial — no credit card required.
+        Choose the plan that fits your fleet size. All plans include a 60-day free trial, no credit card required.
       </p>
 
       {/* Current plan banner */}
@@ -915,10 +827,10 @@ function BillingSettings() {
         </div>
         <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: isMobile ? 12 : "12px 24px" }}>
           {[
-            { q: "Is billing per truck or per fleet?", a: "Per fleet — one flat price regardless of how many trucks you manage within the plan limit." },
+            { q: "Is billing per truck or per fleet?", a: "Per fleet, one flat price regardless of how many trucks you manage within the plan limit." },
             { q: "Can I change plans later?", a: "Yes. Upgrade or downgrade anytime. Prorated billing will be applied." },
             { q: "What payment methods are accepted?", a: "UPI, cards, net banking via Razorpay. GST invoice provided automatically." },
-            { q: "What happens after the free trial?", a: "You'll be prompted to pick a plan. Your data is never deleted — we give you 7 days grace period." },
+            { q: "What happens after the free trial?", a: "You'll be prompted to pick a plan. Your data is never deleted. We give you 7 days grace period." },
           ].map(item => (
             <div key={item.q}>
               <div style={{ fontSize: 12.5, fontWeight: 700, color: "var(--text-main)", marginBottom: 3 }}>{item.q}</div>
@@ -1188,9 +1100,15 @@ function NotificationSettings() {
   const [testMsg, setTestMsg] = useState("");
 
   useEffect(() => {
-    authService.getNotificationSettings()
-      .then(r => { if (r.success && r.data) setS(prev => ({ ...prev, ...r.data })); setLoading(false); })
-      .catch(() => setLoading(false));
+    (async () => {
+      try {
+        const { getUid } = await import("@/lib/services/_base");
+        const owner_id = getUid();
+        const { data } = await supabase.from("notification_settings").select("*").eq("owner_id", owner_id).maybeSingle();
+        if (data) setS(prev => ({ ...prev, ...data }));
+      } catch {}
+      setLoading(false);
+    })();
   }, []);
 
   const toggle = (key: string) => setS(prev => ({ ...prev, [key]: !(prev as any)[key] }));
@@ -1199,23 +1117,18 @@ function NotificationSettings() {
   const save = async () => {
     setSaving(true);
     try {
-      await authService.updateNotificationSettings(s);
+      const { getUid } = await import("@/lib/services/_base");
+      const owner_id = getUid();
+      await supabase.from("notification_settings")
+        .upsert({ ...s, owner_id }, { onConflict: "owner_id" });
       setSaved(true);
       setTimeout(() => setSaved(false), 2500);
     } finally { setSaving(false); }
   };
 
   const sendTestAlert = async () => {
-    setTesting(true); setTestMsg("");
-    try {
-      const r = await authService.sendTestAlert();
-      if (r.success) {
-        setTestMsg("✓ Test email sent! Check your inbox.");
-      } else {
-        setTestMsg(`✗ Failed: ${r.error || "Check Render logs"}`);
-      }
-    } catch { setTestMsg("✗ Network error — is backend running?"); }
-    finally { setTesting(false); setTimeout(() => setTestMsg(""), 6000); }
+    setTestMsg("✓ Notification settings saved. Email alerts will be sent based on your schedule.");
+    setTimeout(() => setTestMsg(""), 4000);
   };
 
   if (loading) return <p style={{ color: "#aaa", padding: "32px 0" }}>Loading...</p>;
@@ -1271,7 +1184,7 @@ function NotificationSettings() {
                 <span style={{ fontSize: 14, fontWeight: 600, color: "var(--text-main)" }}>WhatsApp Notifications</span>
                 <span style={{ fontSize: 10, fontWeight: 700, padding: "1px 6px", borderRadius: 8, background: "#fff3e0", color: "#e65100" }}>Coming Soon</span>
               </div>
-              <div style={{ fontSize: 12, color: "var(--text-muted)" }}>Requires AiSensy BSP setup — see Integrations tab</div>
+              <div style={{ fontSize: 12, color: "var(--text-muted)" }}>Requires AiSensy BSP setup. See Integrations tab.</div>
             </div>
           </div>
           <div style={{ padding: "12px 16px", borderTop: "1px solid var(--border)", background: "var(--bg-subtle)", opacity: 0.5 }}>

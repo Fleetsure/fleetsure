@@ -2,20 +2,44 @@
 import { useEffect, useState } from "react";
 import Header from "@/components/Header";
 import { tripService } from "@/lib/services/tripService";
-import { vehicleService } from "@/lib/services/vehicleService";
-import { todayISO, fmtDate } from "@/lib/date";
-import { Plus, Wrench, X } from "lucide-react";
+import { fmtDate } from "@/lib/date";
+import { Info, Route } from "lucide-react";
 import { useLanguage } from "@/lib/LanguageContext";
 
-export default function ExpensesPage() {
+const EXPENSE_TYPES = [
+  { value: "fuel",              label: "Fuel (HSD)" },
+  { value: "toll",              label: "Toll / Bridge" },
+  { value: "rto",               label: "RTO" },
+  { value: "police_challan",    label: "Police / Naka" },
+  { value: "maintenance",       label: "Parts & Repairs" },
+  { value: "tyre",              label: "Tyre Repair" },
+  { value: "oil",               label: "Oil" },
+  { value: "loading_unloading", label: "Loading / Unloading" },
+  { value: "driver_payment",    label: "Driver Payment" },
+  { value: "telephone",         label: "Telephone" },
+  { value: "fine",              label: "Fine" },
+  { value: "other",             label: "Other" },
+];
+
+const expLabel = (type: string) =>
+  EXPENSE_TYPES.find(e => e.value === type)?.label ?? type;
+
+const fmt = (n: number) =>
+  "₹" + Math.abs(n).toLocaleString("en-IN", { maximumFractionDigits: 0 });
+
+const TYPE_COLOR: Record<string, string> = {
+  fuel: "#1E2D8E", toll: "#283593", maintenance: "#e65100",
+  driver_payment: "#1a7a34", loading_unloading: "#6a1b9a",
+  police_challan: "#b71c1c", fine: "#b71c1c", other: "#666",
+};
+
+export default function TripExpensesPage() {
   const { t } = useLanguage();
   const [trips, setTrips]           = useState<any[]>([]);
   const [selectedTrip, setSelected] = useState("");
-  const [expenses, setExpenses]     = useState<any[]>([]);
-  const [showForm, setShowForm]     = useState(false);
-  const [saving, setSaving]         = useState(false);
-  const [error, setError]           = useState("");
-  const [form, setForm]             = useState({ expense_type: "fuel", amount: "", description: "", date: todayISO() });
+  const [detail, setDetail]         = useState<any>(null);
+  const [loading, setLoading]       = useState(false);
+  const [fetchError, setFetchError] = useState<string | null>(null);
   const [isMobile, setIsMobile]     = useState(false);
 
   useEffect(() => {
@@ -28,94 +52,154 @@ export default function ExpensesPage() {
   useEffect(() => { tripService.getAll().then(r => setTrips(r.data || [])); }, []);
 
   useEffect(() => {
-    if (!selectedTrip) { setExpenses([]); return; }
-    tripService.getExpenses(selectedTrip).then(r => setExpenses(r.data || []));
+    if (!selectedTrip) { setDetail(null); setFetchError(null); return; }
+    setLoading(true);
+    setDetail(null);
+    setFetchError(null);
+    tripService.getById(selectedTrip).then(r => {
+      if (r.success && r.data) {
+        setDetail(r.data);
+      } else {
+        console.error("[TripExpenses] getById failed:", r.error);
+        setFetchError(r.error ?? "Failed to load trip details");
+      }
+    }).finally(() => setLoading(false));
   }, [selectedTrip]);
 
-  const handleSubmit = async (e: any) => {
-    e.preventDefault(); setSaving(true); setError("");
-    try {
-      await tripService.addExpense(selectedTrip, { ...form, amount: parseFloat(form.amount) });
-      setShowForm(false); setForm({ expense_type: "fuel", amount: "", description: "", date: todayISO() });
-      tripService.getExpenses(selectedTrip).then(r => setExpenses(r.data || []));
-    } catch (err: any) {
-      setError(err.response?.data?.detail || "Error adding expense");
-    } finally { setSaving(false); }
-  };
+  // Merge all four expense sources — same logic as trips/page.tsx
+  const fuelEntries = (detail?.fuel_logs ?? []).map((fl: any) => ({
+    id: `fl_${fl.id}`,
+    label: "Fuel (HSD)",
+    type_color: TYPE_COLOR.fuel,
+    amount: Number(fl.amount),
+    date: fl.date,
+    description: `${Number(fl.litres).toFixed(1)} L${fl.fuel_station ? ` · ${fl.fuel_station}` : ""}`,
+  }));
+  const tollEntries = (detail?.toll_logs ?? []).map((tl: any) => ({
+    id: `tl_${tl.id}`,
+    label: "Toll / Bridge",
+    type_color: TYPE_COLOR.toll,
+    amount: Number(tl.amount),
+    date: tl.date,
+    description: [tl.toll_plaza, tl.payment_mode === "fastag" ? "FASTag" : tl.payment_mode ? "Cash" : null].filter(Boolean).join(" · ") || null,
+  }));
+  const miscEntries = (detail?.misc_expenses ?? []).map((me: any) => ({
+    id: `me_${me.id}`,
+    label: expLabel(me.category),
+    type_color: TYPE_COLOR[me.category] ?? TYPE_COLOR.other,
+    amount: Number(me.amount),
+    date: me.date,
+    description: me.description || null,
+  }));
+  const legacyEntries = (detail?.expenses ?? []).map((e: any) => ({
+    id: e.id,
+    label: expLabel(e.expense_type),
+    type_color: TYPE_COLOR[e.expense_type] ?? TYPE_COLOR.other,
+    amount: Number(e.amount),
+    date: e.date,
+    description: e.description || null,
+  }));
 
-  const total = expenses.reduce((s, e) => s + parseFloat(e.amount), 0);
-  const byType: any = {};
-  expenses.forEach(e => { byType[e.expense_type] = (byType[e.expense_type] || 0) + parseFloat(e.amount); });
+  const allExpenses = [...legacyEntries, ...fuelEntries, ...tollEntries, ...miscEntries]
+    .sort((a, b) => a.date.localeCompare(b.date));
 
-  const typeColors: any = { fuel: "#1E2D8E", toll: "#283593", maintenance: "#e65100", driver_payment: "#1a7a34", loading_unloading: "#6a1b9a", police_challan: "#b71c1c", other: "#666" };
+  const totalExp = allExpenses.reduce((s, e) => s + e.amount, 0);
+  const freight  = Number(detail?.freight_amount ?? 0);
+  const profit   = freight - totalExp;
+  const margin   = freight > 0 ? ((profit / freight) * 100).toFixed(1) : "0.0";
+
+  // Group by label for breakdown cards
+  const byLabel: Record<string, number> = {};
+  allExpenses.forEach(e => { byLabel[e.label] = (byLabel[e.label] || 0) + e.amount; });
 
   return (
     <div>
-      <Header title={t("nav.services")} subtitle={t("trip.expense")} />
+      <Header title={t("nav.services")} subtitle="Consolidated trip P&L view" />
       <div style={{ padding: isMobile ? "14px" : "24px 28px" }}>
+
+        {/* Info banner */}
+        <div style={{ display: "flex", alignItems: "flex-start", gap: 10, background: "#e8f0fe", border: "1px solid #c5d5fb", borderRadius: 10, padding: "12px 16px", marginBottom: 20, fontSize: 13, color: "#1a3a8f" }}>
+          <Info size={16} style={{ flexShrink: 0, marginTop: 1 }} />
+          <span>
+            This is a <strong>read-only view</strong>. To add or manage expenses, open the trip from the{" "}
+            <a href="/trips" style={{ color: "#1E2D8E", fontWeight: 700, textDecoration: "underline" }}>Trips page</a>{" "}
+            — fuel, tolls, and other costs can be added there and will appear here automatically.
+          </span>
+        </div>
 
         {/* Trip selector */}
         <div className="card" style={{ marginBottom: 20 }}>
-          <label style={{ fontSize: 13, fontWeight: 600, color: "#555", display: "block", marginBottom: 8 }}>Select Trip to View Expenses</label>
+          <label style={{ fontSize: 13, fontWeight: 600, color: "#555", display: "block", marginBottom: 8 }}>Select Trip</label>
           <select value={selectedTrip} onChange={e => setSelected(e.target.value)}
-            style={{ width: "100%", maxWidth: 400, padding: "9px 12px", border: "1.5px solid #e8e8f0", borderRadius: 8, fontSize: 13.5 }}>
+            style={{ width: "100%", maxWidth: 480, padding: "9px 12px", border: "1.5px solid #e8e8f0", borderRadius: 8, fontSize: 13.5 }}>
             <option value="">— Choose a trip —</option>
-            {trips.map((t: any) => (
-              <option key={t.id} value={t.id}>{t.origin} → {t.destination} ({t.start_date}) — ₹{Number(t.freight_amount).toLocaleString("en-IN")}</option>
+            {trips.map((trip: any) => (
+              <option key={trip.id} value={trip.id}>
+                {trip.origin} → {trip.destination} · {fmtDate(trip.start_date)} · ₹{Number(trip.freight_amount).toLocaleString("en-IN")}
+              </option>
             ))}
           </select>
         </div>
 
-        {selectedTrip && (
+        {loading && (
+          <p style={{ color: "#bbb", textAlign: "center", padding: "32px 0" }}>Loading…</p>
+        )}
+
+        {!loading && detail && (
           <>
-            {/* Breakdown */}
-            {Object.keys(byType).length > 0 && (
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))", gap: 12, marginBottom: 20 }}>
-                {Object.entries(byType).map(([type, amt]: any) => (
-                  <div key={type} className="stat-card" style={{ borderLeft: `3px solid ${typeColors[type] || "#1E2D8E"}` }}>
-                    <div style={{ fontSize: 16, fontWeight: 700, color: typeColors[type] || "#1E2D8E" }}>₹{Number(amt).toLocaleString("en-IN")}</div>
-                    <div style={{ fontSize: 11.5, color: "#888", marginTop: 3, textTransform: "capitalize" }}>{type.replace("_", " ")}</div>
-                  </div>
-                ))}
-                <div className="stat-card" style={{ borderLeft: "3px solid #1a1a2e", background: "#f8f9ff" }}>
-                  <div style={{ fontSize: 16, fontWeight: 700, color: "#1a1a2e" }}>₹{Number(total).toLocaleString("en-IN")}</div>
-                  <div style={{ fontSize: 11.5, color: "#888", marginTop: 3 }}>Total Expenses</div>
+            {/* Freight + P&L summary */}
+            <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(3, 1fr)", gap: 12, marginBottom: 20 }}>
+              {[
+                { label: "Freight Income", value: fmt(freight),  color: "#2e7d32", bg: "#e8f5e9" },
+                { label: "Total Expenses", value: fmt(totalExp), color: "#c62828", bg: "#fce4ec" },
+                { label: profit >= 0 ? "Net Profit" : "Net Loss", value: fmt(profit), color: profit >= 0 ? "#2e7d32" : "#c62828", bg: profit >= 0 ? "#e8f5e9" : "#fce4ec" },
+              ].map(s => (
+                <div key={s.label} className="stat-card" style={{ background: s.bg, border: "none", textAlign: "center" }}>
+                  <div style={{ fontSize: 20, fontWeight: 800, color: s.color }}>{s.value}</div>
+                  <div style={{ fontSize: 12, color: "#666", marginTop: 4 }}>{s.label}{s.label.startsWith("Net") ? ` · ${margin}%` : ""}</div>
                 </div>
+              ))}
+            </div>
+
+            {/* Breakdown by category */}
+            {Object.keys(byLabel).length > 0 && (
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))", gap: 10, marginBottom: 20 }}>
+                {Object.entries(byLabel).map(([label, amt]) => {
+                  const entry = allExpenses.find(e => e.label === label);
+                  const color = entry?.type_color ?? "#666";
+                  return (
+                    <div key={label} className="stat-card" style={{ borderLeft: `3px solid ${color}` }}>
+                      <div style={{ fontSize: 15, fontWeight: 700, color }}>{fmt(amt)}</div>
+                      <div style={{ fontSize: 11.5, color: "#888", marginTop: 3 }}>{label}</div>
+                    </div>
+                  );
+                })}
               </div>
             )}
 
+            {/* Expenses table */}
             <div className="card">
-              <div style={{
-                display: "flex",
-                flexDirection: isMobile ? "column" : "row",
-                justifyContent: "space-between",
-                alignItems: isMobile ? "stretch" : "center",
-                marginBottom: 16,
-                gap: 10,
-              }}>
-                <h2 style={{ margin: 0, fontSize: 15, fontWeight: 700 }}>{t("trip.expense")}</h2>
-                <button className="btn-primary" onClick={() => setShowForm(true)}><Plus size={15} />{t("misc.add")}</button>
-              </div>
-              {expenses.length === 0 ? (
+              <h2 style={{ margin: "0 0 14px", fontSize: 15, fontWeight: 700 }}>All Expenses</h2>
+
+              {allExpenses.length === 0 ? (
                 <div style={{ textAlign: "center", padding: "32px 0" }}>
-                  <Wrench size={32} color="#ddd" style={{ margin: "0 auto 10px", display: "block" }} />
-                  <p style={{ color: "#aaa", margin: "0 0 12px", fontSize: 13.5 }}>No expenses logged for this trip</p>
-                  <button className="btn-primary" onClick={() => setShowForm(true)}>Add First Expense</button>
+                  <Route size={32} color="#ddd" style={{ margin: "0 auto 10px", display: "block" }} />
+                  <p style={{ color: "#bbb", margin: 0, fontSize: 13 }}>No expenses logged for this trip yet</p>
                 </div>
               ) : isMobile ? (
                 <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                  {expenses.map((e: any) => (
+                  {allExpenses.map(e => (
                     <div key={e.id} style={{ padding: "12px 14px", borderRadius: 10, background: "var(--bg-subtle)", border: "1px solid var(--border)", display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ marginBottom: 4 }}>
-                          <span style={{ fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 6, background: `${typeColors[e.expense_type]}15`, color: typeColors[e.expense_type] || "#1E2D8E", textTransform: "capitalize" }}>
-                            {e.expense_type.replace("_", " ")}
+                          <span style={{ fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 6, background: `${e.type_color}15`, color: e.type_color }}>
+                            {e.label}
                           </span>
                         </div>
                         <div style={{ fontSize: 12, color: "var(--text-muted)" }}>{e.description || "—"}</div>
                       </div>
                       <div style={{ textAlign: "right", flexShrink: 0, marginLeft: 12 }}>
-                        <div style={{ fontWeight: 700, fontSize: 15, color: "#1E2D8E" }}>₹{Number(e.amount).toLocaleString("en-IN")}</div>
+                        <div style={{ fontWeight: 700, fontSize: 15, color: "#c62828" }}>{fmt(e.amount)}</div>
                         <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 2 }}>{fmtDate(e.date)}</div>
                       </div>
                     </div>
@@ -123,63 +207,54 @@ export default function ExpensesPage() {
                 </div>
               ) : (
                 <table>
-                  <thead><tr><th>Type</th><th>Amount</th><th>Date</th><th>Description</th></tr></thead>
+                  <thead>
+                    <tr>
+                      {["Category", "Date", "Note", "Amount"].map((h, i) => (
+                        <th key={h} style={{ textAlign: i === 3 ? "right" : "left" }}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
                   <tbody>
-                    {expenses.map((e: any) => (
+                    {allExpenses.map(e => (
                       <tr key={e.id}>
-                        <td><span className="badge" style={{ background: `${typeColors[e.expense_type]}15`, color: typeColors[e.expense_type] || "#1E2D8E", textTransform: "capitalize" }}>{e.expense_type.replace("_", " ")}</span></td>
-                        <td style={{ fontWeight: 600, color: "#1E2D8E" }}>₹{Number(e.amount).toLocaleString("en-IN")}</td>
-                        <td>{fmtDate(e.date)}</td>
-                        <td style={{ color: "#888" }}>{e.description || "—"}</td>
+                        <td>
+                          <span className="badge" style={{ background: `${e.type_color}15`, color: e.type_color }}>
+                            {e.label}
+                          </span>
+                        </td>
+                        <td style={{ color: "#888" }}>{fmtDate(e.date)}</td>
+                        <td style={{ color: "#aaa" }}>{e.description || "—"}</td>
+                        <td style={{ textAlign: "right", fontWeight: 700, color: "#c62828" }}>{fmt(e.amount)}</td>
                       </tr>
                     ))}
+                    <tr>
+                      <td colSpan={3} style={{ fontWeight: 700, fontSize: 13, borderTop: "2px solid #f0f0f0", paddingTop: 10 }}>Total</td>
+                      <td style={{ textAlign: "right", fontWeight: 800, fontSize: 13, color: "#c62828", borderTop: "2px solid #f0f0f0", paddingTop: 10 }}>{fmt(totalExp)}</td>
+                    </tr>
                   </tbody>
                 </table>
               )}
             </div>
           </>
         )}
-      </div>
 
-      {showForm && (
-        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, padding: 20 }}>
-          <div className="card" style={{ width: "100%", maxWidth: 480, position: "relative", maxHeight: "90vh", overflowY: "auto" }}>
-            <button onClick={() => setShowForm(false)} style={{ position: "absolute", top: 16, right: 16, background: "none", border: "none", cursor: "pointer", color: "#888" }}><X size={18} /></button>
-            <h2 style={{ margin: "0 0 20px", fontSize: 16, fontWeight: 700 }}>{t("misc.add")}</h2>
-            {error && <div style={{ background: "#fce4ec", color: "#b71c1c", padding: "8px 12px", borderRadius: 6, marginBottom: 14, fontSize: 13 }}>{error}</div>}
-            <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-              <div>
-                <label style={{ fontSize: 12.5, fontWeight: 600, color: "#555", display: "block", marginBottom: 4 }}>Expense Type *</label>
-                <select required value={form.expense_type} onChange={e => setForm(p => ({ ...p, expense_type: e.target.value }))}
-                  style={{ width: "100%", padding: "8px 12px", border: "1.5px solid #e8e8f0", borderRadius: 8, fontSize: 13.5 }}>
-                  {["fuel", "toll", "maintenance", "driver_payment", "loading_unloading", "police_challan", "other"].map(t => (
-                    <option key={t} value={t}>{t.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase())}</option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label style={{ fontSize: 12.5, fontWeight: 600, color: "#555", display: "block", marginBottom: 4 }}>Amount (₹) *</label>
-                <input type="number" required value={form.amount} onChange={e => setForm(p => ({ ...p, amount: e.target.value }))} placeholder="5000"
-                  style={{ width: "100%", padding: "8px 12px", border: "1.5px solid #e8e8f0", borderRadius: 8, fontSize: 13.5 }} />
-              </div>
-              <div>
-                <label style={{ fontSize: 12.5, fontWeight: 600, color: "#555", display: "block", marginBottom: 4 }}>Date *</label>
-                <input type="date" required value={form.date} onChange={e => setForm(p => ({ ...p, date: e.target.value }))}
-                  style={{ width: "100%", padding: "8px 12px", border: "1.5px solid #e8e8f0", borderRadius: 8, fontSize: 13.5 }} />
-              </div>
-              <div>
-                <label style={{ fontSize: 12.5, fontWeight: 600, color: "#555", display: "block", marginBottom: 4 }}>Description</label>
-                <input value={form.description} onChange={e => setForm(p => ({ ...p, description: e.target.value }))} placeholder="Optional note..."
-                  style={{ width: "100%", padding: "8px 12px", border: "1.5px solid #e8e8f0", borderRadius: 8, fontSize: 13.5 }} />
-              </div>
-              <div style={{ display: "flex", gap: 10, marginTop: 4 }}>
-                <button type="button" className="btn-outline" style={{ flex: 1 }} onClick={() => setShowForm(false)}>{t("common.cancel")}</button>
-                <button type="submit" className="btn-primary" style={{ flex: 1, justifyContent: "center" }} disabled={saving}>{saving ? t("common.loading") : t("misc.add")}</button>
-              </div>
-            </form>
+        {!loading && fetchError && (
+          <div style={{ background: "#fce4ec", border: "1px solid #ef9a9a", borderRadius: 10, padding: "14px 18px", color: "#b71c1c", fontSize: 13 }}>
+            <strong>Could not load trip:</strong> {fetchError}
+            <div style={{ marginTop: 6, fontSize: 12, color: "#c62828" }}>
+              Check the browser console (F12 → Console) for more details.
+            </div>
           </div>
-        </div>
-      )}
+        )}
+
+        {!loading && !detail && !fetchError && !selectedTrip && (
+          <div style={{ textAlign: "center", padding: "52px 20px", color: "#ccc" }}>
+            <Route size={40} color="#e0e0e0" style={{ margin: "0 auto 14px", display: "block" }} />
+            <div style={{ fontSize: 15, fontWeight: 600, color: "#bbb" }}>Select a trip above to view its expenses</div>
+          </div>
+        )}
+
+      </div>
     </div>
   );
 }
