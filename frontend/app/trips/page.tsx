@@ -365,10 +365,10 @@ export default function TripsPage() {
           trip_id:      selTrip.id,
           date:         expForm.date,
           amount:       parseFloat(expForm.amount),
-          toll_plaza:   expForm.toll_plaza || null,
-          route:        null,
+          toll_plaza:   expForm.toll_plaza || undefined,
+          route:        undefined,
           payment_mode: expForm.payment_mode || "cash",
-          notes:        expForm.description || null,
+          notes:        expForm.description || undefined,
         });
       } else {
         // All other types → misc_expenses → syncs to Misc Expenses module
@@ -380,7 +380,7 @@ export default function TripsPage() {
           amount:      parseFloat(expForm.amount),
           category:    miscCat,
           description: expForm.description || expLabel(expForm.expense_type),
-          notes:       null,
+          notes:       undefined,
         });
       }
       setExpForm({ ...EMPTY_EXP, date: todayISO() });
@@ -415,7 +415,7 @@ export default function TripsPage() {
       amount:      parseFloat(settleAmount),
       category:    "other",
       description: `Driver payment — advance settlement`,
-      notes:       null,
+      notes:       undefined,
     });
     setSettleAmount(""); setShowSettleForm(false);
     await refreshDetail();

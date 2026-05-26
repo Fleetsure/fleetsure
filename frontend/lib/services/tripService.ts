@@ -19,7 +19,7 @@ export const tripService = {
       query(supabase.from("misc_expenses").select("*").eq("trip_id", id).eq("owner_id", uid).order("date", { ascending: false })),
       query(supabase.from("expenses").select("*").eq("trip_id", id).order("date", { ascending: false })),
     ]);
-    if (!tripRes.success || !tripRes.data) return tripRes as ServiceResponse<Trip>;
+    if (!tripRes.success || !tripRes.data) return tripRes as unknown as ServiceResponse<Trip>;
     return ok({
       ...(tripRes.data as any),
       fuel_logs:     fuelRes.data    ?? [],
