@@ -303,7 +303,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     return () => unsubscribe();
   }, [pathname]);
 
-  if (PUBLIC_ROUTES.includes(pathname) || pathname.startsWith(DRIVER_PREFIX) || isTeamRoute(pathname)) {
+  if (PUBLIC_ROUTES.includes(pathname) || pathname.startsWith(DRIVER_PREFIX + "/") || pathname === DRIVER_PREFIX || isTeamRoute(pathname)) {
     return <div style={{ width: "100%", minHeight: "100vh" }}>{children}</div>;
   }
 
