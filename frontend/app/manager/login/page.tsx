@@ -2,19 +2,34 @@
 import { useState } from "react";
 import { signInWithEmailAndPassword, signInWithPopup, GoogleAuthProvider } from "firebase/auth";
 import { auth } from "@/lib/firebase";
+import { useRouter } from "next/navigation";
+import { supabase } from "@/lib/supabase";
 
 export default function ManagerLogin() {
+  const router = useRouter();
   const [email, setEmail]       = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading]   = useState(false);
   const [error, setError]       = useState("");
 
+  const redirectIfTeamMember = async (uid: string, email: string) => {
+    const { data } = await supabase
+      .from("team_members")
+      .select("role")
+      .or(`firebase_uid.eq.${uid},email.eq.${email}`)
+      .eq("is_active", true)
+      .maybeSingle();
+    if (data?.role === "manager") router.replace("/manager/dashboard");
+    else if (data?.role === "accountant") router.replace("/accountant/dashboard");
+    else setError("You are not registered as a manager. Contact your fleet owner.");
+  };
+
   const handleEmail = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true); setError("");
     try {
-      await signInWithEmailAndPassword(auth, email, password);
-      // TeamAuthProvider will detect the member and redirect to /manager/dashboard
+      const cred = await signInWithEmailAndPassword(auth, email, password);
+      await redirectIfTeamMember(cred.user.uid, cred.user.email || "");
     } catch (err: any) {
       setError(err.message?.replace("Firebase: ", "") || "Sign in failed.");
     } finally {
@@ -25,7 +40,8 @@ export default function ManagerLogin() {
   const handleGoogle = async () => {
     setLoading(true); setError("");
     try {
-      await signInWithPopup(auth, new GoogleAuthProvider());
+      const cred = await signInWithPopup(auth, new GoogleAuthProvider());
+      await redirectIfTeamMember(cred.user.uid, cred.user.email || "");
     } catch (err: any) {
       setError(err.message?.replace("Firebase: ", "") || "Google sign in failed.");
     } finally {
