@@ -13,14 +13,9 @@ export default function ManagerLogin() {
   const [error, setError]       = useState("");
 
   const redirectIfTeamMember = async (uid: string, email: string) => {
-    const { data } = await supabase
-      .from("team_members")
-      .select("role")
-      .or(`firebase_uid.eq.${uid},email.eq.${email}`)
-      .eq("is_active", true)
-      .maybeSingle();
-    if (data?.role === "manager") router.replace("/manager/dashboard");
-    else if (data?.role === "accountant") router.replace("/accountant/dashboard");
+    const { data } = await supabase.rpc("get_team_role", { p_uid: uid, p_email: email });
+    if (data === "manager") router.replace("/manager/dashboard");
+    else if (data === "accountant") router.replace("/accountant/dashboard");
     else setError("You are not registered as a manager. Contact your fleet owner.");
   };
 
