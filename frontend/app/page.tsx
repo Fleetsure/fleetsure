@@ -118,46 +118,46 @@ export default function Dashboard() {
       const today = fmtDateStr(todayISO());
       const lines: string[] = [];
 
-      lines.push(`🚛 *FleetSure Daily Report*`);
-      lines.push(`📅 ${today}`);
+      lines.push(`*FleetSure Daily Report*`);
+      lines.push(`Date: ${today}`);
       lines.push(``);
 
       // Fleet status
-      lines.push(`*📍 FLEET STATUS*`);
+      lines.push(`*FLEET STATUS*`);
       if (d.active_trips.length > 0) {
-        lines.push(`🟢 *On Road:* ${d.active_trips.length} trip${d.active_trips.length !== 1 ? "s" : ""}`);
+        lines.push(`On Road: ${d.active_trips.length} trip${d.active_trips.length !== 1 ? "s" : ""}`);
         d.active_trips.forEach((t: any) => {
           lines.push(`   • ${t.reg_number || "—"} → ${t.origin} to ${t.destination}${t.driver_name ? ` (${t.driver_name})` : ""}`);
         });
       } else {
-        lines.push(`⚪ No active trips right now`);
+        lines.push(`No active trips right now`);
       }
-      if (d.planned_trips_count > 0) lines.push(`📋 *Planned:* ${d.planned_trips_count} trip${d.planned_trips_count !== 1 ? "s" : ""} ready to dispatch`);
+      if (d.planned_trips_count > 0) lines.push(`Planned: ${d.planned_trips_count} trip${d.planned_trips_count !== 1 ? "s" : ""} ready to dispatch`);
       lines.push(``);
 
       // Today's numbers
-      lines.push(`*💰 TODAY'S NUMBERS*`);
-      lines.push(`✅ Completed: ${d.completed_today} trip${d.completed_today !== 1 ? "s" : ""}`);
+      lines.push(`*TODAY'S NUMBERS*`);
+      lines.push(`Completed: ${d.completed_today} trip${d.completed_today !== 1 ? "s" : ""}`);
       if (d.revenue_today > 0) {
-        lines.push(`💵 Revenue: ₹${d.revenue_today.toLocaleString("en-IN")}`);
+        lines.push(`Revenue: Rs.${d.revenue_today.toLocaleString("en-IN")}`);
       } else {
-        lines.push(`💵 Revenue: ₹0`);
+        lines.push(`Revenue: Rs.0`);
       }
       lines.push(``);
 
       // Compliance alerts
       if (d.compliance_alerts.length > 0) {
-        lines.push(`*🚨 COMPLIANCE ALERTS*`);
+        lines.push(`*COMPLIANCE ALERTS*`);
         d.compliance_alerts.forEach((a: any) => {
-          const icon = a.severity === "critical" ? "🔴" : "🟡";
-          lines.push(`${icon} ${a.title}`);
+          const level = a.severity === "critical" ? "[CRITICAL]" : "[WARNING]";
+          lines.push(`${level} ${a.title}`);
         });
         lines.push(``);
       }
 
       // Idle vehicles
       if (d.idle_vehicles.length > 0) {
-        lines.push(`*⚠️ IDLE VEHICLES*`);
+        lines.push(`*IDLE VEHICLES*`);
         d.idle_vehicles.forEach((v: any) => {
           const days = v.idle_days !== null ? `${v.idle_days} days idle` : "no trips yet";
           lines.push(`• ${v.registration_number} — ${days}`);
