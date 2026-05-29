@@ -32,7 +32,7 @@ export const teamService = {
 
   async removeMember(id: string): Promise<ServiceResponse<null>> {
     return query(
-      supabase.from("team_members").update({ is_active: false }).eq("id", id).eq("owner_id", getUid())
+      supabase.from("team_members").delete().eq("id", id).eq("owner_id", getUid())
     );
   },
 
