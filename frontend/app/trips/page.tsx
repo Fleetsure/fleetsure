@@ -432,7 +432,7 @@ export default function TripsPage() {
         distance_km:    form.distance_km    ? parseFloat(form.distance_km)    : null,
         weight_tonnes:  form.weight_tonnes  ? parseFloat(form.weight_tonnes)  : null,
         driver_advance: form.driver_advance ? parseFloat(form.driver_advance) : 0,
-        freight_amount: parseFloat(form.freight_amount),
+        freight_amount: form.freight_amount ? parseFloat(form.freight_amount) : 0,
         end_date:       form.end_date    || null,
         doc_number:     form.doc_number  || null,
         material:       form.material    || null,
@@ -1149,7 +1149,7 @@ export default function TripsPage() {
               {/* Freight / Advance / Weight */}
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
                 {[
-                  { label: "Freight (₹) *", key: "freight_amount", placeholder: "85000", required: true,  type: "number" },
+                  { label: "Freight (₹)", key: "freight_amount", placeholder: "85000", required: false, type: "number" },
                   { label: "Driver Advance (₹)", key: "driver_advance", placeholder: "5000", required: false, type: "number" },
                   { label: "Weight (Tonnes)", key: "weight_tonnes", placeholder: "25",    required: false, type: "number" },
                 ].map(f => (
