@@ -45,4 +45,10 @@ export const driverService = {
       supabase.from("driver_payments").delete().eq("id", id).eq("owner_id", getUid())
     );
   },
+
+  async delete(id: string): Promise<ServiceResponse<null>> {
+    return query(
+      supabase.from("drivers").delete().eq("id", id).eq("owner_id", getUid())
+    );
+  },
 };

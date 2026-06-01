@@ -191,6 +191,12 @@ export default function DriversPage() {
     setShowForm(true);
   };
 
+  const handleDelete = async (d: any) => {
+    if (!confirm(`Delete ${d.name}? This cannot be undone.`)) return;
+    await driverService.delete(d.id);
+    load();
+  };
+
   const openEdit = (d: any) => {
     setEditingId(d.id);
     setForm({
@@ -309,6 +315,7 @@ export default function DriversPage() {
                     <div style={{ display: "flex", gap: 4 }}>
                       <button onClick={() => openEdit(d)} style={{ background: "none", border: "none", cursor: "pointer", color: "#1E2D8E", padding: 4 }}><Edit2 size={14} /></button>
                       <button onClick={() => setLedgerDriver(d)} style={{ background: "none", border: "none", cursor: "pointer", color: "#2e7d32", padding: 4 }} title="Ledger"><Wallet size={14} /></button>
+                      <button onClick={() => handleDelete(d)} style={{ background: "none", border: "none", cursor: "pointer", color: "#c62828", padding: 4 }} title="Delete"><Trash2 size={14} /></button>
                     </div>
                   </div>
                 </div>
@@ -352,6 +359,11 @@ export default function DriversPage() {
                           title="Payment Ledger"
                           style={{ background: "none", border: "none", cursor: "pointer", color: "#2e7d32", padding: 4 }}>
                           <Wallet size={14} />
+                        </button>
+                        <button onClick={e => { e.stopPropagation(); handleDelete(d); }}
+                          title="Delete Driver"
+                          style={{ background: "none", border: "none", cursor: "pointer", color: "#c62828", padding: 4 }}>
+                          <Trash2 size={14} />
                         </button>
                       </td>
                     </tr>
