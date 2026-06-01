@@ -55,22 +55,15 @@ export const driverPortalService = {
 
   async getProfileByPhone(phone: string): Promise<ServiceResponse<DriverProfile>> {
     const normalized = phone.replace(/\D/g, "").slice(-10);
-    const { data, error } = await supabase
-      .from("drivers")
-      .select("id, owner_id, name, phone, license_number, license_expiry, status, firebase_uid")
-      .or(`phone.eq.${normalized},phone.eq.+91${normalized},phone.eq.91${normalized}`)
-      .maybeSingle();
+    const { data, error } = await supabase.rpc("get_driver_by_phone", { p_phone: normalized });
     if (error) return fail(error);
-    if (!data) return fail({ message: "No driver account found for this phone number. Ask your fleet manager to register you first." });
-    return ok(data as DriverProfile);
+    if (!data || (Array.isArray(data) && data.length === 0)) return fail({ message: "No driver account found for this phone number. Ask your fleet manager to register you first." });
+    const row = Array.isArray(data) ? data[0] : data;
+    return ok(row as DriverProfile);
   },
 
   async linkFirebaseUid(driverId: string, firebaseUid: string): Promise<ServiceResponse<null>> {
-    const { error } = await supabase
-      .from("drivers")
-      .update({ firebase_uid: firebaseUid })
-      .eq("id", driverId)
-      .is("firebase_uid", null);
+    const { error } = await supabase.rpc("link_driver_firebase_uid", { p_driver_id: driverId, p_firebase_uid: firebaseUid });
     if (error) return fail(error);
     return ok(null);
   },

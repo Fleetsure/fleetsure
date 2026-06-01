@@ -17,6 +17,7 @@ interface DriverAuthCtx {
   sendOtp:     (phone: string) => Promise<void>;
   verifyOtp:   (otp: string) => Promise<void>;
   logout:      () => Promise<void>;
+  resetOtp:    () => void;
   otpSent:     boolean;
   authError:   string | null;
 }
@@ -59,6 +60,10 @@ export function DriverAuthProvider({ children }: { children: React.ReactNode }) 
   async function sendOtp(phone: string) {
     setAuthError(null);
     try {
+      if (captchaRef.current) {
+        try { captchaRef.current.clear(); } catch { /* ignore */ }
+        captchaRef.current = null;
+      }
       initCaptcha();
       const e164 = phone.startsWith("+") ? phone : `+91${phone.replace(/\D/g, "").slice(-10)}`;
       pendingPhone.current = e164;
@@ -66,7 +71,8 @@ export function DriverAuthProvider({ children }: { children: React.ReactNode }) 
       setOtpSent(true);
     } catch (e: any) {
       setAuthError(e?.message ?? "Failed to send OTP. Check the number and try again.");
-      captchaRef.current = null; // reset so captcha re-renders
+      try { captchaRef.current?.clear(); } catch { /* ignore */ }
+      captchaRef.current = null;
     }
   }
 
@@ -101,6 +107,14 @@ export function DriverAuthProvider({ children }: { children: React.ReactNode }) 
     }
   }
 
+  function resetOtp() {
+    setOtpSent(false);
+    setAuthError(null);
+    confirmRef.current = null;
+    try { captchaRef.current?.clear(); } catch { /* ignore */ }
+    captchaRef.current = null;
+  }
+
   async function logout() {
     await signOut(auth);
     setSupabaseAuthToken(null);
@@ -110,7 +124,7 @@ export function DriverAuthProvider({ children }: { children: React.ReactNode }) 
   }
 
   return (
-    <Ctx.Provider value={{ driver, loading, sendOtp, verifyOtp, logout, otpSent, authError }}>
+    <Ctx.Provider value={{ driver, loading, sendOtp, verifyOtp, logout, resetOtp, otpSent, authError }}>
       {children}
       <div id="recaptcha-container" />
     </Ctx.Provider>

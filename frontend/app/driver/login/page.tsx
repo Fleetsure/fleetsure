@@ -7,7 +7,7 @@ const PRIMARY = "#1E2D8E";
 const LIGHT   = "#EEF0FB";
 
 export default function DriverLoginPage() {
-  const { sendOtp, verifyOtp, otpSent, authError, loading } = useDriverAuth();
+  const { sendOtp, verifyOtp, resetOtp, otpSent, authError, loading } = useDriverAuth();
   const [phone,    setPhone]    = useState("");
   const [otp,      setOtp]      = useState("");
   const [sending,  setSending]  = useState(false);
@@ -111,7 +111,7 @@ export default function DriverLoginPage() {
 
             <button
               type="button"
-              onClick={() => { setOtp(""); }}
+              onClick={() => { setOtp(""); setPhone(""); resetOtp(); }}
               style={{ width: "100%", marginTop: 12, padding: "12px", background: "transparent", border: `1.5px solid ${PRIMARY}30`, borderRadius: 10, fontSize: 14, fontWeight: 600, color: PRIMARY, cursor: "pointer" }}
             >
               ← Change Number
