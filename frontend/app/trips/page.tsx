@@ -213,6 +213,7 @@ export default function TripsPage() {
   const [form, setForm]           = useState({ ...EMPTY_FORM });
   const [saving, setSaving]       = useState(false);
   const [formErr, setFormErr]     = useState("");
+  const [editingTrip, setEditingTrip] = useState<any>(null);
 
   // Trip sheet drawer
   const [selTrip, setSelTrip]       = useState<any>(null);
@@ -425,18 +426,24 @@ export default function TripsPage() {
 
   const handleSubmit = async (e: any) => {
     e.preventDefault(); setSaving(true); setFormErr("");
+    const payload = {
+      ...form,
+      driver_id:      form.driver_id      || null,
+      distance_km:    form.distance_km    ? parseFloat(form.distance_km)    : null,
+      weight_tonnes:  form.weight_tonnes  ? parseFloat(form.weight_tonnes)  : null,
+      driver_advance: form.driver_advance ? parseFloat(form.driver_advance) : 0,
+      freight_amount: form.freight_amount ? parseFloat(form.freight_amount) : 0,
+      end_date:       form.end_date    || null,
+      doc_number:     form.doc_number  || null,
+      material:       form.material    || null,
+    };
     try {
-      await tripService.create({
-        ...form,
-        driver_id:      form.driver_id      || null,
-        distance_km:    form.distance_km    ? parseFloat(form.distance_km)    : null,
-        weight_tonnes:  form.weight_tonnes  ? parseFloat(form.weight_tonnes)  : null,
-        driver_advance: form.driver_advance ? parseFloat(form.driver_advance) : 0,
-        freight_amount: form.freight_amount ? parseFloat(form.freight_amount) : 0,
-        end_date:       form.end_date    || null,
-        doc_number:     form.doc_number  || null,
-        material:       form.material    || null,
-      });
+      if (editingTrip) {
+        await tripService.update(editingTrip.id, payload);
+        setEditingTrip(null);
+      } else {
+        await tripService.create(payload);
+      }
       setShowForm(false);
       setForm({ ...EMPTY_FORM, start_date: todayISO() });
       setVehicleSuggestions([]);
@@ -447,6 +454,29 @@ export default function TripsPage() {
       const d = err.response?.data?.detail;
       setFormErr(Array.isArray(d) ? d.map((x: any) => x.msg).join(", ") : d || "Something went wrong");
     } finally { setSaving(false); }
+  };
+
+  const openEditTrip = (trip: any) => {
+    setEditingTrip(trip);
+    setForm({
+      vehicle_id:     trip.vehicle_id     || "",
+      driver_id:      trip.driver_id      || "",
+      driver_name:    trip.driver_name    || "",
+      driver_phone:   trip.driver_phone   || "",
+      origin:         trip.origin         || "",
+      destination:    trip.destination    || "",
+      distance_km:    trip.distance_km    ? String(trip.distance_km)    : "",
+      start_date:     trip.start_date     || todayISO(),
+      end_date:       trip.end_date       || "",
+      freight_amount: trip.freight_amount ? String(trip.freight_amount) : "",
+      doc_number:     trip.doc_number     || "",
+      material:       trip.material       || "",
+      weight_tonnes:  trip.weight_tonnes  ? String(trip.weight_tonnes)  : "",
+      driver_advance: trip.driver_advance ? String(trip.driver_advance) : "",
+      notes:          trip.notes          || "",
+    });
+    setFormErr("");
+    setShowForm(true);
   };
 
   // ── Derived ─────────────────────────────────────────────────────────────────
@@ -736,6 +766,11 @@ export default function TripsPage() {
                   <span style={{ fontSize: 12.5, color: "#2e7d32", fontWeight: 600, paddingTop: 8 }}>✓ Trip completed</span>
                 )}
                 <button
+                  onClick={() => openEditTrip(selTrip)}
+                  style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 14px", background: "none", color: "#1E2D8E", border: "1.5px solid #1E2D8E", borderRadius: 8, fontSize: 12.5, fontWeight: 700, cursor: "pointer" }}>
+                  ✏ Edit Trip
+                </button>
+                <button
                   onClick={() => shareOnWhatsApp(selTrip, detail, vehicleMap[selTrip.vehicle_id]?.registration_number || "—")}
                   style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 14px", background: "#25D366", color: "white", border: "none", borderRadius: 8, fontSize: 12.5, fontWeight: 700, cursor: "pointer" }}>
                   <MessageCircle size={14} /> Share on WhatsApp
@@ -1003,12 +1038,12 @@ export default function TripsPage() {
       {showForm && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000 }}>
           <div className="card" style={{ width: 540, position: "relative", maxHeight: "92vh", overflowY: "auto" }}>
-            <button onClick={() => { setShowForm(false); setVehicleSuggestions([]); setFatigueStatus(null); }}
+            <button onClick={() => { setShowForm(false); setEditingTrip(null); setVehicleSuggestions([]); setFatigueStatus(null); }}
               style={{ position: "absolute", top: 16, right: 16, background: "none", border: "none", cursor: "pointer", color: "#aaa" }}>
               <X size={18} />
             </button>
-            <h2 style={{ margin: "0 0 4px", fontSize: 16, fontWeight: 700 }}>{t("trip.new")}</h2>
-            <p style={{ margin: "0 0 18px", fontSize: 12.5, color: "#888" }}>{t("vehicle.fill_manually")}</p>
+            <h2 style={{ margin: "0 0 4px", fontSize: 16, fontWeight: 700 }}>{editingTrip ? "Edit Trip" : t("trip.new")}</h2>
+            <p style={{ margin: "0 0 18px", fontSize: 12.5, color: "#888" }}>{editingTrip ? "Update trip details below." : t("vehicle.fill_manually")}</p>
 
             {formErr && (
               <div style={{ background: "#fce4ec", color: "#b71c1c", padding: "8px 12px", borderRadius: 6, marginBottom: 14, fontSize: 13 }}>
@@ -1205,7 +1240,7 @@ export default function TripsPage() {
               </div>
 
               <div style={{ display: "flex", gap: 10, marginTop: 4 }}>
-                <button type="button" className="btn-outline" style={{ flex: 1 }} onClick={() => { setShowForm(false); setVehicleSuggestions([]); setFatigueStatus(null); }}>{t("common.cancel")}</button>
+                <button type="button" className="btn-outline" style={{ flex: 1 }} onClick={() => { setShowForm(false); setEditingTrip(null); setVehicleSuggestions([]); setFatigueStatus(null); }}>{t("common.cancel")}</button>
                 <button type="submit" className="btn-primary" style={{ flex: 1, justifyContent: "center" }} disabled={saving}>
                   {saving ? t("common.loading") : t("trip.new")}
                 </button>
