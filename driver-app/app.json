@@ -1,0 +1,43 @@
+{
+  "expo": {
+    "name": "FleetSure Driver",
+    "slug": "fleetsure-driver",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "scheme": "fleetsuredriver",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "backgroundColor": "#1E2D8E",
+      "resizeMode": "contain"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#1E2D8E"
+      },
+      "package": "com.fleetsure.driverapp",
+      "googleServicesFile": "./google-services.json",
+      "permissions": [
+        "android.permission.CAMERA",
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE",
+        "android.permission.RECORD_AUDIO"
+      ]
+    },
+    "plugins": [
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Allow FleetSure Driver to access your photos.",
+          "cameraPermission": "Allow FleetSure Driver to use your camera."
+        }
+      ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "ec13f52d-b4e0-4104-875e-237c52267f80"
+      }
+    },
+    "owner": "fleetsureapp"
+  }
+}
