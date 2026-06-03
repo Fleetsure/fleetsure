@@ -11,7 +11,7 @@
 CREATE OR REPLACE FUNCTION get_active_driver_trips(p_driver_id UUID)
 RETURNS TABLE (
   id              UUID,
-  owner_id        UUID,
+  owner_id        TEXT,
   vehicle_id      UUID,
   driver_id       UUID,
   driver_name     TEXT,
@@ -69,7 +69,7 @@ $$;
 CREATE OR REPLACE FUNCTION get_completed_driver_trips(p_driver_id UUID)
 RETURNS TABLE (
   id              UUID,
-  owner_id        UUID,
+  owner_id        TEXT,
   vehicle_id      UUID,
   driver_id       UUID,
   driver_name     TEXT,
