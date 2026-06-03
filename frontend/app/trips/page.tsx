@@ -1305,9 +1305,10 @@ export default function TripsPage() {
                 const selected = Object.entries(pdfOpts.expTypes).filter(([,v]) => v).map(([k]) => k);
                 const vehicleReg = vehicles.find((v: any) => v.id === selTrip.vehicle_id)?.registration_number || selTrip.vehicle_id;
                 const orgName = (typeof window !== "undefined" && localStorage.getItem("orgName")) || "FleetSure";
+                const orgLogo = (typeof window !== "undefined" && localStorage.getItem("orgLogo")) || "";
                 try {
                   await downloadTripPdf({
-                    orgName, trip: selTrip, detail,
+                    orgName, orgLogo, trip: selTrip, detail,
                     vehicleReg, showProfit: pdfOpts.showProfit,
                     expTypes: selected.length > 0 ? selected : ["all"],
                   });

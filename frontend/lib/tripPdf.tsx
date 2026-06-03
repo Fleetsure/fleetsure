@@ -1,47 +1,3 @@
-import {
-  Document, Page, Text, View, StyleSheet, pdf,
-} from "@react-pdf/renderer";
-
-const BLUE  = "#1E2D8E";
-const GREY  = "#666666";
-const LIGHT = "#f0f3ff";
-const GREEN = "#2e7d32";
-const RED   = "#c62828";
-
-const styles = StyleSheet.create({
-  page:    { fontFamily: "Helvetica", fontSize: 10, padding: 36, color: "#1a1a2e" },
-  header:  { backgroundColor: BLUE, padding: "14 18", marginBottom: 14, flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
-  orgName: { color: "white", fontSize: 16, fontFamily: "Helvetica-Bold" },
-  docMeta: { color: "#c9cfe8", fontSize: 9, textAlign: "right" },
-  title:   { color: "white", fontSize: 11, fontFamily: "Helvetica-Bold", textAlign: "right" },
-
-  routeBox:   { backgroundColor: LIGHT, padding: "10 14", marginBottom: 12, flexDirection: "row", alignItems: "center", gap: 8 },
-  routeText:  { fontSize: 13, fontFamily: "Helvetica-Bold", color: BLUE },
-  routeArrow: { fontSize: 13, color: GREY },
-
-  section:    { marginBottom: 12 },
-  sectionHdr: { backgroundColor: BLUE, color: "white", fontFamily: "Helvetica-Bold", fontSize: 8.5, padding: "4 10", marginBottom: 0, textTransform: "uppercase", letterSpacing: 1 },
-  row:        { flexDirection: "row", borderBottomWidth: 0.5, borderBottomColor: "#e8eaf6", padding: "5 10" },
-  rowAlt:     { flexDirection: "row", borderBottomWidth: 0.5, borderBottomColor: "#e8eaf6", padding: "5 10", backgroundColor: "#fafbff" },
-  label:      { width: "40%", color: GREY, fontSize: 9 },
-  value:      { flex: 1, fontFamily: "Helvetica-Bold", fontSize: 9 },
-
-  expRow:     { flexDirection: "row", padding: "5 10", borderBottomWidth: 0.5, borderBottomColor: "#f0f0f8" },
-  expRowAlt:  { flexDirection: "row", padding: "5 10", borderBottomWidth: 0.5, borderBottomColor: "#f0f0f8", backgroundColor: "#fafbff" },
-  expLabel:   { flex: 1, fontSize: 9 },
-  expAmt:     { width: 80, textAlign: "right", fontFamily: "Helvetica-Bold", fontSize: 9 },
-
-  totalRow:   { flexDirection: "row", padding: "7 10", backgroundColor: BLUE },
-  totalLabel: { flex: 1, color: "white", fontFamily: "Helvetica-Bold", fontSize: 10 },
-  totalAmt:   { color: "white", fontFamily: "Helvetica-Bold", fontSize: 10 },
-
-  profitBox:  { margin: "10 0", padding: "10 14", flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
-  footer:     { marginTop: 20, borderTopWidth: 0.5, borderTopColor: "#e0e0e0", paddingTop: 8, color: GREY, fontSize: 8, textAlign: "center" },
-});
-
-const fmt  = (n: number) => "₹" + Math.abs(n).toLocaleString("en-IN", { maximumFractionDigits: 0 });
-const fmtD = (s?: string | null) => s ? new Date(s).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "—";
-
 const EXP_LABELS: Record<string, string> = {
   fuel: "Fuel (HSD)", toll: "Toll / FASTag", rto: "RTO",
   police_challan: "Police / Naka", maintenance: "Parts & Repairs",
@@ -51,6 +7,7 @@ const EXP_LABELS: Record<string, string> = {
 
 export interface TripPdfData {
   orgName:    string;
+  orgLogo?:   string; // base64 data URL or regular URL from localStorage "orgLogo"
   trip:       any;
   detail:     any;
   vehicleReg: string;
@@ -58,131 +15,197 @@ export interface TripPdfData {
   expTypes:   string[]; // ["all"] or specific categories
 }
 
-function TripSheet({ data }: { data: TripPdfData }) {
-  const { orgName, trip, detail, vehicleReg, showProfit, expTypes } = data;
+function esc(s: string): string {
+  return String(s)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
 
-  const allExpenses: any[] = detail?.expenses || [];
+function fmt(n: number): string {
+  return "₹" + Math.abs(n).toLocaleString("en-IN", { maximumFractionDigits: 0 });
+}
+
+function fmtD(s?: string | null): string {
+  if (!s) return "—";
+  return new Date(s).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
+}
+
+function or(v: any): string {
+  return (v !== undefined && v !== null && v !== "") ? String(v) : "—";
+}
+
+function buildHtml(data: TripPdfData): string {
+  const { orgName, orgLogo, trip, detail, vehicleReg, showProfit, expTypes } = data;
+
+  const allExp: any[] = detail?.expenses || [];
   const filtered = expTypes.includes("all") || expTypes.length === 0
-    ? allExpenses
-    : allExpenses.filter((e: any) => expTypes.includes(e.expense_type));
+    ? allExp
+    : allExp.filter((e: any) => expTypes.includes(e.expense_type));
 
   const freight     = parseFloat(trip.freight_amount || 0);
   const totalExpAmt = filtered.reduce((s: number, e: any) => s + parseFloat(e.amount || 0), 0);
   const profit      = freight - totalExpAmt;
+  const now         = new Date().toLocaleString("en-IN");
 
-  const detailRows = [
-    { label: "Vehicle",         value: vehicleReg },
-    { label: "Driver",          value: `${trip.driver_name || "—"}${trip.driver_phone ? `  |  ${trip.driver_phone}` : ""}` },
-    { label: "Start Date",      value: fmtD(trip.start_date) },
-    { label: "End Date",        value: fmtD(trip.end_date) },
-    { label: "Distance",        value: trip.distance_km ? `${trip.distance_km} km` : "—" },
-    { label: "LR / Doc No.",    value: trip.doc_number || "—" },
-    { label: "Material",        value: trip.material || "—" },
-    { label: "Weight",          value: trip.weight_tonnes ? `${trip.weight_tonnes} tonnes` : "—" },
-  ].filter(r => r.value !== "—");
+  const detailRows: [string, string][] = [
+    ["Vehicle",      or(vehicleReg)],
+    ["Driver",       trip.driver_name
+      ? `${trip.driver_name}${trip.driver_phone ? "  |  " + trip.driver_phone : ""}` : "—"],
+    ["Start Date",   fmtD(trip.start_date)],
+    ["End Date",     fmtD(trip.end_date)],
+    ["Distance",     trip.distance_km ? `${trip.distance_km} km` : "—"],
+    ["LR / Doc No.", or(trip.doc_number)],
+    ["Material",     or(trip.material)],
+    ["Weight",       trip.weight_tonnes ? `${trip.weight_tonnes} tonnes` : "—"],
+  ];
 
-  return (
-    <Document>
-      <Page size="A4" style={styles.page}>
+  const rowsHtml = detailRows.map(([label, value], i) =>
+    `<div class="row${i % 2 === 1 ? " alt" : ""}">` +
+    `<div class="lbl">${esc(label)}</div>` +
+    `<div class="val">${esc(value)}</div>` +
+    `</div>`
+  ).join("\n");
 
-        {/* Header */}
-        <View style={styles.header}>
-          <Text style={styles.orgName}>{orgName}</Text>
-          <View>
-            <Text style={styles.title}>TRIP SHEET</Text>
-            {trip.doc_number && <Text style={styles.docMeta}>LR: {trip.doc_number}</Text>}
-            <Text style={styles.docMeta}>{new Date().toLocaleDateString("en-IN")}</Text>
-          </View>
-        </View>
+  const expRowsHtml = filtered.map((e: any, i: number) => {
+    const label = EXP_LABELS[e.expense_type] || e.expense_type || "Expense";
+    const desc  = e.description ? ` — ${e.description}` : "";
+    return (
+      `<div class="exp-row${i % 2 === 1 ? " alt" : ""}">` +
+      `<div class="exp-lbl">${esc(label + desc)}</div>` +
+      `<div class="exp-amt">${fmt(parseFloat(e.amount || 0))}</div>` +
+      `</div>`
+    );
+  }).join("\n");
 
-        {/* Route */}
-        <View style={styles.routeBox}>
-          <Text style={styles.routeText}>{trip.origin}</Text>
-          <Text style={styles.routeArrow}> → </Text>
-          <Text style={styles.routeText}>{trip.destination}</Text>
-        </View>
+  const expSection = filtered.length > 0 ? `
+  <div class="section">
+    <div class="shdr">Expenses</div>
+    ${expRowsHtml}
+    <div class="total-row">
+      <div class="total-lbl">Total Expenses</div>
+      <div class="total-amt">${fmt(totalExpAmt)}</div>
+    </div>
+  </div>` : "";
 
-        {/* Trip Details */}
-        <View style={styles.section}>
-          <Text style={styles.sectionHdr}>Trip Details</Text>
-          {detailRows.map((r, i) => (
-            <View key={r.label} style={i % 2 === 0 ? styles.row : styles.rowAlt}>
-              <Text style={styles.label}>{r.label}</Text>
-              <Text style={styles.value}>{r.value}</Text>
-            </View>
-          ))}
-        </View>
+  const profitSection = showProfit ? `
+  <div class="profit-box" style="background:${profit >= 0 ? "#e8f5e9" : "#fce4ec"}">
+    <div style="font-size:11pt;font-weight:700;color:${profit >= 0 ? "#2e7d32" : "#c62828"}">
+      Net ${profit >= 0 ? "Profit" : "Loss"}
+    </div>
+    <div style="font-size:13pt;font-weight:800;color:${profit >= 0 ? "#2e7d32" : "#c62828"}">
+      ${profit < 0 ? "&minus;" : ""}${fmt(Math.abs(profit))}
+    </div>
+  </div>` : "";
 
-        {/* Charges */}
-        <View style={styles.section}>
-          <Text style={styles.sectionHdr}>Charges</Text>
+  const notesSection = trip.notes ? `
+  <div class="section">
+    <div class="shdr">Notes</div>
+    <div class="row"><div style="font-size:9pt;color:#555;flex:1">${esc(trip.notes)}</div></div>
+  </div>` : "";
 
-          {/* Freight */}
-          <View style={styles.row}>
-            <Text style={styles.label}>Freight Amount</Text>
-            <Text style={styles.value}>{fmt(freight)}</Text>
-          </View>
+  // orgLogo is a data URL or regular URL — safe to embed directly in src (base64 has no HTML-special chars)
+  const logoTag = orgLogo
+    ? `<img src="${orgLogo}" class="org-logo" alt="" onerror="this.style.display='none'">`
+    : "";
 
-          {/* Expenses */}
-          {filtered.length > 0 && (
-            <View>
-              {filtered.map((e: any, i: number) => (
-                <View key={e.id || i} style={i % 2 === 0 ? styles.expRow : styles.expRowAlt}>
-                  <Text style={styles.expLabel}>
-                    {EXP_LABELS[e.expense_type] || e.expense_type}
-                    {e.description ? `  — ${e.description}` : ""}
-                  </Text>
-                  <Text style={styles.expAmt}>{fmt(parseFloat(e.amount || 0))}</Text>
-                </View>
-              ))}
-            </View>
-          )}
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Trip Sheet — ${esc(or(trip.origin))} to ${esc(or(trip.destination))}</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Segoe UI',Arial,Helvetica,sans-serif;font-size:10pt;color:#1a1a2e;background:#fff}
+.page{max-width:780px;margin:0 auto;padding:24px}
+.header{background:#1E2D8E;color:#fff;padding:14px 20px;display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;gap:12px}
+.hdr-left{display:flex;align-items:center;gap:12px}
+.org-logo{height:46px;width:46px;object-fit:contain;border-radius:5px;background:#fff;padding:2px;flex-shrink:0}
+.org-name{font-size:15pt;font-weight:700;line-height:1.2;color:#fff}
+.hdr-right{text-align:right;flex-shrink:0}
+.title{font-size:11pt;font-weight:700;color:#fff}
+.doc-meta{font-size:8.5pt;color:#c9cfe8;line-height:1.8}
+.route-box{background:#f0f3ff;padding:10px 16px;margin-bottom:13px;display:flex;align-items:center;gap:10px}
+.route-text{font-size:13pt;font-weight:700;color:#1E2D8E}
+.route-arrow{font-size:18pt;color:#555;font-weight:300;line-height:1;padding:0 2px}
+.section{margin-bottom:12px}
+.shdr{background:#1E2D8E;color:#fff;font-weight:700;font-size:8pt;padding:4px 12px;text-transform:uppercase;letter-spacing:1px}
+.row{display:flex;border-bottom:.5px solid #e8eaf6;padding:6px 12px;align-items:baseline}
+.row.alt{background:#fafbff}
+.lbl{width:40%;color:#666;font-size:9pt}
+.val{flex:1;font-weight:700;font-size:9pt}
+.exp-row{display:flex;border-bottom:.5px solid #f0f0f8;padding:6px 12px;align-items:baseline}
+.exp-row.alt{background:#fafbff}
+.exp-lbl{flex:1;font-size:9pt;color:#333}
+.exp-amt{font-weight:700;font-size:9pt;width:110px;text-align:right;flex-shrink:0}
+.total-row{display:flex;padding:7px 12px;background:#1E2D8E}
+.total-lbl{flex:1;color:#fff;font-weight:700;font-size:10pt}
+.total-amt{color:#fff;font-weight:700;font-size:10pt}
+.profit-box{display:flex;justify-content:space-between;align-items:center;padding:12px 16px;margin:12px 0;border-radius:5px}
+.footer{margin-top:24px;border-top:.5px solid #e0e0e0;padding-top:8px;color:#888;font-size:8pt;text-align:center;line-height:1.8}
+@media print{
+  body{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  @page{margin:14mm;size:A4 portrait}
+  .page{padding:0;max-width:100%}
+}
+</style>
+</head>
+<body>
+<div class="page">
 
-          {/* Total expenses */}
-          {filtered.length > 0 && (
-            <View style={styles.totalRow}>
-              <Text style={styles.totalLabel}>Total Expenses</Text>
-              <Text style={styles.totalAmt}>{fmt(totalExpAmt)}</Text>
-            </View>
-          )}
-        </View>
+  <div class="header">
+    <div class="hdr-left">
+      ${logoTag}
+      <div class="org-name">${esc(orgName)}</div>
+    </div>
+    <div class="hdr-right">
+      <div class="title">TRIP SHEET</div>
+      ${trip.doc_number ? `<div class="doc-meta">LR: ${esc(trip.doc_number)}</div>` : ""}
+      <div class="doc-meta">${new Date().toLocaleDateString("en-IN")}</div>
+    </div>
+  </div>
 
-        {/* Net Profit */}
-        {showProfit && (
-          <View style={[styles.profitBox, { backgroundColor: profit >= 0 ? "#e8f5e9" : "#fce4ec" }]}>
-            <Text style={{ fontFamily: "Helvetica-Bold", fontSize: 11, color: profit >= 0 ? GREEN : RED }}>
-              Net {profit >= 0 ? "Profit" : "Loss"}
-            </Text>
-            <Text style={{ fontFamily: "Helvetica-Bold", fontSize: 13, color: profit >= 0 ? GREEN : RED }}>
-              {profit < 0 ? "−" : ""}{fmt(Math.abs(profit))}
-            </Text>
-          </View>
-        )}
+  <div class="route-box">
+    <div class="route-text">${esc(or(trip.origin))}</div>
+    <div class="route-arrow">&#8594;</div>
+    <div class="route-text">${esc(or(trip.destination))}</div>
+  </div>
 
-        {/* Notes */}
-        {trip.notes && (
-          <View style={styles.section}>
-            <Text style={styles.sectionHdr}>Notes</Text>
-            <View style={styles.row}>
-              <Text style={{ fontSize: 9, color: GREY }}>{trip.notes}</Text>
-            </View>
-          </View>
-        )}
+  <div class="section">
+    <div class="shdr">Trip Details</div>
+    ${rowsHtml}
+  </div>
 
-        <Text style={styles.footer}>
-          Generated by FleetSure  •  {new Date().toLocaleString("en-IN")}
-        </Text>
-      </Page>
-    </Document>
-  );
+  <div class="section">
+    <div class="shdr">Charges</div>
+    <div class="row">
+      <div class="lbl">Freight Amount</div>
+      <div class="val">${fmt(freight)}</div>
+    </div>
+  </div>
+
+  ${expSection}
+  ${profitSection}
+  ${notesSection}
+
+  <div class="footer">
+    Generated by FleetSure &bull; ${esc(orgName)} &bull; ${now}
+  </div>
+
+</div>
+<script>window.addEventListener('load',function(){setTimeout(function(){window.print()},400)});</script>
+</body>
+</html>`;
 }
 
 export async function downloadTripPdf(data: TripPdfData): Promise<void> {
-  const blob = await pdf(<TripSheet data={data} />).toBlob();
-  const url  = URL.createObjectURL(blob);
-  const a    = document.createElement("a");
-  a.href     = url;
-  a.download = `tripsheet_${data.trip.origin}_${data.trip.destination}.pdf`.replace(/\s+/g, "_");
-  a.click();
-  URL.revokeObjectURL(url);
+  const win = window.open("", "_blank");
+  if (!win) {
+    alert("Please allow pop-ups for this site to open the trip sheet.");
+    return;
+  }
+  win.document.open();
+  win.document.write(buildHtml(data));
+  win.document.close();
 }
