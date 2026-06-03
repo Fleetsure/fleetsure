@@ -15,6 +15,14 @@ export default function LoginPage() {
   const router = useRouter();
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 768);
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, []);
 
   useEffect(() => {
     // If already signed in via Firebase, go straight to app
@@ -40,11 +48,11 @@ export default function LoginPage() {
   return (
     <div style={{ minHeight: "100vh", width: "100%", display: "flex" }}>
 
-      {/* Left Panel — Branding */}
+      {/* Left Panel — Branding (hidden on mobile) */}
       <div style={{
         flex: 1,
         background: "linear-gradient(145deg, #1a237e 0%, #283593 50%, #1565c0 100%)",
-        display: "flex",
+        display: isMobile ? "none" : "flex",
         flexDirection: "column",
         justifyContent: "center",
         padding: "60px 56px",
@@ -90,17 +98,38 @@ export default function LoginPage() {
 
       {/* Right Panel — Sign In */}
       <div style={{
-        width: 480,
+        width: isMobile ? "100%" : 480,
         display: "flex",
         flexDirection: "column",
         alignItems: "center",
-        justifyContent: "center",
+        justifyContent: isMobile ? "flex-start" : "center",
         background: "#f8f9ff",
-        padding: "40px 48px",
+        padding: 0,
+        minHeight: "100vh",
       }}>
-        <div style={{ width: "100%", flex: 1, display: "flex", flexDirection: "column", justifyContent: "center" }}>
-          <h2 style={{ fontSize: 26, fontWeight: 800, color: "#1a1a2e", margin: "0 0 6px" }}>Welcome to FleetSure</h2>
-          <p style={{ color: "#888", fontSize: 14, margin: "0 0 32px" }}>Sign in with your Google account to continue</p>
+        {/* Mobile: full-width branded header */}
+        {isMobile && (
+          <div style={{
+            width: "100%",
+            background: "linear-gradient(145deg, #1a237e 0%, #283593 60%, #1565c0 100%)",
+            padding: "52px 28px 40px",
+            textAlign: "center",
+            marginBottom: 32,
+          }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 10, marginBottom: 16 }}>
+              <img src="/logo.png" alt="FleetSure" style={{ width: 44, height: 44, borderRadius: 10 }} />
+              <span style={{ color: "white", fontWeight: 900, fontSize: 24, letterSpacing: "-0.5px" }}>FleetSure</span>
+            </div>
+            <p style={{ color: "rgba(255,255,255,0.8)", fontSize: 15, margin: 0, lineHeight: 1.5 }}>
+              Track every trip. Know every rupee.
+            </p>
+          </div>
+        )}
+
+        {/* Form content */}
+        <div style={{ width: "100%", maxWidth: isMobile ? "100%" : 400, padding: isMobile ? "0 24px" : "0", flex: isMobile ? "unset" : 1, display: "flex", flexDirection: "column", justifyContent: "center" }}>
+          <h2 style={{ fontSize: isMobile ? 22 : 26, fontWeight: 800, color: "#1a1a2e", margin: "0 0 6px" }}>Welcome to FleetSure</h2>
+          <p style={{ color: "#888", fontSize: 14, margin: "0 0 28px" }}>Sign in with your Google account to continue</p>
 
           {error && (
             <div style={{ background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 8, padding: "10px 14px", color: "#dc2626", fontSize: 13, marginBottom: 16 }}>
@@ -113,10 +142,10 @@ export default function LoginPage() {
             disabled={loading}
             style={{
               width: "100%", display: "flex", alignItems: "center", justifyContent: "center",
-              gap: 10, padding: "14px 16px", borderRadius: 8, border: "1.5px solid #e0e0ee",
+              gap: 10, padding: "15px 16px", borderRadius: 10, border: "1.5px solid #e0e0ee",
               background: "white", color: "#1a1a2e", fontSize: 15, fontWeight: 600,
               cursor: loading ? "not-allowed" : "pointer", opacity: loading ? 0.7 : 1,
-              boxShadow: "0 1px 4px rgba(0,0,0,0.06)",
+              boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
             }}
           >
             <svg width="20" height="20" viewBox="0 0 48 48">
@@ -128,12 +157,12 @@ export default function LoginPage() {
             {loading ? "Signing in…" : "Continue with Google"}
           </button>
 
-          <p style={{ textAlign: "center", marginTop: 24, fontSize: 13, color: "#aaa", lineHeight: 1.6 }}>
+          <p style={{ textAlign: "center", marginTop: 20, fontSize: 13, color: "#aaa", lineHeight: 1.6 }}>
             By signing in you agree to our Terms of Service.
           </p>
         </div>
 
-        <p style={{ textAlign: "center", fontSize: 13, color: "#888", marginTop: 24, marginBottom: 0 }}>
+        <p style={{ textAlign: "center", fontSize: 13, color: "#888", margin: isMobile ? "32px 0" : "24px 0 0" }}>
           Made with ❤️ in Bengaluru
         </p>
       </div>

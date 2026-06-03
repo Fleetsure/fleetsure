@@ -1182,7 +1182,7 @@ export default function TripsPage() {
               </div>
 
               {/* Freight / Advance / Weight */}
-              <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr 1fr" : "1fr 1fr 1fr", gap: 10 }}>
+              <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr 1fr" : "repeat(3, 1fr)", gap: 10 }}>
                 {[
                   { label: "Freight (₹)", key: "freight_amount", placeholder: "85000", required: false, type: "number" },
                   { label: "Driver Advance (₹)", key: "driver_advance", placeholder: "5000", required: false, type: "number" },
@@ -1198,7 +1198,7 @@ export default function TripsPage() {
               </div>
 
               {/* Dates / Distance */}
-              <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr 1fr" : "1fr 1fr 1fr", gap: 10 }}>
+              <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr 1fr" : "repeat(3, 1fr)", gap: 10 }}>
                 {[
                   { label: "Start Date *", key: "start_date",  type: "date",   required: true },
                   { label: "End Date",     key: "end_date",    type: "date",   required: false },
