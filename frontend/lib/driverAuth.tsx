@@ -70,7 +70,10 @@ export function DriverAuthProvider({ children }: { children: React.ReactNode }) 
       confirmRef.current = await signInWithPhoneNumber(auth, e164, captchaRef.current!);
       setOtpSent(true);
     } catch (e: any) {
-      setAuthError(e?.message ?? "Failed to send OTP. Check the number and try again.");
+      const msg = e?.code === "auth/too-many-requests"
+        ? "Too many attempts from this device. Please wait a few minutes and try again."
+        : (e?.message ?? "Failed to send OTP. Check the number and try again.");
+      setAuthError(msg);
       try { captchaRef.current?.clear(); } catch { /* ignore */ }
       captchaRef.current = null;
     }

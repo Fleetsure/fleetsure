@@ -1,10 +1,11 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Truck, Phone, Shield } from "lucide-react";
 import { useDriverAuth } from "@/lib/driverAuth";
 
 const PRIMARY = "#1E2D8E";
 const LIGHT   = "#EEF0FB";
+const COOLDOWN_SECONDS = 60;
 
 export default function DriverLoginPage() {
   const { sendOtp, verifyOtp, resetOtp, otpSent, authError, loading } = useDriverAuth();
@@ -12,13 +13,30 @@ export default function DriverLoginPage() {
   const [otp,      setOtp]      = useState("");
   const [sending,  setSending]  = useState(false);
   const [verifying,setVerifying]= useState(false);
+  const [cooldown, setCooldown] = useState(0);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  useEffect(() => {
+    return () => { if (timerRef.current) clearInterval(timerRef.current); };
+  }, []);
+
+  function startCooldown() {
+    setCooldown(COOLDOWN_SECONDS);
+    timerRef.current = setInterval(() => {
+      setCooldown(s => {
+        if (s <= 1) { clearInterval(timerRef.current!); timerRef.current = null; return 0; }
+        return s - 1;
+      });
+    }, 1000);
+  }
 
   async function handleSendOtp(e: React.FormEvent) {
     e.preventDefault();
-    if (!phone || phone.replace(/\D/g,"").length < 10) return;
+    if (!phone || phone.replace(/\D/g,"").length < 10 || cooldown > 0) return;
     setSending(true);
     await sendOtp(phone);
     setSending(false);
+    startCooldown();
   }
 
   async function handleVerify(e: React.FormEvent) {
@@ -71,10 +89,10 @@ export default function DriverLoginPage() {
 
             <button
               type="submit"
-              disabled={sending || phone.length < 10}
-              style={{ width: "100%", padding: "14px", background: sending || phone.length < 10 ? "#C7D2FE" : PRIMARY, color: "white", border: "none", borderRadius: 10, fontSize: 15, fontWeight: 700, cursor: sending || phone.length < 10 ? "not-allowed" : "pointer", letterSpacing: "-0.2px" }}
+              disabled={sending || phone.length < 10 || cooldown > 0}
+              style={{ width: "100%", padding: "14px", background: sending || phone.length < 10 || cooldown > 0 ? "#C7D2FE" : PRIMARY, color: "white", border: "none", borderRadius: 10, fontSize: 15, fontWeight: 700, cursor: sending || phone.length < 10 || cooldown > 0 ? "not-allowed" : "pointer", letterSpacing: "-0.2px" }}
             >
-              {sending ? "Sending OTP…" : "Send OTP →"}
+              {sending ? "Sending OTP…" : cooldown > 0 ? `Resend in ${cooldown}s` : "Send OTP →"}
             </button>
           </form>
         ) : (
