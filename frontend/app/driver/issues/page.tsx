@@ -47,7 +47,7 @@ export default function IssuesPage() {
   useEffect(() => {
     if (!driver) return;
     Promise.all([
-      driverPortalService.getActiveTrips(),
+      driverPortalService.getActiveTrips(driver.id),
       driverPortalService.getMyIssues(driver.id),
       driverPortalService.getOwnerContact(driver.owner_id),
     ]).then(([tr, ir, oc]) => {

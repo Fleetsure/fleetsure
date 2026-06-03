@@ -25,11 +25,12 @@ export default function DriverDashboard() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    driverPortalService.getActiveTrips().then(r => {
+    if (!driver) return;
+    driverPortalService.getActiveTrips(driver.id).then(r => {
       if (r.success && r.data) setTrips(r.data);
       setLoading(false);
     });
-  }, []);
+  }, [driver]);
 
   const activeTrip  = trips.find(t => t.status === "in_progress");
   const plannedTrips = trips.filter(t => t.status === "planned");

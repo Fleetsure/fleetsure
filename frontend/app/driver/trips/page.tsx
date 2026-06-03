@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { MapPin, Truck, ChevronRight, Calendar } from "lucide-react";
+import { useDriverAuth } from "@/lib/driverAuth";
 import { driverPortalService, DriverTrip } from "@/lib/services/driverPortalService";
 
 const PRIMARY = "#1E2D8E";
@@ -65,16 +66,18 @@ function TripCard({ trip }: { trip: DriverTrip }) {
 }
 
 export default function DriverTripsPage() {
+  const { driver } = useDriverAuth();
   const [trips,   setTrips]   = useState<DriverTrip[]>([]);
   const [loading, setLoading] = useState(true);
   const [tab,     setTab]     = useState<"active" | "planned">("active");
 
   useEffect(() => {
-    driverPortalService.getActiveTrips().then(r => {
+    if (!driver) return;
+    driverPortalService.getActiveTrips(driver.id).then(r => {
       if (r.success && r.data) setTrips(r.data);
       setLoading(false);
     });
-  }, []);
+  }, [driver]);
 
   const active  = trips.filter(t => t.status === "in_progress");
   const planned = trips.filter(t => t.status === "planned");

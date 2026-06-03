@@ -39,7 +39,7 @@ export default function HistoryPage() {
   useEffect(() => {
     if (!driver) return;
     Promise.all([
-      driverPortalService.getCompletedTrips(),
+      driverPortalService.getCompletedTrips(driver.id),
       driverPortalService.getPayments(driver.id),
     ]).then(([tr, pr]) => {
       if (tr.success && tr.data) setTrips(tr.data);

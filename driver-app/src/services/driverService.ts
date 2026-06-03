@@ -92,10 +92,11 @@ export const driverService = {
 
   // ── Trips ────────────────────────────────────────────────────────────────────
 
-  async getActiveTrips(): Promise<ServiceResponse<DriverTrip[]>> {
+  async getActiveTrips(driverId: string): Promise<ServiceResponse<DriverTrip[]>> {
     const { data, error } = await supabase
       .from("trips")
       .select("*, vehicles(registration_number, make, model)")
+      .eq("driver_id", driverId)
       .in("status", ["planned", "in_progress"])
       .order("start_date", { ascending: false });
     if (error) return fail(error);
@@ -137,10 +138,11 @@ export const driverService = {
     return ok(null);
   },
 
-  async getCompletedTrips(): Promise<ServiceResponse<DriverTrip[]>> {
+  async getCompletedTrips(driverId: string): Promise<ServiceResponse<DriverTrip[]>> {
     const { data, error } = await supabase
       .from("trips")
       .select("*, vehicles(registration_number, make, model)")
+      .eq("driver_id", driverId)
       .eq("status", "completed")
       .order("end_date", { ascending: false })
       .limit(50);

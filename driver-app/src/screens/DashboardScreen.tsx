@@ -33,10 +33,11 @@ export default function DashboardScreen() {
   const [refreshing, setRefreshing] = useState(false);
 
   const load = useCallback(async () => {
-    const res = await driverService.getActiveTrips();
+    if (!driver) return;
+    const res = await driverService.getActiveTrips(driver.id);
     if (res.success) setTrips(res.data ?? []);
     setLoading(false);
-  }, []);
+  }, [driver]);
 
   useFocusEffect(
     useCallback(() => {

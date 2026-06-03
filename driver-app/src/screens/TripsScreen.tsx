@@ -13,6 +13,7 @@ import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { Ionicons } from "@expo/vector-icons";
 
+import { useAuth } from "../context/AuthContext";
 import { driverService, DriverTrip } from "../services/driverService";
 import TripCard from "../components/TripCard";
 import type { TripsStackParamList } from "../navigation";
@@ -21,6 +22,7 @@ const PRIMARY = "#1E2D8E";
 type Nav = NativeStackNavigationProp<TripsStackParamList, "TripsList">;
 
 export default function TripsScreen() {
+  const { driver } = useAuth();
   const navigation = useNavigation<Nav>();
   const [trips, setTrips] = useState<DriverTrip[]>([]);
   const [tab, setTab] = useState<"in_progress" | "planned">("in_progress");
@@ -28,10 +30,11 @@ export default function TripsScreen() {
   const [refreshing, setRefreshing] = useState(false);
 
   const load = useCallback(async () => {
-    const res = await driverService.getActiveTrips();
+    if (!driver) return;
+    const res = await driverService.getActiveTrips(driver.id);
     if (res.success) setTrips(res.data ?? []);
     setLoading(false);
-  }, []);
+  }, [driver]);
 
   useFocusEffect(
     useCallback(() => {

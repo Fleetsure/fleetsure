@@ -41,7 +41,7 @@ export default function HistoryScreen() {
   const load = useCallback(async () => {
     if (!driver) return;
     const [tripsRes, paymentsRes] = await Promise.all([
-      driverService.getCompletedTrips(),
+      driverService.getCompletedTrips(driver.id),
       driverService.getPayments(driver.id),
     ]);
     if (tripsRes.success) setTrips(tripsRes.data ?? []);

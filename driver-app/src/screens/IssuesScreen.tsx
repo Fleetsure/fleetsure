@@ -62,7 +62,7 @@ export default function IssuesScreen() {
     if (!driver) return;
     const [issuesRes, tripsRes, ownerRes] = await Promise.all([
       driverService.getMyIssues(driver.id),
-      driverService.getActiveTrips(),
+      driverService.getActiveTrips(driver.id),
       driverService.getOwnerContact(driver.owner_id),
     ]);
     if (issuesRes.success) setIssues(issuesRes.data ?? []);
