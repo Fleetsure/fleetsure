@@ -228,18 +228,14 @@ export default function DriversPage() {
       address:            form.address            || null,
     };
     try {
-      if (editingId) {
-        await driverService.update(editingId, payload);
-      } else {
-        await driverService.create(payload);
-      }
+      const result = editingId
+        ? await driverService.update(editingId, payload)
+        : await driverService.create(payload);
+      if (!result.success) throw new Error(result.error || "Something went wrong");
       setShowForm(false);
       load();
     } catch (err: any) {
-      const detail = err.response?.data?.detail;
-      setError(Array.isArray(detail)
-        ? detail.map((d: any) => d.msg || JSON.stringify(d)).join(", ")
-        : detail || "Something went wrong");
+      setError(err.message || "Something went wrong");
     } finally { setSaving(false); }
   };
 
