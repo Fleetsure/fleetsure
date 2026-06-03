@@ -49,6 +49,14 @@ export default function LoginScreen() {
     startCooldown();
   }
 
+  async function handleResendOtp() {
+    if (cooldown > 0) return;
+    setSending(true);
+    await sendOtp(phone);
+    setSending(false);
+    startCooldown();
+  }
+
   async function handleVerify() {
     if (otp.length < 6) return;
     setVerifying(true);
@@ -168,6 +176,16 @@ export default function LoginScreen() {
                   ) : (
                     <Text style={styles.primaryBtnText}>Verify & Sign In →</Text>
                   )}
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[styles.secondaryBtn, cooldown > 0 && styles.primaryBtnDisabled]}
+                  onPress={handleResendOtp}
+                  disabled={sending || cooldown > 0}
+                >
+                  <Text style={[styles.secondaryBtnText, cooldown > 0 && { color: "#94A3B8" }]}>
+                    {sending ? "Sending…" : cooldown > 0 ? `Resend OTP in ${cooldown}s` : "Resend OTP"}
+                  </Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity
