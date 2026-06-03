@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   RefreshControl,
   ActivityIndicator,
+  Alert,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
@@ -77,7 +78,15 @@ export default function DashboardScreen() {
           <Text style={styles.headerSub}>FleetSure Driver</Text>
           <Text style={styles.headerName}>{driver?.name ?? ""}</Text>
         </View>
-        <TouchableOpacity style={styles.logoutBtn} onPress={logout}>
+        <TouchableOpacity
+          style={styles.logoutBtn}
+          onPress={() =>
+            Alert.alert("Sign Out", "Are you sure you want to sign out?", [
+              { text: "Cancel", style: "cancel" },
+              { text: "Sign Out", style: "destructive", onPress: logout },
+            ])
+          }
+        >
           <Ionicons name="log-out-outline" size={16} color="white" />
           <Text style={styles.logoutText}>Sign Out</Text>
         </TouchableOpacity>

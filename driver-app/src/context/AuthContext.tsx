@@ -5,13 +5,7 @@ import React, {
   useRef,
   useState,
 } from "react";
-import {
-  onAuthStateChanged,
-  signInWithPhoneNumber,
-  signOut,
-  ConfirmationResult,
-  ApplicationVerifier,
-} from "firebase/auth";
+import { FirebaseAuthTypes } from "@react-native-firebase/auth";
 import { auth } from "../config/firebase";
 import { driverService } from "../services/driverService";
 
@@ -31,7 +25,7 @@ interface AuthContextType {
   loading: boolean;
   otpSent: boolean;
   authError: string | null;
-  sendOtp: (phone: string, verifier: ApplicationVerifier) => Promise<void>;
+  sendOtp: (phone: string) => Promise<void>;
   verifyOtp: (code: string) => Promise<void>;
   resetOtp: () => void;
   logout: () => Promise<void>;
@@ -45,11 +39,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [otpSent, setOtpSent] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
 
-  const confirmationRef = useRef<ConfirmationResult | null>(null);
+  const confirmationRef = useRef<FirebaseAuthTypes.ConfirmationResult | null>(null);
   const pendingPhone = useRef<string>("");
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+    const unsubscribe = auth.onAuthStateChanged(async (user) => {
       if (user && user.phoneNumber) {
         try {
           const res = await driverService.getProfileByPhone(user.phoneNumber);
@@ -63,14 +57,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return unsubscribe;
   }, []);
 
-  async function sendOtp(phone: string, verifier: ApplicationVerifier) {
+  async function sendOtp(phone: string) {
     setAuthError(null);
     try {
       const e164 = phone.startsWith("+")
         ? phone
         : `+91${phone.replace(/\D/g, "").slice(-10)}`;
       pendingPhone.current = e164;
-      confirmationRef.current = await signInWithPhoneNumber(auth, e164, verifier);
+      confirmationRef.current = await auth.signInWithPhoneNumber(e164);
       setOtpSent(true);
     } catch (e: any) {
       setAuthError(e?.message ?? "Failed to send OTP. Check the number and try again.");
@@ -93,7 +87,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setAuthError(
           res.error ?? "No driver account found. Ask your fleet manager to register you first."
         );
-        await signOut(auth);
+        await auth.signOut();
         return;
       }
 
@@ -114,7 +108,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   async function logout() {
-    await signOut(auth);
+    await auth.signOut();
     setDriver(null);
     setOtpSent(false);
     confirmationRef.current = null;

@@ -25,7 +25,8 @@
     "@supabase/supabase-js": "^2.47.0",
     "@expo/vector-icons": "~14.0.4",
     "firebase": "^10.7.0",
-    "expo-firebase-recaptcha": "^2.2.2"
+    "@react-native-firebase/app": "^21.0.0",
+    "@react-native-firebase/auth": "^21.0.0"
   },
   "devDependencies": {
     "@babel/core": "^7.24.0",

@@ -1,4 +1,4 @@
-import React, { useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   View,
   Text,
@@ -12,12 +12,11 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
-import { FirebaseRecaptchaVerifierModal } from "expo-firebase-recaptcha";
 import { useAuth } from "../context/AuthContext";
-import { firebaseConfig } from "../config/firebase";
 
 const PRIMARY = "#1E2D8E";
 const PRIMARY_LIGHT = "#EEF0FB";
+const COOLDOWN_SECONDS = 60;
 
 export default function LoginScreen() {
   const { sendOtp, verifyOtp, resetOtp, otpSent, authError } = useAuth();
@@ -25,15 +24,29 @@ export default function LoginScreen() {
   const [otp, setOtp] = useState("");
   const [sending, setSending] = useState(false);
   const [verifying, setVerifying] = useState(false);
+  const [cooldown, setCooldown] = useState(0);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  const recaptchaVerifier = useRef<FirebaseRecaptchaVerifierModal>(null);
+  useEffect(() => {
+    return () => { if (timerRef.current) clearInterval(timerRef.current); };
+  }, []);
+
+  function startCooldown() {
+    setCooldown(COOLDOWN_SECONDS);
+    timerRef.current = setInterval(() => {
+      setCooldown((s) => {
+        if (s <= 1) { clearInterval(timerRef.current!); timerRef.current = null; return 0; }
+        return s - 1;
+      });
+    }, 1000);
+  }
 
   async function handleSendOtp() {
-    if (phone.replace(/\D/g, "").length < 10) return;
-    if (!recaptchaVerifier.current) return;
+    if (phone.replace(/\D/g, "").length < 10 || cooldown > 0) return;
     setSending(true);
-    await sendOtp(phone, recaptchaVerifier.current);
+    await sendOtp(phone);
     setSending(false);
+    startCooldown();
   }
 
   async function handleVerify() {
@@ -51,13 +64,6 @@ export default function LoginScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* reCAPTCHA modal — invisible by default, auto-completes without user action */}
-      <FirebaseRecaptchaVerifierModal
-        ref={recaptchaVerifier}
-        firebaseConfig={firebaseConfig}
-        attemptInvisibleVerification={true}
-      />
-
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === "ios" ? "padding" : undefined}
@@ -110,13 +116,15 @@ export default function LoginScreen() {
                 <TouchableOpacity
                   style={[
                     styles.primaryBtn,
-                    (sending || phone.length < 10) && styles.primaryBtnDisabled,
+                    (sending || phone.length < 10 || cooldown > 0) && styles.primaryBtnDisabled,
                   ]}
                   onPress={handleSendOtp}
-                  disabled={sending || phone.length < 10}
+                  disabled={sending || phone.length < 10 || cooldown > 0}
                 >
                   {sending ? (
                     <ActivityIndicator color="white" />
+                  ) : cooldown > 0 ? (
+                    <Text style={styles.primaryBtnText}>Resend in {cooldown}s</Text>
                   ) : (
                     <Text style={styles.primaryBtnText}>Send OTP →</Text>
                   )}
