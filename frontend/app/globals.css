@@ -196,63 +196,39 @@ tr:hover td { background: var(--bg-hover); }
     max-width: 100%;
   }
 
-  /* Tables: always scroll within container, never cause page scroll */
-  table {
-    min-width: 100%;
-    font-size: 12px;
+  /* Cards: reduced padding on mobile */
+  .card {
+    padding: 16px;
+    overflow: hidden;
+    min-width: 0;
   }
 
-  /* Wrap table in overflow scroll */
+  /* Stat cards: reduced padding + ensure text doesn't overflow */
+  .stat-card {
+    padding: 14px;
+    min-width: 0;
+    overflow: hidden;
+  }
+
+  /* Tables inside cards that haven't been replaced with card views:
+     allow horizontal scroll within the table container (not the whole page) */
   .card table,
   div table {
     display: block;
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
-    white-space: nowrap;
     width: 100%;
   }
 
-  /* Stat cards: ensure text doesn't overflow */
-  .stat-card {
-    min-width: 0;
-    overflow: hidden;
-  }
-
-  .stat-card .value {
-    font-size: 20px !important;
-  }
-
-  /* Cards: no horizontal overflow */
-  .card {
-    overflow: hidden;
-    min-width: 0;
-  }
-
-  /* Modals / drawers: full width on mobile */
-  div[style*="width: 420"],
-  div[style*="width:420"],
-  div[style*="width: 480"],
-  div[style*="width: 500"],
-  div[style*="width: 560"] {
-    width: 100% !important;
-    max-width: calc(100vw - 32px) !important;
-    margin: 16px auto !important;
-  }
-
-  /* Button rows: allow wrap */
-  div[style*="display: flex"][style*="gap"] > button {
-    flex-shrink: 0;
-  }
-
-  /* Input fields: full width */
+  /* Input fields: full width, 16px prevents iOS keyboard zoom */
   input, select, textarea {
     max-width: 100%;
     box-sizing: border-box;
+    font-size: 16px !important;
   }
 
-  /* Forms in cards: stack on mobile */
-  .card form > div,
-  .card > div[style*="display: flex"][style*="gap: 16"] {
-    flex-wrap: wrap;
+  /* Full-width primary/outline buttons hit 44px touch target */
+  .btn-primary, .btn-outline {
+    min-height: 44px;
   }
 }

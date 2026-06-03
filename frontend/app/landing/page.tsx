@@ -93,7 +93,92 @@ function BookDemo({ large, onDark }: { large?: boolean; onDark?: boolean }) {
 }
 
 // ── App mockup ────────────────────────────────────────────────────────────────
-function AppMockup() {
+function AppMockup({ isMobile }: { isMobile: boolean }) {
+  if (isMobile) {
+    // Phone-style mockup for mobile screens
+    return (
+      <div style={{
+        maxWidth: 300, margin: "0 auto",
+        borderRadius: 28, overflow: "hidden",
+        boxShadow: "0 32px 80px rgba(0,0,0,0.22), 0 4px 16px rgba(0,0,0,0.1)",
+        border: "6px solid #1E2D8E",
+        background: "white",
+      }}>
+        {/* Status bar */}
+        <div style={{ background: SAF, padding: "12px 18px 10px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <span style={{ color: "white", fontSize: 13, fontWeight: 800 }}>FleetSure</span>
+          <span style={{ color: "rgba(255,255,255,0.7)", fontSize: 11 }}>9:41</span>
+        </div>
+
+        {/* App content */}
+        <div style={{ background: "#F5F7FF", padding: "16px 14px" }}>
+          <div style={{ fontSize: 15, fontWeight: 800, color: DRK, marginBottom: 14, letterSpacing: "-0.3px" }}>Fleet Overview</div>
+
+          {/* 2-column stat cards */}
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 12 }}>
+            {[
+              { label: "Monthly Revenue", value: "₹2.4L", delta: "+12%", color: SAF,  bg: "#EEF0FB" },
+              { label: "Net Profit",       value: "₹68K",  delta: "+8%",  color: PEA,  bg: "#DBEAFE" },
+            ].map(s => (
+              <div key={s.label} style={{ background: "white", borderRadius: 10, padding: "12px 10px", border: `1px solid ${s.color}22` }}>
+                <div style={{ fontSize: 9, fontWeight: 600, color: "#8899BB", marginBottom: 5, textTransform: "uppercase", letterSpacing: "0.5px" }}>{s.label}</div>
+                <div style={{ fontSize: 18, fontWeight: 800, color: s.color, lineHeight: 1 }}>{s.value}</div>
+                <div style={{ fontSize: 9.5, color: "#2e7d32", marginTop: 4, fontWeight: 600 }}>{s.delta} this month</div>
+              </div>
+            ))}
+          </div>
+
+          {/* Recent trips */}
+          <div style={{ background: "white", borderRadius: 10, padding: "12px 14px", marginBottom: 10 }}>
+            <div style={{ fontSize: 9, fontWeight: 700, color: "#8899BB", letterSpacing: "1px", textTransform: "uppercase", marginBottom: 10 }}>Recent Trips</div>
+            {[
+              { reg: "MH 04 AB 1234", route: "Mumbai → Pune",  amt: "₹18K",   color: "#2e7d32", bg: "#E8F5E9" },
+              { reg: "GJ 05 CD 5678", route: "Surat → Rajkot", amt: "₹22.5K", color: "#2e7d32", bg: "#E8F5E9" },
+              { reg: "RJ 14 EF 9012", route: "Jaipur → Delhi", amt: "₹35K",   color: SAF,       bg: "#EEF0FB" },
+            ].map((trip, i) => (
+              <div key={trip.reg} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "7px 0", borderTop: i === 0 ? "none" : "1px solid #F0F2FA" }}>
+                <div>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: DRK }}>{trip.reg}</div>
+                  <div style={{ fontSize: 10, color: "#8899BB" }}>{trip.route}</div>
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: DRK }}>{trip.amt}</div>
+                  <div style={{ fontSize: 9, padding: "2px 6px", borderRadius: 4, background: trip.bg, color: trip.color, fontWeight: 600 }}>
+                    {trip.color === SAF ? "Active" : "Done"}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Compliance alert */}
+          <div style={{ background: "#EEF0FB", borderRadius: 8, padding: "9px 11px", display: "flex", gap: 8, alignItems: "flex-start", border: "1px solid rgba(30,45,142,0.2)" }}>
+            <ShieldAlert size={13} color={SAF} style={{ flexShrink: 0, marginTop: 1 }} />
+            <div style={{ fontSize: 11, color: "#1E2D8E", fontWeight: 500, lineHeight: 1.4 }}>
+              Insurance expiring in <strong>8 days</strong> — MH 04 AB 1234
+            </div>
+          </div>
+        </div>
+
+        {/* Bottom nav */}
+        <div style={{ background: "white", borderTop: "1px solid #f0f0f5", display: "flex", justifyContent: "space-around", padding: "10px 8px 12px" }}>
+          {[
+            { icon: "🏠", label: "Home",  active: true },
+            { icon: "🚚", label: "Trips",  active: false },
+            { icon: "⛽", label: "Fuel",   active: false },
+            { icon: "📊", label: "P&L",    active: false },
+          ].map(item => (
+            <div key={item.label} style={{ textAlign: "center" }}>
+              <div style={{ fontSize: 16 }}>{item.icon}</div>
+              <div style={{ fontSize: 9, color: item.active ? SAF : "#aaa", fontWeight: item.active ? 700 : 400, marginTop: 2 }}>{item.label}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  // Desktop browser-frame mockup
   return (
     <div style={{
       background: "white", borderRadius: 16, overflow: "hidden",
@@ -187,11 +272,20 @@ export default function LandingPage() {
   const [openFaq, setOpenFaq] = useState<number | null>(null);
   const [scrolled, setScrolled] = useState(false);
   const [showLangMenu, setShowLangMenu] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 10);
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 768);
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
   }, []);
 
   useEffect(() => {
@@ -211,74 +305,177 @@ export default function LandingPage() {
         position: "fixed", top: 0, left: 0, right: 0, zIndex: 100,
         background: "rgba(238,240,251,0.97)", backdropFilter: "blur(14px)",
         borderBottom: "1px solid rgba(30,45,142,0.12)",
-        padding: "0 32px", height: 66,
+        padding: isMobile ? "0 16px" : "0 32px", height: 66,
         display: "flex", alignItems: "center", justifyContent: "space-between",
         boxShadow: scrolled ? "0 2px 16px rgba(0,0,0,0.10)" : "none",
         transition: "box-shadow 0.2s",
       }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <img src="/logo.png" alt="FleetSure" style={{ height: 36, width: "auto", objectFit: "contain" }} />
-          <span style={{ fontSize: 20, fontWeight: 900, color: SAF, letterSpacing: "-0.5px" }}>FleetSure</span>
+        {/* Logo */}
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <img src="/logo.png" alt="FleetSure" style={{ height: 34, width: "auto", objectFit: "contain" }} />
+          <span style={{ fontSize: isMobile ? 18 : 20, fontWeight: 900, color: SAF, letterSpacing: "-0.5px" }}>FleetSure</span>
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 24 }}>
-          {([
-            [t("landing.nav_features"), "#features"],
-            [t("landing.nav_how"),      "#how-it-works"],
-            [t("landing.nav_faq"),      "#faq"],
-          ] as [string, string][]).map(([label, href]) => (
-            <a key={href} href={href} style={{ fontSize: 14, fontWeight: 600, color: "#334155", textDecoration: "none", letterSpacing: "-0.1px" }}>{label}</a>
-          ))}
-          <Link href="/login" style={{ fontSize: 14, fontWeight: 700, color: PEA, textDecoration: "none" }}>{t("landing.login")}</Link>
 
-          {/* Language picker */}
-          <div style={{ position: "relative" }}>
-            <button
-              onClick={() => setShowLangMenu(v => !v)}
-              style={{
-                padding: "7px 12px", background: "transparent",
-                border: "1.5px solid rgba(30,45,142,0.3)", borderRadius: 8,
-                fontSize: 13, fontWeight: 700, cursor: "pointer", color: "#334155",
-                display: "flex", alignItems: "center", gap: 4,
-              }}
-            >
-              {LANGUAGES[lang as LangCode].label} ▾
-            </button>
-            {showLangMenu && (
-              <div
+        {/* Desktop nav links */}
+        {!isMobile && (
+          <div style={{ display: "flex", alignItems: "center", gap: 24 }}>
+            {([
+              [t("landing.nav_features"), "#features"],
+              [t("landing.nav_how"),      "#how-it-works"],
+              [t("landing.nav_faq"),      "#faq"],
+            ] as [string, string][]).map(([label, href]) => (
+              <a key={href} href={href} style={{ fontSize: 14, fontWeight: 600, color: "#334155", textDecoration: "none", letterSpacing: "-0.1px" }}>{label}</a>
+            ))}
+            <Link href="/login" style={{ fontSize: 14, fontWeight: 700, color: PEA, textDecoration: "none" }}>{t("landing.login")}</Link>
+
+            {/* Language picker */}
+            <div style={{ position: "relative" }}>
+              <button
+                onClick={() => setShowLangMenu(v => !v)}
                 style={{
-                  position: "absolute", top: "calc(100% + 6px)", right: 0,
-                  background: "white", border: "1px solid #c7d2fe",
-                  borderRadius: 10, boxShadow: "0 8px 24px rgba(0,0,0,0.12)",
-                  overflow: "hidden", zIndex: 200, minWidth: 150,
+                  padding: "7px 12px", background: "transparent",
+                  border: "1.5px solid rgba(30,45,142,0.3)", borderRadius: 8,
+                  fontSize: 13, fontWeight: 700, cursor: "pointer", color: "#334155",
+                  display: "flex", alignItems: "center", gap: 4,
                 }}
-                onMouseLeave={() => setShowLangMenu(false)}
               >
-                {(Object.entries(LANGUAGES) as [LangCode, typeof LANGUAGES[LangCode]][]).map(([code, meta]) => (
-                  <button
-                    key={code}
-                    onClick={() => { setLang(code); setShowLangMenu(false); }}
-                    style={{
-                      display: "block", width: "100%", textAlign: "left",
-                      padding: "10px 16px", background: lang === code ? "#EEF0FB" : "transparent",
-                      border: "none", cursor: "pointer", fontSize: 13,
-                      fontWeight: lang === code ? 700 : 400, color: "#334155",
-                    }}
-                  >
-                    {meta.name}
-                  </button>
-                ))}
-              </div>
-            )}
+                {LANGUAGES[lang as LangCode].label} ▾
+              </button>
+              {showLangMenu && (
+                <div
+                  style={{
+                    position: "absolute", top: "calc(100% + 6px)", right: 0,
+                    background: "white", border: "1px solid #c7d2fe",
+                    borderRadius: 10, boxShadow: "0 8px 24px rgba(0,0,0,0.12)",
+                    overflow: "hidden", zIndex: 200, minWidth: 150,
+                  }}
+                  onMouseLeave={() => setShowLangMenu(false)}
+                >
+                  {(Object.entries(LANGUAGES) as [LangCode, typeof LANGUAGES[LangCode]][]).map(([code, meta]) => (
+                    <button
+                      key={code}
+                      onClick={() => { setLang(code); setShowLangMenu(false); }}
+                      style={{
+                        display: "block", width: "100%", textAlign: "left",
+                        padding: "10px 16px", background: lang === code ? "#EEF0FB" : "transparent",
+                        border: "none", cursor: "pointer", fontSize: 13,
+                        fontWeight: lang === code ? 700 : 400, color: "#334155",
+                      }}
+                    >
+                      {meta.name}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <BookDemo />
+          </div>
+        )}
+
+        {/* Mobile: Log In + Hamburger */}
+        {isMobile && (
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <Link href="/login" style={{ fontSize: 13, fontWeight: 700, color: PEA, textDecoration: "none", padding: "6px 12px" }}>
+              Log In
+            </Link>
+            <button
+              onClick={() => setMenuOpen(v => !v)}
+              style={{
+                width: 44, height: 44, display: "flex", flexDirection: "column",
+                alignItems: "center", justifyContent: "center", gap: 5,
+                background: "none", border: "none", cursor: "pointer", padding: 0,
+              }}
+              aria-label="Menu"
+            >
+              {menuOpen ? (
+                <X size={22} color={SAF} />
+              ) : (
+                <>
+                  <div style={{ width: 22, height: 2, background: SAF, borderRadius: 2 }} />
+                  <div style={{ width: 22, height: 2, background: SAF, borderRadius: 2 }} />
+                  <div style={{ width: 16, height: 2, background: SAF, borderRadius: 2 }} />
+                </>
+              )}
+            </button>
+          </div>
+        )}
+      </nav>
+
+      {/* ── MOBILE MENU OVERLAY ─────────────────────────────────────────────── */}
+      {isMobile && menuOpen && (
+        <div style={{
+          position: "fixed", top: 66, left: 0, right: 0, bottom: 0,
+          background: "rgba(238,240,251,0.98)", backdropFilter: "blur(16px)",
+          zIndex: 99, display: "flex", flexDirection: "column",
+          padding: "24px 24px 40px", overflowY: "auto",
+        }}>
+          {/* Nav links */}
+          <div style={{ display: "flex", flexDirection: "column", gap: 4, marginBottom: 28 }}>
+            {([
+              [t("landing.nav_features"), "#features"],
+              [t("landing.nav_how"),      "#how-it-works"],
+              [t("landing.nav_faq"),      "#faq"],
+            ] as [string, string][]).map(([label, href]) => (
+              <a key={href} href={href} onClick={() => setMenuOpen(false)}
+                style={{
+                  fontSize: 22, fontWeight: 700, color: DRK, textDecoration: "none",
+                  padding: "12px 4px", borderBottom: "1px solid rgba(30,45,142,0.08)",
+                  display: "block",
+                }}>
+                {label}
+              </a>
+            ))}
           </div>
 
-          <BookDemo />
+          {/* Language picker */}
+          <div style={{ marginBottom: 28 }}>
+            <div style={{ fontSize: 11, fontWeight: 800, color: "#888", textTransform: "uppercase", letterSpacing: "1.5px", marginBottom: 10 }}>Language</div>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+              {(Object.entries(LANGUAGES) as [LangCode, typeof LANGUAGES[LangCode]][]).map(([code, meta]) => (
+                <button
+                  key={code}
+                  onClick={() => { setLang(code); }}
+                  style={{
+                    padding: "7px 14px", borderRadius: 8, fontSize: 13, fontWeight: 600,
+                    border: `1.5px solid ${lang === code ? SAF : "rgba(30,45,142,0.2)"}`,
+                    background: lang === code ? "#EEF0FB" : "white",
+                    color: lang === code ? SAF : "#555",
+                    cursor: "pointer",
+                  }}
+                >
+                  {meta.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* CTA */}
+          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            <a href={WA_URL} target="_blank" rel="noreferrer" onClick={() => setMenuOpen(false)}
+              style={{
+                display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+                padding: "16px", background: SAF, color: "white", borderRadius: 10,
+                fontWeight: 700, fontSize: 16, textDecoration: "none",
+              }}>
+              💬 Book a Free Demo
+            </a>
+            <Link href="/login" onClick={() => setMenuOpen(false)}
+              style={{
+                display: "flex", alignItems: "center", justifyContent: "center",
+                padding: "14px", border: `1.5px solid ${SAF}`, color: SAF, borderRadius: 10,
+                fontWeight: 700, fontSize: 15, textDecoration: "none",
+              }}>
+              Log In
+            </Link>
+          </div>
         </div>
-      </nav>
+      )}
 
       {/* ── HERO ────────────────────────────────────────────────────────────── */}
       <section style={{
         background: `linear-gradient(140deg, ${PEA_D} 0%, ${SAF} 45%, ${AMB} 100%)`,
-        padding: "166px 32px 88px",
+        padding: isMobile ? "100px 20px 64px" : "166px 32px 88px",
         textAlign: "center",
         position: "relative", overflow: "hidden",
       }}>
@@ -316,13 +513,15 @@ export default function LandingPage() {
             {t("landing.hero_sub")}
           </p>
 
-          <div style={{ display: "flex", gap: 14, justifyContent: "center", flexWrap: "wrap", marginBottom: 54 }}>
+          <div style={{ display: "flex", gap: isMobile ? 10 : 14, justifyContent: "center", flexWrap: "wrap", marginBottom: isMobile ? 36 : 54, flexDirection: isMobile ? "column" : "row", alignItems: "center" }}>
             <BookDemo large onDark />
             <a href="#how-it-works" style={{
               display: "inline-flex", alignItems: "center", gap: 6,
-              padding: "17px 30px", background: "rgba(255,255,255,0.12)",
+              padding: isMobile ? "14px 28px" : "17px 30px",
+              background: "rgba(255,255,255,0.12)",
               border: "1.5px solid rgba(255,255,255,0.4)", borderRadius: 8,
-              color: "white", fontWeight: 700, fontSize: 16, textDecoration: "none", letterSpacing: "-0.2px",
+              color: "white", fontWeight: 700, fontSize: isMobile ? 15 : 16, textDecoration: "none", letterSpacing: "-0.2px",
+              width: isMobile ? "100%" : "auto", justifyContent: "center",
             }}>
               {t("landing.nav_how")} ↓
             </a>
@@ -342,8 +541,8 @@ export default function LandingPage() {
       </section>
 
       {/* ── TRUST BAR ───────────────────────────────────────────────────────── */}
-      <section style={{ background: PEA_D, padding: "28px 32px" }}>
-        <div style={{ maxWidth: 980, margin: "0 auto", display: "flex", justifyContent: "center", flexWrap: "wrap", gap: 48 }}>
+      <section style={{ background: PEA_D, padding: isMobile ? "24px 20px" : "28px 32px" }}>
+        <div style={{ maxWidth: 980, margin: "0 auto", display: "grid", gridTemplateColumns: isMobile ? "1fr 1fr" : "repeat(4, 1fr)", gap: isMobile ? "16px 12px" : "0 48px", justifyItems: "center" }}>
           {([
             ["Real-time P&L",      "per vehicle & trip"],
             ["Compliance alerts",  "before documents expire"],
@@ -359,7 +558,7 @@ export default function LandingPage() {
       </section>
 
       {/* ── PAIN POINTS ─────────────────────────────────────────────────────── */}
-      <section style={{ padding: "96px 32px", background: "white" }}>
+      <section style={{ padding: isMobile ? "64px 20px" : "96px 32px", background: "white" }}>
         <div style={{ maxWidth: 980, margin: "0 auto" }}>
           <div style={{ textAlign: "center", marginBottom: 56 }}>
             <div style={{ fontSize: 11, fontWeight: 800, color: ROSE, letterSpacing: "2.5px", textTransform: "uppercase", marginBottom: 14 }}>Sound familiar?</div>
@@ -405,23 +604,23 @@ export default function LandingPage() {
       </section>
 
       {/* ── APP MOCKUP ──────────────────────────────────────────────────────── */}
-      <section style={{ padding: "0 32px 96px", background: "white" }}>
+      <section style={{ padding: isMobile ? "0 20px 72px" : "0 32px 96px", background: "white" }}>
         <div style={{ maxWidth: 980, margin: "0 auto" }}>
-          <div style={{ textAlign: "center", marginBottom: 48 }}>
+          <div style={{ textAlign: "center", marginBottom: isMobile ? 36 : 48 }}>
             <div style={{ fontSize: 11, fontWeight: 800, color: SAF, letterSpacing: "2.5px", textTransform: "uppercase", marginBottom: 14 }}>The command centre</div>
             <h2 style={{ margin: "0 0 16px", fontSize: "clamp(26px, 4vw, 40px)", fontWeight: 900, letterSpacing: "-1.5px", fontFamily: font }}>
               Your entire fleet. One screen.
             </h2>
-            <p style={{ fontSize: 16, color: "#475569", maxWidth: 420, margin: "0 auto", lineHeight: 1.65 }}>
+            <p style={{ fontSize: isMobile ? 15 : 16, color: "#475569", maxWidth: 420, margin: "0 auto", lineHeight: 1.65 }}>
               Real-time P&L, compliance alerts, trip tracking and driver payments, all visible the moment you open the app.
             </p>
           </div>
-          <AppMockup />
+          <AppMockup isMobile={isMobile} />
         </div>
       </section>
 
       {/* ── HOW IT WORKS ────────────────────────────────────────────────────── */}
-      <section id="how-it-works" style={{ padding: "96px 32px", background: CRM }}>
+      <section id="how-it-works" style={{ padding: isMobile ? "64px 20px" : "96px 32px", background: CRM }}>
         <div style={{ maxWidth: 980, margin: "0 auto" }}>
           <div style={{ textAlign: "center", marginBottom: 60 }}>
             <div style={{ fontSize: 11, fontWeight: 800, color: SAF, letterSpacing: "2.5px", textTransform: "uppercase", marginBottom: 14 }}>Simple by design</div>
@@ -447,7 +646,7 @@ export default function LandingPage() {
       </section>
 
       {/* ── FEATURES ────────────────────────────────────────────────────────── */}
-      <section id="features" style={{ padding: "96px 32px", background: "#EEF0FB" }}>
+      <section id="features" style={{ padding: isMobile ? "64px 20px" : "96px 32px", background: "#EEF0FB" }}>
         <div style={{ maxWidth: 980, margin: "0 auto" }}>
           <div style={{ textAlign: "center", marginBottom: 60 }}>
             <div style={{ fontSize: 11, fontWeight: 800, color: PEA, letterSpacing: "2.5px", textTransform: "uppercase", marginBottom: 14 }}>Everything you need</div>
@@ -474,7 +673,7 @@ export default function LandingPage() {
       </section>
 
       {/* ── TESTIMONIALS ────────────────────────────────────────────────────── */}
-      <section style={{ padding: "96px 32px", background: `linear-gradient(140deg, ${PEA_D} 0%, ${PEA} 100%)` }}>
+      <section style={{ padding: isMobile ? "64px 20px" : "96px 32px", background: `linear-gradient(140deg, ${PEA_D} 0%, ${PEA} 100%)` }}>
         <div style={{ maxWidth: 980, margin: "0 auto" }}>
           <div style={{ textAlign: "center", marginBottom: 60 }}>
             <div style={{ fontSize: 11, fontWeight: 800, color: AMB, letterSpacing: "2.5px", textTransform: "uppercase", marginBottom: 14 }}>Real fleet owners</div>
@@ -510,7 +709,7 @@ export default function LandingPage() {
       </section>
 
       {/* ── FAQ ─────────────────────────────────────────────────────────────── */}
-      <section id="faq" style={{ padding: "96px 32px", background: "white" }}>
+      <section id="faq" style={{ padding: isMobile ? "64px 20px" : "96px 32px", background: "white" }}>
         <div style={{ maxWidth: 700, margin: "0 auto" }}>
           <div style={{ textAlign: "center", marginBottom: 60 }}>
             <div style={{ fontSize: 11, fontWeight: 800, color: ROSE, letterSpacing: "2.5px", textTransform: "uppercase", marginBottom: 14 }}>Got questions?</div>
@@ -547,7 +746,7 @@ export default function LandingPage() {
 
       {/* ── CTA BANNER ──────────────────────────────────────────────────────── */}
       <section style={{
-        padding: "100px 32px",
+        padding: isMobile ? "72px 20px" : "100px 32px",
         background: `linear-gradient(140deg, ${ROSE} 0%, ${SAF} 60%, ${AMB} 100%)`,
         textAlign: "center", position: "relative", overflow: "hidden",
       }}>
@@ -568,9 +767,9 @@ export default function LandingPage() {
       </section>
 
       {/* ── FOOTER ──────────────────────────────────────────────────────────── */}
-      <footer style={{ background: DRK, padding: "56px 32px 32px" }}>
+      <footer style={{ background: DRK, padding: isMobile ? "48px 20px 28px" : "56px 32px 32px" }}>
         <div style={{ maxWidth: 980, margin: "0 auto" }}>
-          <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 40, marginBottom: 48 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: isMobile ? 32 : 40, marginBottom: isMobile ? 36 : 48 }}>
             <div style={{ maxWidth: 270 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>
                 <img src="/logo.png" alt="FleetSure" style={{ height: 32, width: "auto", objectFit: "contain" }} />
@@ -580,7 +779,7 @@ export default function LandingPage() {
                 India's fleet management platform for owners running 10–100 trucks.
               </p>
             </div>
-            <div style={{ display: "flex", gap: 56, flexWrap: "wrap" }}>
+            <div style={{ display: "flex", gap: isMobile ? 32 : 56, flexWrap: "wrap" }}>
               <div>
                 <div style={{ fontSize: 10, fontWeight: 800, color: "rgba(255,255,255,0.3)", letterSpacing: "2px", textTransform: "uppercase", marginBottom: 18 }}>Product</div>
                 {([["Features", "#features"], ["How It Works", "#how-it-works"], ["FAQ", "#faq"]] as [string, string][]).map(([label, href]) => (

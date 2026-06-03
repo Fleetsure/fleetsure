@@ -718,7 +718,7 @@ export default function TripsPage() {
 
           {/* Drawer panel */}
           <div style={{
-            position: "fixed", top: 0, right: 0, bottom: 0, width: 520,
+            position: "fixed", top: 0, right: 0, bottom: 0, width: isMobile ? "100%" : 520,
             background: "var(--bg-card, #fff)", zIndex: 901,
             display: "flex", flexDirection: "column",
             boxShadow: "-4px 0 32px rgba(0,0,0,0.15)",
@@ -1036,8 +1036,8 @@ export default function TripsPage() {
 
       {/* ── Log Trip Modal ─────────────────────────────────────────────────────── */}
       {showForm && (
-        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000 }}>
-          <div className="card" style={{ width: 540, position: "relative", maxHeight: "92vh", overflowY: "auto" }}>
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, padding: isMobile ? "12px" : "20px" }}>
+          <div className="card" style={{ width: "100%", maxWidth: 540, position: "relative", maxHeight: "92vh", overflowY: "auto" }}>
             <button onClick={() => { setShowForm(false); setEditingTrip(null); setVehicleSuggestions([]); setFatigueStatus(null); }}
               style={{ position: "absolute", top: 16, right: 16, background: "none", border: "none", cursor: "pointer", color: "#aaa" }}>
               <X size={18} />
@@ -1182,7 +1182,7 @@ export default function TripsPage() {
               </div>
 
               {/* Freight / Advance / Weight */}
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
+              <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr 1fr" : "1fr 1fr 1fr", gap: 10 }}>
                 {[
                   { label: "Freight (₹)", key: "freight_amount", placeholder: "85000", required: false, type: "number" },
                   { label: "Driver Advance (₹)", key: "driver_advance", placeholder: "5000", required: false, type: "number" },
@@ -1198,7 +1198,7 @@ export default function TripsPage() {
               </div>
 
               {/* Dates / Distance */}
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
+              <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr 1fr" : "1fr 1fr 1fr", gap: 10 }}>
                 {[
                   { label: "Start Date *", key: "start_date",  type: "date",   required: true },
                   { label: "End Date",     key: "end_date",    type: "date",   required: false },
@@ -1252,10 +1252,10 @@ export default function TripsPage() {
 
       {/* ── PDF Options Modal ─────────────────────────────────────────────── */}
       {pdfModal && selTrip && (
-        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center" }}
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center", padding: isMobile ? 12 : 20 }}
           onClick={() => setPdfModal(false)}>
           <div onClick={e => e.stopPropagation()}
-            style={{ background: "white", borderRadius: 16, padding: 28, width: 420, boxShadow: "0 20px 60px rgba(0,0,0,0.25)" }}>
+            style={{ background: "white", borderRadius: 16, padding: isMobile ? "20px 16px" : 28, width: "100%", maxWidth: 420, boxShadow: "0 20px 60px rgba(0,0,0,0.25)" }}>
             <div style={{ fontWeight: 800, fontSize: 16, color: "#1a1a2e", marginBottom: 4 }}>Download Trip Sheet PDF</div>
             <div style={{ fontSize: 12.5, color: "#888", marginBottom: 20 }}>{selTrip.origin} → {selTrip.destination}</div>
 

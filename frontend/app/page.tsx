@@ -396,7 +396,7 @@ export default function Dashboard() {
                 </div>
               </div>
               {/* Fleet summary pills — always wrap-friendly */}
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8 }}>
+              <div style={{ display: "grid", gridTemplateColumns: isMobile ? "repeat(2, 1fr)" : "repeat(4, 1fr)", gap: 8 }}>
                 {[
                   { label: "Revenue",  value: fmt(fleetRevenue),  color: "#1565c0", bg: "#e3f2fd" },
                   { label: "Expenses", value: fmt(fleetExpenses), color: "#b71c1c", bg: "#fce4ec" },
@@ -421,61 +421,103 @@ export default function Dashboard() {
               </div>
             )}
 
-            {/* Table */}
-            <div style={{ overflowX: "auto" }}>
-              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
-                <thead>
-                  <tr style={{ borderBottom: "2px solid #f0f0f8" }}>
-                    <th style={{ textAlign: "left", padding: "8px 10px", color: "#aaa", fontWeight: 700, fontSize: 11, textTransform: "uppercase", letterSpacing: "0.04em" }}>Vehicle</th>
-                    <th style={{ textAlign: "center", padding: "8px 10px", color: "#aaa", fontWeight: 700, fontSize: 11, textTransform: "uppercase", letterSpacing: "0.04em" }}>Trips</th>
-                    <th style={{ textAlign: "right", padding: "8px 10px", color: "#aaa", fontWeight: 700, fontSize: 11, textTransform: "uppercase", letterSpacing: "0.04em" }}>Revenue</th>
-                    <th style={{ textAlign: "right", padding: "8px 10px", color: "#aaa", fontWeight: 700, fontSize: 11, textTransform: "uppercase", letterSpacing: "0.04em" }}>Expenses</th>
-                    <th style={{ textAlign: "right", padding: "8px 10px", color: "#aaa", fontWeight: 700, fontSize: 11, textTransform: "uppercase", letterSpacing: "0.04em" }}>Profit</th>
-                    <th style={{ padding: "8px 10px", color: "#aaa", fontWeight: 700, fontSize: 11, textTransform: "uppercase", letterSpacing: "0.04em", minWidth: 140 }}>Margin</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {pnlData.map((v: any, i: number) => {
-                    const isWorst = i === pnlData.length - 1 && v.profit < 0 && pnlData.length > 1;
-                    const isBest  = i === 0 && v.profit > 0;
-                    return (
-                      <tr key={v.vehicle_id} style={{ borderBottom: "1px solid #f5f5fa", background: isWorst ? "#fff8f8" : isBest ? "#f6fff6" : "transparent" }}>
-                        <td style={{ padding: "12px 10px" }}>
-                          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                            <div style={{ width: 32, height: 32, borderRadius: 8, background: "#e8eaf6", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                              <Truck size={15} color="#1E2D8E" />
-                            </div>
-                            <div>
-                              <div style={{ fontWeight: 700, color: "#1a1a2e", fontSize: 13.5 }}>{v.registration_number}</div>
-                              <div style={{ fontSize: 11, color: "#aaa" }}>{v.make} {v.model}</div>
-                            </div>
-                            {isBest  && <span style={{ fontSize: 10, fontWeight: 700, padding: "2px 7px", borderRadius: 99, background: "#e8f5e9", color: "#2e7d32" }}>★ Best</span>}
-                            {isWorst && <span style={{ fontSize: 10, fontWeight: 700, padding: "2px 7px", borderRadius: 99, background: "#fce4ec", color: "#b71c1c" }}>↓ Worst</span>}
-                          </div>
-                        </td>
-                        <td style={{ padding: "12px 10px", textAlign: "center", color: "#555" }}>
-                          <span style={{ fontWeight: 600 }}>{v.completed_trips}</span>
-                          <span style={{ color: "#bbb", fontSize: 11 }}>/{v.total_trips}</span>
-                        </td>
-                        <td style={{ padding: "12px 10px", textAlign: "right", fontWeight: 700, color: "#1565c0" }}>{fmt(v.revenue)}</td>
-                        <td style={{ padding: "12px 10px", textAlign: "right", color: "#b71c1c" }}>
-                          <div>{fmt(v.expenses)}</div>
-                        </td>
-                        <td style={{ padding: "12px 10px", textAlign: "right" }}>
-                          <span style={{ fontWeight: 800, fontSize: 14, color: v.profit >= 0 ? "#2e7d32" : "#e53935", display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 3 }}>
-                            {v.profit >= 0 ? <TrendingUp size={13} /> : <TrendingDown size={13} />}
+            {/* Table / Cards */}
+            {isMobile ? (
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                {pnlData.map((v: any, i: number) => {
+                  const isWorst = i === pnlData.length - 1 && v.profit < 0 && pnlData.length > 1;
+                  const isBest  = i === 0 && v.profit > 0;
+                  return (
+                    <div key={v.vehicle_id} style={{ padding: "12px 14px", borderRadius: 10, background: isWorst ? "#fff8f8" : isBest ? "#f6fff6" : "var(--bg-subtle)", border: "1px solid var(--border)" }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 }}>
+                        <div>
+                          <div style={{ fontWeight: 700, fontSize: 14, color: "#1a1a2e" }}>{v.registration_number}</div>
+                          <div style={{ fontSize: 11, color: "#aaa" }}>{v.make} {v.model}</div>
+                        </div>
+                        <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
+                          {isBest  && <span style={{ fontSize: 10, fontWeight: 700, padding: "2px 7px", borderRadius: 99, background: "#e8f5e9", color: "#2e7d32" }}>★ Best</span>}
+                          {isWorst && <span style={{ fontSize: 10, fontWeight: 700, padding: "2px 7px", borderRadius: 99, background: "#fce4ec", color: "#b71c1c" }}>↓ Worst</span>}
+                          <span style={{ fontSize: 11, color: "#aaa" }}>{v.completed_trips}/{v.total_trips} trips</span>
+                        </div>
+                      </div>
+                      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 6, marginBottom: 8 }}>
+                        <div style={{ textAlign: "center", padding: "6px 4px", borderRadius: 8, background: "#e3f2fd" }}>
+                          <div style={{ fontSize: 13, fontWeight: 700, color: "#1565c0" }}>{fmt(v.revenue)}</div>
+                          <div style={{ fontSize: 10, color: "#888" }}>Revenue</div>
+                        </div>
+                        <div style={{ textAlign: "center", padding: "6px 4px", borderRadius: 8, background: "#fce4ec" }}>
+                          <div style={{ fontSize: 13, fontWeight: 700, color: "#b71c1c" }}>{fmt(v.expenses)}</div>
+                          <div style={{ fontSize: 10, color: "#888" }}>Expenses</div>
+                        </div>
+                        <div style={{ textAlign: "center", padding: "6px 4px", borderRadius: 8, background: v.profit >= 0 ? "#e8f5e9" : "#fce4ec" }}>
+                          <div style={{ fontSize: 13, fontWeight: 800, color: v.profit >= 0 ? "#2e7d32" : "#e53935", display: "flex", alignItems: "center", justifyContent: "center", gap: 2 }}>
+                            {v.profit >= 0 ? <TrendingUp size={12} /> : <TrendingDown size={12} />}
                             {fmt(Math.abs(v.profit))}
-                          </span>
-                        </td>
-                        <td style={{ padding: "12px 10px" }}>
-                          <MarginBar pct={v.margin_pct} />
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
+                          </div>
+                          <div style={{ fontSize: 10, color: "#888" }}>Profit</div>
+                        </div>
+                      </div>
+                      <MarginBar pct={v.margin_pct} />
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div style={{ overflowX: "auto" }}>
+                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+                  <thead>
+                    <tr style={{ borderBottom: "2px solid #f0f0f8" }}>
+                      <th style={{ textAlign: "left", padding: "8px 10px", color: "#aaa", fontWeight: 700, fontSize: 11, textTransform: "uppercase", letterSpacing: "0.04em" }}>Vehicle</th>
+                      <th style={{ textAlign: "center", padding: "8px 10px", color: "#aaa", fontWeight: 700, fontSize: 11, textTransform: "uppercase", letterSpacing: "0.04em" }}>Trips</th>
+                      <th style={{ textAlign: "right", padding: "8px 10px", color: "#aaa", fontWeight: 700, fontSize: 11, textTransform: "uppercase", letterSpacing: "0.04em" }}>Revenue</th>
+                      <th style={{ textAlign: "right", padding: "8px 10px", color: "#aaa", fontWeight: 700, fontSize: 11, textTransform: "uppercase", letterSpacing: "0.04em" }}>Expenses</th>
+                      <th style={{ textAlign: "right", padding: "8px 10px", color: "#aaa", fontWeight: 700, fontSize: 11, textTransform: "uppercase", letterSpacing: "0.04em" }}>Profit</th>
+                      <th style={{ padding: "8px 10px", color: "#aaa", fontWeight: 700, fontSize: 11, textTransform: "uppercase", letterSpacing: "0.04em", minWidth: 140 }}>Margin</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {pnlData.map((v: any, i: number) => {
+                      const isWorst = i === pnlData.length - 1 && v.profit < 0 && pnlData.length > 1;
+                      const isBest  = i === 0 && v.profit > 0;
+                      return (
+                        <tr key={v.vehicle_id} style={{ borderBottom: "1px solid #f5f5fa", background: isWorst ? "#fff8f8" : isBest ? "#f6fff6" : "transparent" }}>
+                          <td style={{ padding: "12px 10px" }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                              <div style={{ width: 32, height: 32, borderRadius: 8, background: "#e8eaf6", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                                <Truck size={15} color="#1E2D8E" />
+                              </div>
+                              <div>
+                                <div style={{ fontWeight: 700, color: "#1a1a2e", fontSize: 13.5 }}>{v.registration_number}</div>
+                                <div style={{ fontSize: 11, color: "#aaa" }}>{v.make} {v.model}</div>
+                              </div>
+                              {isBest  && <span style={{ fontSize: 10, fontWeight: 700, padding: "2px 7px", borderRadius: 99, background: "#e8f5e9", color: "#2e7d32" }}>★ Best</span>}
+                              {isWorst && <span style={{ fontSize: 10, fontWeight: 700, padding: "2px 7px", borderRadius: 99, background: "#fce4ec", color: "#b71c1c" }}>↓ Worst</span>}
+                            </div>
+                          </td>
+                          <td style={{ padding: "12px 10px", textAlign: "center", color: "#555" }}>
+                            <span style={{ fontWeight: 600 }}>{v.completed_trips}</span>
+                            <span style={{ color: "#bbb", fontSize: 11 }}>/{v.total_trips}</span>
+                          </td>
+                          <td style={{ padding: "12px 10px", textAlign: "right", fontWeight: 700, color: "#1565c0" }}>{fmt(v.revenue)}</td>
+                          <td style={{ padding: "12px 10px", textAlign: "right", color: "#b71c1c" }}>
+                            <div>{fmt(v.expenses)}</div>
+                          </td>
+                          <td style={{ padding: "12px 10px", textAlign: "right" }}>
+                            <span style={{ fontWeight: 800, fontSize: 14, color: v.profit >= 0 ? "#2e7d32" : "#e53935", display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 3 }}>
+                              {v.profit >= 0 ? <TrendingUp size={13} /> : <TrendingDown size={13} />}
+                              {fmt(Math.abs(v.profit))}
+                            </span>
+                          </td>
+                          <td style={{ padding: "12px 10px" }}>
+                            <MarginBar pct={v.margin_pct} />
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
 
             {/* Footnote */}
             <p style={{ margin: "12px 0 0", fontSize: 11, color: "#ccc" }}>

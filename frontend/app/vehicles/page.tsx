@@ -241,6 +241,58 @@ export default function VehiclesPage() {
                 </button>
               )}
             </div>
+          ) : isMobile ? (
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              {filtered.map((v: any) => (
+                <div key={v.id} style={{ padding: "12px 14px", borderRadius: 10, background: "var(--bg-subtle)", border: "1px solid var(--border)" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 }}>
+                    <div style={{ minWidth: 0, flex: 1 }}>
+                      <div style={{ fontWeight: 700, fontSize: 14, color: "#1E2D8E" }}>
+                        {v.registration_number}
+                        {v.rto_code && <span style={{ fontSize: 10, color: "#aaa", marginLeft: 4 }}>({v.rto_code})</span>}
+                      </div>
+                      <div style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 2 }}>
+                        {v.make} {v.model}{v.year ? ` · ${v.year}` : ""}
+                      </div>
+                      <div style={{ fontSize: 11, color: "var(--text-muted)", textTransform: "capitalize", marginTop: 1 }}>
+                        {[v.fuel_type, v.vehicle_type?.replace("_", " ")].filter(Boolean).join(" · ")}
+                        {v.avg_mileage_kmpl != null && (
+                          <span style={{ marginLeft: 6, padding: "1px 5px", borderRadius: 4, background: "#e8f5e9", color: "#2e7d32", fontWeight: 700, textTransform: "none" }}>
+                            {v.avg_mileage_kmpl} km/l
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0, marginLeft: 10 }}>
+                      <span className={`badge badge-${v.status}`} style={{ fontSize: 10 }}>{statusLabel[v.status]}</span>
+                      <button onClick={() => openEdit(v)}
+                        style={{ background: "none", border: "none", cursor: "pointer", color: "#1E2D8E", padding: 4, minHeight: 44, minWidth: 36, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                        <span style={{ fontSize: 13 }}>{t("common.edit")}</span>
+                      </button>
+                    </div>
+                  </div>
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 6 }}>
+                    {[
+                      { label: "Insurance", val: v.insurance_expiry },
+                      { label: "Fitness", val: v.fitness_expiry },
+                      { label: "PUC", val: v.puc_expiry },
+                    ].map(f => (
+                      <div key={f.label} style={{ textAlign: "center" }}>
+                        <div style={{ fontSize: 10, color: "#aaa", marginBottom: 3 }}>{f.label}</div>
+                        <ComplianceDot dateStr={f.val} />
+                      </div>
+                    ))}
+                  </div>
+                  {cpkMap[v.id] && (
+                    <div style={{ marginTop: 6 }}>
+                      <span style={{ fontSize: 10, fontWeight: 700, padding: "1px 6px", borderRadius: 5, background: cpkMap[v.id] >= 45 ? "#fce4ec" : cpkMap[v.id] >= 30 ? "#fff8e1" : "#e8f5e9", color: cpkMap[v.id] >= 45 ? "#b71c1c" : cpkMap[v.id] >= 30 ? "#e65100" : "#2e7d32" }}>
+                        ₹{cpkMap[v.id]}/km
+                      </span>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
           ) : (
             <table>
               <thead>

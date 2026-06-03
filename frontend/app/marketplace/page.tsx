@@ -255,9 +255,10 @@ function PostForm({ vehicles, onSuccess, onClose }: { vehicles: any[]; onSuccess
     <div style={{
       position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)",
       display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000,
+      padding: "12px",
     }}>
       <div style={{
-        background: "white", borderRadius: 16, padding: "28px 32px",
+        background: "white", borderRadius: 16, padding: "20px 16px",
         width: "100%", maxWidth: 480, maxHeight: "90vh", overflowY: "auto",
         boxShadow: "0 20px 60px rgba(0,0,0,0.2)",
       }}>
@@ -375,8 +376,8 @@ function InterestModal({ load, onClose, onSuccess }: { load: any; onClose: () =>
   };
 
   return (
-    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000 }}>
-      <div style={{ background: "white", borderRadius: 16, padding: "28px 32px", width: "100%", maxWidth: 420 }}>
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, padding: "12px" }}>
+      <div style={{ background: "white", borderRadius: 16, padding: "20px 16px", width: "100%", maxWidth: 420 }}>
         <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 16 }}>
           <h2 style={{ margin: 0, fontSize: 17, fontWeight: 800, color: "#1a1a2e" }}>Express Interest</h2>
           <button onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer" }}><X size={20} color="#888" /></button>
@@ -504,14 +505,15 @@ export default function MarketplacePage() {
       />
 
       {/* Tabs */}
-      <div style={{ padding: `0 ${isMobile ? "14px" : "28px"}`, borderBottom: "1px solid #f0f0f8", display: "flex", gap: 4 }}>
+      <div style={{ padding: `0 ${isMobile ? "14px" : "28px"}`, borderBottom: "1px solid #f0f0f8", display: "flex", gap: 4, overflowX: "auto", WebkitOverflowScrolling: "touch" as any }}>
         {TABS.map(t => (
           <button key={t.key} onClick={() => setTab(t.key)}
             style={{
-              padding: "10px 16px", fontSize: 13, fontWeight: tab === t.key ? 700 : 500,
+              padding: "10px 14px", fontSize: 13, fontWeight: tab === t.key ? 700 : 500,
               color: tab === t.key ? "#1E2D8E" : "#888", background: "none", border: "none",
               borderBottom: tab === t.key ? "2px solid #1E2D8E" : "2px solid transparent",
               cursor: "pointer", display: "flex", alignItems: "center", gap: 6,
+              flexShrink: 0, minHeight: 44,
             }}>
             {t.label}
             {t.badge ? (
@@ -521,14 +523,14 @@ export default function MarketplacePage() {
             ) : null}
           </button>
         ))}
-        <div style={{ flex: 1 }} />
+        <div style={{ flex: 1, minWidth: 8 }} />
         <button
           onClick={() => setShowPost(true)}
           style={{
             display: "flex", alignItems: "center", gap: 6,
             background: "#1E2D8E", color: "white", border: "none",
             borderRadius: 8, padding: "8px 14px", fontSize: 13, fontWeight: 700,
-            cursor: "pointer", margin: "6px 0",
+            cursor: "pointer", margin: "6px 0", flexShrink: 0, minHeight: 44,
           }}>
           <Plus size={15} /> Post Return
         </button>

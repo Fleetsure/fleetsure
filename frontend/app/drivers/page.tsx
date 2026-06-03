@@ -45,8 +45,8 @@ function DriverLedgerModal({ driver, onClose }: { driver: any; onClose: () => vo
   const pc = (type: string) => PAYMENT_COLORS[type] || PAYMENT_COLORS.advance;
 
   return (
-    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1100, padding: 20 }}>
-      <div className="card" style={{ width: "100%", maxWidth: 560, maxHeight: "88vh", overflowY: "auto", position: "relative" }}>
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1100, padding: "12px" }}>
+      <div className="card" style={{ width: "100%", maxWidth: 560, maxHeight: "90vh", overflowY: "auto", position: "relative" }}>
         <button onClick={onClose} style={{ position: "absolute", top: 16, right: 16, background: "none", border: "none", cursor: "pointer", color: "#888" }}><X size={18} /></button>
         <div style={{ marginBottom: 20 }}>
           <h2 style={{ margin: "0 0 2px", fontSize: 16, fontWeight: 700 }}>{driver.name} — Payment Ledger</h2>
@@ -55,7 +55,7 @@ function DriverLedgerModal({ driver, onClose }: { driver: any; onClose: () => vo
 
         {/* Balance summary */}
         {ledger && (
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10, marginBottom: 20 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8, marginBottom: 20 }}>
             {[
               { label: "Total Paid Out", value: `₹${ledger.total_paid.toLocaleString("en-IN")}`, color: "#1565c0" },
               { label: "Deductions", value: `₹${ledger.total_deducted.toLocaleString("en-IN")}`, color: "#b71c1c" },

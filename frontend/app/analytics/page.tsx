@@ -338,6 +338,34 @@ export default function AnalyticsPage() {
             </div>
             {drivers.length === 0 ? (
               <div style={{ textAlign: "center", color: "#aaa", padding: "32px 0", fontSize: 13 }}>No driver data in this period</div>
+            ) : isMobile ? (
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                {drivers.map((d: any, i: number) => (
+                  <div key={d.driver} style={{ padding: "12px 14px", border: "1.5px solid #f0f0f8", borderRadius: 10, background: i === 0 ? "#f0faf2" : "white" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                        <span style={{ fontSize: 12, fontWeight: 700, color: i === 0 ? "#2e7d32" : "#aaa", minWidth: 20 }}>#{i + 1}</span>
+                        <span style={{ fontWeight: 700, fontSize: 14, color: "#1a1a2e" }}>{d.driver}</span>
+                      </div>
+                      <span style={{ fontSize: 12, color: "#888" }}>{d.completed}/{d.trips} trips</span>
+                    </div>
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 6, textAlign: "center" }}>
+                      <div>
+                        <div style={{ fontSize: 13, fontWeight: 700, color: "#1E2D8E" }}>{fmtShort(d.revenue)}</div>
+                        <div style={{ fontSize: 10, color: "#aaa" }}>Revenue</div>
+                      </div>
+                      <div>
+                        <div style={{ fontSize: 13, fontWeight: 700, color: "#ef5350" }}>{fmtShort(d.expenses)}</div>
+                        <div style={{ fontSize: 10, color: "#aaa" }}>Expenses</div>
+                      </div>
+                      <div>
+                        <div style={{ fontSize: 13, fontWeight: 700, color: "#555" }}>{fmtShort(d.avg_freight)}</div>
+                        <div style={{ fontSize: 10, color: "#aaa" }}>Avg/Trip</div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
             ) : (
               <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
                 <thead>
@@ -442,18 +470,18 @@ export default function AnalyticsPage() {
                     {/* Monthly table below chart */}
                     <div style={{ marginTop: 14, borderTop: "1px solid #f0f0f8", paddingTop: 10 }}>
                       <div style={{
-                        display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr 1fr",
+                        display: "grid", gridTemplateColumns: isMobile ? "1fr 1fr 1fr 1fr" : "1fr 1fr 1fr 1fr 1fr",
                         gap: 4, fontSize: 10.5, fontWeight: 700, color: "#aaa",
                         padding: "0 4px", marginBottom: 4,
                       }}>
                         <span>Month</span><span style={{ textAlign: "right" }}>Revenue</span>
                         <span style={{ textAlign: "right" }}>Expenses</span>
                         <span style={{ textAlign: "right" }}>Profit</span>
-                        <span style={{ textAlign: "right" }}>Trips</span>
+                        {!isMobile && <span style={{ textAlign: "right" }}>Trips</span>}
                       </div>
                       {monthly.map(m => (
                         <div key={m.month_key} style={{
-                          display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr 1fr",
+                          display: "grid", gridTemplateColumns: isMobile ? "1fr 1fr 1fr 1fr" : "1fr 1fr 1fr 1fr 1fr",
                           gap: 4, fontSize: 11.5, padding: "5px 4px",
                           borderRadius: 6,
                           background: m.profit >= 0 ? "transparent" : "#fff5f5",
@@ -464,7 +492,7 @@ export default function AnalyticsPage() {
                           <span style={{ textAlign: "right", fontWeight: 700, color: m.profit >= 0 ? "#2e7d32" : "#c62828" }}>
                             {m.profit < 0 ? "−" : ""}{fmtShort(Math.abs(m.profit))}
                           </span>
-                          <span style={{ textAlign: "right", color: "#888" }}>{m.trips}</span>
+                          {!isMobile && <span style={{ textAlign: "right", color: "#888" }}>{m.trips}</span>}
                         </div>
                       ))}
                     </div>

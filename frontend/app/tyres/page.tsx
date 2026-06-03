@@ -998,6 +998,38 @@ export default function TyresPage() {
                   <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 6 }}>No expense entries</div>
                   <div style={{ fontSize: 13, color: "#aaa" }}>{filterVehicle || filterType ? "Try clearing filters." : "Log tyre purchases, repairs and maintenance."}</div>
                 </div>
+              ) : isMobile ? (
+                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                  {filtered.map((l: any) => {
+                    const tc = TYPE_COLORS[l.tyre_type] || TYPE_COLORS.new;
+                    return (
+                      <div key={l.id} style={{ padding: "12px 14px", borderRadius: 10, background: "var(--bg-subtle)", border: "1px solid var(--border)", display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+                            <span style={{ fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 6, background: tc.bg, color: tc.color }}>
+                              {TYRE_TYPES.find(ty => ty.value === l.tyre_type)?.label || l.tyre_type}
+                            </span>
+                          </div>
+                          <div style={{ fontWeight: 700, fontSize: 13, color: "#1E2D8E", marginBottom: 2 }}>{vehicleName(l.vehicle_id)}</div>
+                          <div style={{ fontSize: 12, color: "var(--text-muted)" }}>
+                            {[l.tyre_brand, l.tyre_count > 1 ? `${l.tyre_count} tyres` : null, l.tyre_position].filter(Boolean).join(" · ") || "—"}
+                          </div>
+                          {l.odometer_km && <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 1 }}>{parseFloat(l.odometer_km).toLocaleString("en-IN")} km</div>}
+                        </div>
+                        <div style={{ textAlign: "right", flexShrink: 0, marginLeft: 12 }}>
+                          <div style={{ fontWeight: 700, fontSize: 15, color: "#1E2D8E" }}>₹{parseFloat(l.amount).toLocaleString("en-IN")}</div>
+                          <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 2 }}>{fmtDate(l.date)}</div>
+                          <button onClick={() => handleDelete(l.id)}
+                            style={{ background: "none", border: "none", cursor: "pointer", color: "#ccc", padding: "4px 0", marginTop: 4 }}
+                            onMouseEnter={e => (e.currentTarget.style.color = "#e53935")}
+                            onMouseLeave={e => (e.currentTarget.style.color = "#ccc")}>
+                            <Trash2 size={13} />
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
               ) : (
                 <table>
                   <thead>

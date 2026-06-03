@@ -320,6 +320,33 @@ export default function FleetHealthPage() {
               <Truck size={40} color="#e0e0e0" style={{ display: "block", margin: "0 auto 12px" }} />
               <p style={{ color: "#aaa", fontSize: 13.5, margin: 0 }}>No vehicles found. Add vehicles first.</p>
             </div>
+          ) : isMobile ? (
+            <div style={{ display: "flex", flexDirection: "column", gap: 10, padding: "12px 16px" }}>
+              {sorted.map(row => (
+                <div key={row.id} style={{ padding: "12px 14px", borderRadius: 10, background: row.worstStatus === "expired" ? "#fff8f8" : row.worstStatus === "expiring_soon" ? "#fffdf0" : "var(--bg-subtle)", border: `1px solid ${row.worstStatus === "expired" ? "#ffcdd2" : row.worstStatus === "expiring_soon" ? "#ffe082" : "var(--border)"}` }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 10 }}>
+                    <div>
+                      <div style={{ fontWeight: 700, fontSize: 14, color: "#1a1a2e" }}>{row.registration_number}</div>
+                      <div style={{ fontSize: 12, color: "#aaa" }}>{row.make} {row.model}</div>
+                    </div>
+                    {row.score !== null && (
+                      <div style={{ textAlign: "center", minWidth: 44 }}>
+                        <div style={{ fontSize: 16, fontWeight: 800, color: row.score >= 75 ? "#2e7d32" : row.score >= 50 ? "#e65100" : "#c62828" }}>{row.score}%</div>
+                        <div style={{ fontSize: 10, color: "#aaa" }}>score</div>
+                      </div>
+                    )}
+                  </div>
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 8 }}>
+                    {row.checks.map(c => (
+                      <div key={c.key} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "6px 10px", borderRadius: 8, background: "var(--bg-card)", border: "1px solid var(--border)" }}>
+                        <span style={{ fontSize: 11, color: "#888", fontWeight: 600 }}>{c.label}</span>
+                        <StatusBadge dateStr={c.dateStr} />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
           ) : (
             <div style={{ overflowX: "auto" }}>
               <table style={{ width: "100%", borderCollapse: "collapse" }}>
@@ -393,6 +420,43 @@ export default function FleetHealthPage() {
             <div style={{ textAlign: "center", padding: "40px 0" }}>
               <Users size={36} color="#e0e0e0" style={{ display: "block", margin: "0 auto 10px" }} />
               <p style={{ color: "#aaa", fontSize: 13 }}>No active drivers found.</p>
+            </div>
+          ) : isMobile ? (
+            <div style={{ display: "flex", flexDirection: "column", gap: 10, padding: "12px 16px" }}>
+              {driverRows.map(d => (
+                <div key={d.id} style={{ padding: "12px 14px", borderRadius: 10, background: d.worstStatus === "expired" ? "#fff8f8" : d.worstStatus === "expiring_soon" ? "#fffdf0" : "var(--bg-subtle)", border: `1px solid ${d.worstStatus === "expired" ? "#ffcdd2" : d.worstStatus === "expiring_soon" ? "#ffe082" : "var(--border)"}` }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 10 }}>
+                    <div>
+                      <div style={{ fontWeight: 700, fontSize: 14, color: "#1a1a2e" }}>{d.name}</div>
+                      <div style={{ fontSize: 12, color: "#aaa" }}>{d.phone}</div>
+                      {d.license_number && <div style={{ fontSize: 11, color: "#888", fontFamily: "monospace", marginTop: 2 }}>DL: {d.license_number}</div>}
+                    </div>
+                    <div>
+                      {d.worstStatus === "expired" ? (
+                        <span style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 11, fontWeight: 700, color: "#c62828", background: "#fce4ec", padding: "3px 8px", borderRadius: 8 }}>
+                          <AlertTriangle size={11} /> Expired
+                        </span>
+                      ) : d.worstStatus === "expiring_soon" ? (
+                        <span style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 11, fontWeight: 700, color: "#e65100", background: "#fff3e0", padding: "3px 8px", borderRadius: 8 }}>
+                          <Clock size={11} /> Renew Soon
+                        </span>
+                      ) : d.worstStatus === "ok" ? (
+                        <span style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 11, fontWeight: 700, color: "#2e7d32", background: "#e8f5e9", padding: "3px 8px", borderRadius: 8 }}>
+                          <CheckCircle size={11} /> Valid
+                        </span>
+                      ) : null}
+                    </div>
+                  </div>
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 8 }}>
+                    {d.checks.map((c: any) => (
+                      <div key={c.key} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "6px 10px", borderRadius: 8, background: "var(--bg-card)", border: "1px solid var(--border)" }}>
+                        <span style={{ fontSize: 11, color: "#888", fontWeight: 600 }}>{c.label}</span>
+                        <StatusBadge dateStr={c.dateStr} />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
             </div>
           ) : (
             <div style={{ overflowX: "auto" }}>

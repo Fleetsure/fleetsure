@@ -239,6 +239,39 @@ export default function FuelPage() {
           ) : (
             analytics.length === 0 ? (
               <p style={{ textAlign: "center", padding: "48px 0", color: "#aaa" }}>No analytics yet — add at least 2 fill-ups per vehicle.</p>
+            ) : isMobile ? (
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                {analytics.map((a: any) => (
+                  <div key={String(a.vehicle_id)} style={{ padding: "12px 14px", borderRadius: 10, background: a.anomaly ? "#fff8f0" : "var(--bg-subtle)", border: `1px solid ${a.anomaly ? "#ffcc80" : "var(--border)"}` }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 }}>
+                      <div style={{ fontWeight: 700, fontSize: 14, color: "#1E2D8E" }}>{a.registration_number}</div>
+                      {a.anomaly ? (
+                        <span style={{ display: "flex", alignItems: "center", gap: 4, color: "#bf360c", fontWeight: 700, fontSize: 11 }}>
+                          <TrendingDown size={12} /> {a.anomaly_pct}% drop
+                        </span>
+                      ) : (
+                        <span style={{ display: "flex", alignItems: "center", gap: 4, color: "#2e7d32", fontSize: 11 }}>
+                          <TrendingUp size={12} /> Normal
+                        </span>
+                      )}
+                    </div>
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 8 }}>
+                      {[
+                        { label: "Avg km/L", value: a.avg_kmpl ?? "—" },
+                        { label: "Last km/L", value: a.last_kmpl ?? "—", color: a.anomaly ? "#bf360c" : undefined },
+                        { label: "Total Litres", value: `${a.total_litres.toFixed(0)} L` },
+                        { label: "Total Spend", value: `₹${a.total_spend.toLocaleString("en-IN")}` },
+                        { label: "Fill-ups", value: a.fill_count },
+                      ].map(s => (
+                        <div key={s.label} style={{ padding: "6px 10px", borderRadius: 8, background: "var(--bg-card)", border: "1px solid var(--border)" }}>
+                          <div style={{ fontSize: 13, fontWeight: 700, color: (s as any).color || "var(--text-main)" }}>{s.value}</div>
+                          <div style={{ fontSize: 10, color: "#aaa", marginTop: 1 }}>{s.label}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
             ) : (
               <div style={{ overflowX: "auto" }}>
                 <table>
