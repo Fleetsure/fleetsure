@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 import {
   View,
   Text,
@@ -12,22 +12,27 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
+import { FirebaseRecaptchaVerifierModal } from "expo-firebase-recaptcha";
 import { useAuth } from "../context/AuthContext";
+import { firebaseConfig } from "../config/firebase";
 
 const PRIMARY = "#1E2D8E";
 const PRIMARY_LIGHT = "#EEF0FB";
 
 export default function LoginScreen() {
-  const { sendOtp, verifyOtp, resetOtp, otpSent, authError, loading } = useAuth();
+  const { sendOtp, verifyOtp, resetOtp, otpSent, authError } = useAuth();
   const [phone, setPhone] = useState("");
   const [otp, setOtp] = useState("");
   const [sending, setSending] = useState(false);
   const [verifying, setVerifying] = useState(false);
 
+  const recaptchaVerifier = useRef<FirebaseRecaptchaVerifierModal>(null);
+
   async function handleSendOtp() {
     if (phone.replace(/\D/g, "").length < 10) return;
+    if (!recaptchaVerifier.current) return;
     setSending(true);
-    await sendOtp(phone);
+    await sendOtp(phone, recaptchaVerifier.current);
     setSending(false);
   }
 
@@ -46,6 +51,13 @@ export default function LoginScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
+      {/* reCAPTCHA modal — invisible by default, auto-completes without user action */}
+      <FirebaseRecaptchaVerifierModal
+        ref={recaptchaVerifier}
+        firebaseConfig={firebaseConfig}
+        attemptInvisibleVerification={true}
+      />
+
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === "ios" ? "padding" : undefined}
@@ -81,9 +93,7 @@ export default function LoginScreen() {
                   <TextInput
                     style={styles.phoneInput}
                     value={phone}
-                    onChangeText={(t) =>
-                      setPhone(t.replace(/\D/g, "").slice(0, 10))
-                    }
+                    onChangeText={(t) => setPhone(t.replace(/\D/g, "").slice(0, 10))}
                     keyboardType="phone-pad"
                     maxLength={10}
                     placeholder="9XXXXXXXXX"
@@ -122,9 +132,7 @@ export default function LoginScreen() {
                 <TextInput
                   style={styles.otpInput}
                   value={otp}
-                  onChangeText={(t) =>
-                    setOtp(t.replace(/\D/g, "").slice(0, 6))
-                  }
+                  onChangeText={(t) => setOtp(t.replace(/\D/g, "").slice(0, 6))}
                   keyboardType="number-pad"
                   maxLength={6}
                   placeholder="• • • • • •"
@@ -163,7 +171,6 @@ export default function LoginScreen() {
               </>
             )}
 
-            {/* Security note */}
             <View style={styles.securityNote}>
               <Ionicons name="shield-checkmark-outline" size={14} color="#0369A1" />
               <Text style={styles.securityText}>
@@ -178,10 +185,7 @@ export default function LoginScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: PRIMARY,
-  },
+  container: { flex: 1, backgroundColor: PRIMARY },
   scroll: {
     flexGrow: 1,
     alignItems: "center",
@@ -189,10 +193,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     paddingVertical: 40,
   },
-  logoSection: {
-    alignItems: "center",
-    marginBottom: 32,
-  },
+  logoSection: { alignItems: "center", marginBottom: 32 },
   logoBox: {
     width: 72,
     height: 72,
@@ -204,18 +205,8 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     borderColor: "rgba(255,255,255,0.3)",
   },
-  logoTitle: {
-    fontSize: 26,
-    fontWeight: "900",
-    color: "white",
-    letterSpacing: -0.5,
-  },
-  logoSub: {
-    fontSize: 14,
-    color: "rgba(255,255,255,0.7)",
-    fontWeight: "500",
-    marginTop: 4,
-  },
+  logoTitle: { fontSize: 26, fontWeight: "900", color: "white", letterSpacing: -0.5 },
+  logoSub: { fontSize: 14, color: "rgba(255,255,255,0.7)", fontWeight: "500", marginTop: 4 },
   card: {
     backgroundColor: "white",
     borderRadius: 20,
@@ -228,19 +219,8 @@ const styles = StyleSheet.create({
     shadowRadius: 24,
     elevation: 8,
   },
-  cardTitle: {
-    fontSize: 20,
-    fontWeight: "800",
-    color: PRIMARY,
-    marginBottom: 6,
-    letterSpacing: -0.4,
-  },
-  cardSub: {
-    fontSize: 14,
-    color: "#64748B",
-    marginBottom: 24,
-    lineHeight: 20,
-  },
+  cardTitle: { fontSize: 20, fontWeight: "800", color: PRIMARY, marginBottom: 6, letterSpacing: -0.4 },
+  cardSub: { fontSize: 14, color: "#64748B", marginBottom: 24, lineHeight: 20 },
   fieldLabel: {
     fontSize: 11,
     fontWeight: "700",
@@ -267,11 +247,7 @@ const styles = StyleSheet.create({
     borderRightColor: `${PRIMARY}33`,
     gap: 4,
   },
-  prefixText: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#64748B",
-  },
+  prefixText: { fontSize: 14, fontWeight: "600", color: "#64748B" },
   phoneInput: {
     flex: 1,
     paddingHorizontal: 14,
@@ -301,10 +277,7 @@ const styles = StyleSheet.create({
     padding: 12,
     marginBottom: 14,
   },
-  errorText: {
-    fontSize: 13,
-    color: "#991B1B",
-  },
+  errorText: { fontSize: 13, color: "#991B1B" },
   primaryBtn: {
     backgroundColor: PRIMARY,
     borderRadius: 10,
@@ -312,15 +285,8 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginBottom: 10,
   },
-  primaryBtnDisabled: {
-    backgroundColor: "#C7D2FE",
-  },
-  primaryBtnText: {
-    color: "white",
-    fontSize: 15,
-    fontWeight: "700",
-    letterSpacing: -0.2,
-  },
+  primaryBtnDisabled: { backgroundColor: "#C7D2FE" },
+  primaryBtnText: { color: "white", fontSize: 15, fontWeight: "700", letterSpacing: -0.2 },
   secondaryBtn: {
     borderWidth: 1.5,
     borderColor: `${PRIMARY}44`,
@@ -329,11 +295,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginBottom: 10,
   },
-  secondaryBtnText: {
-    color: PRIMARY,
-    fontSize: 14,
-    fontWeight: "600",
-  },
+  secondaryBtnText: { color: PRIMARY, fontSize: 14, fontWeight: "600" },
   securityNote: {
     flexDirection: "row",
     alignItems: "flex-start",
@@ -345,11 +307,5 @@ const styles = StyleSheet.create({
     borderColor: "#BAE6FD",
     marginTop: 8,
   },
-  securityText: {
-    fontSize: 12,
-    color: "#0369A1",
-    fontWeight: "500",
-    flex: 1,
-    lineHeight: 17,
-  },
+  securityText: { fontSize: 12, color: "#0369A1", fontWeight: "500", flex: 1, lineHeight: 17 },
 });

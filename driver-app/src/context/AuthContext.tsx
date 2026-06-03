@@ -31,18 +31,11 @@ interface AuthContextType {
   loading: boolean;
   otpSent: boolean;
   authError: string | null;
-  sendOtp: (phone: string) => Promise<void>;
+  sendOtp: (phone: string, verifier: ApplicationVerifier) => Promise<void>;
   verifyOtp: (code: string) => Promise<void>;
   resetOtp: () => void;
   logout: () => Promise<void>;
 }
-
-// Minimal ApplicationVerifier for React Native — Firebase uses this as a
-// bypass token when reCAPTCHA is not available in a native context.
-const appVerifier: ApplicationVerifier = {
-  type: "recaptcha",
-  verify: () => Promise.resolve(""),
-};
 
 const AuthContext = createContext<AuthContextType | null>(null);
 
@@ -55,17 +48,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const confirmationRef = useRef<ConfirmationResult | null>(null);
   const pendingPhone = useRef<string>("");
 
-  // Restore session if Firebase user already exists
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (user && user.phoneNumber) {
         try {
           const res = await driverService.getProfileByPhone(user.phoneNumber);
-          if (res.success && res.data) {
-            setDriver(res.data);
-          }
+          if (res.success && res.data) setDriver(res.data);
         } catch {
-          // silent — will fall through to login screen
+          // silent
         }
       }
       setLoading(false);
@@ -73,19 +63,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return unsubscribe;
   }, []);
 
-  async function sendOtp(phone: string) {
+  async function sendOtp(phone: string, verifier: ApplicationVerifier) {
     setAuthError(null);
     try {
       const e164 = phone.startsWith("+")
         ? phone
         : `+91${phone.replace(/\D/g, "").slice(-10)}`;
       pendingPhone.current = e164;
-      confirmationRef.current = await signInWithPhoneNumber(auth, e164, appVerifier);
+      confirmationRef.current = await signInWithPhoneNumber(auth, e164, verifier);
       setOtpSent(true);
     } catch (e: any) {
-      setAuthError(
-        e?.message ?? "Failed to send OTP. Check the number and try again."
-      );
+      setAuthError(e?.message ?? "Failed to send OTP. Check the number and try again.");
     }
   }
 
@@ -103,8 +91,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const res = await driverService.getProfileByPhone(pendingPhone.current);
       if (!res.success || !res.data) {
         setAuthError(
-          res.error ??
-            "No driver account found. Ask your fleet manager to register you first."
+          res.error ?? "No driver account found. Ask your fleet manager to register you first."
         );
         await signOut(auth);
         return;
@@ -114,7 +101,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (!profile.firebase_uid) {
         await driverService.linkFirebaseUid(profile.id, user.uid);
       }
-
       setDriver(profile);
     } catch (e: any) {
       setAuthError(e?.message ?? "Invalid OTP. Please try again.");
