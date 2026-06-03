@@ -87,19 +87,41 @@ export const driverPortalService = {
     return ok((data ?? []) as DriverTrip[]);
   },
 
-  async getTripById(tripId: string): Promise<ServiceResponse<DriverTrip & {
+  async getTripById(tripId: string, driverId?: string): Promise<ServiceResponse<DriverTrip & {
     expenses: any[]; fuel_logs: any[]; toll_logs: any[]; misc_expenses: any[];
   }>> {
+    // Filter by driver_id too so driver-scoped RLS policies can match.
+    // Fetch expenses in parallel — they may or may not be blocked by RLS.
+    const tripQuery = supabase
+      .from("trips")
+      .select("*, vehicles(registration_number, make, model)")
+      .eq("id", tripId);
+    if (driverId) tripQuery.eq("driver_id", driverId);
+
     const [tripRes, expRes, fuelRes, tollRes, miscRes] = await Promise.all([
-      supabase.from("trips").select("*, vehicles(registration_number, make, model)").eq("id", tripId).single(),
+      tripQuery.single(),
       supabase.from("expenses").select("*").eq("trip_id", tripId).order("date"),
       supabase.from("fuel_logs").select("*").eq("trip_id", tripId).order("date"),
       supabase.from("toll_logs").select("*").eq("trip_id", tripId).order("date"),
       supabase.from("misc_expenses").select("*").eq("trip_id", tripId).order("date"),
     ]);
-    if (tripRes.error) return fail(tripRes.error);
+
+    let tripData = tripRes.data as any;
+
+    // Fallback: direct query blocked by RLS → search via the working RPCs
+    if (!tripData && driverId) {
+      const [activeRes, completedRes] = await Promise.all([
+        supabase.rpc("get_active_driver_trips",    { p_driver_id: driverId }),
+        supabase.rpc("get_completed_driver_trips", { p_driver_id: driverId }),
+      ]);
+      const all = [...(activeRes.data ?? []), ...(completedRes.data ?? [])];
+      tripData = all.find((t: any) => t.id === tripId) ?? null;
+    }
+
+    if (!tripData) return fail(tripRes.error ?? { message: "Trip not found." });
+
     return ok({
-      ...tripRes.data,
+      ...tripData,
       expenses:      expRes.data  ?? [],
       fuel_logs:     fuelRes.data ?? [],
       toll_logs:     tollRes.data ?? [],

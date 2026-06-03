@@ -63,11 +63,11 @@ export default function TripDetailPage() {
 
   useEffect(() => {
     if (!id) return;
-    driverPortalService.getTripById(id).then(r => {
+    driverPortalService.getTripById(id, driver?.id).then(r => {
       if (r.success && r.data) setTrip(r.data);
       setLoading(false);
     });
-  }, [id]);
+  }, [id, driver?.id]);
 
   const canEdit = trip?.status === "in_progress" || trip?.status === "planned";
 
