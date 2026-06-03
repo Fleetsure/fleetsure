@@ -283,20 +283,27 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     const isPublic = PUBLIC_ROUTES.includes(pathname);
 
     const unsubscribe = onIdTokenChanged(auth, async (user) => {
-      if (user) {
-        // Pass the Firebase ID token directly — Supabase Third-Party Auth
-        // verifies it against Google's JWKS, no token exchange needed.
-        const idToken = await user.getIdToken();
-        setSupabaseAuthToken(idToken);
+      try {
+        if (user) {
+          const idToken = await user.getIdToken();
+          setSupabaseAuthToken(idToken);
 
-        if (!checked) {
-          await checkAndUpsertUser(user);
+          if (!checked) {
+            try {
+              await checkAndUpsertUser(user);
+            } catch {
+              // DB upsert failed (network/Supabase error) — still let the user in
+            }
+          }
+          setChecked(true);
+        } else {
+          setSupabaseAuthToken(null);
+          if (!isPublic) router.replace("/landing");
+          else setChecked(true);
         }
+      } catch {
+        // getIdToken() failed — let the user through rather than hang on "Loading..."
         setChecked(true);
-      } else {
-        setSupabaseAuthToken(null);
-        if (!isPublic) router.replace("/landing");
-        else setChecked(true);
       }
     });
 
