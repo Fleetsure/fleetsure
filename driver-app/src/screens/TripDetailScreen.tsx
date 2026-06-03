@@ -60,10 +60,10 @@ export default function TripDetailScreen() {
   const [imageUri, setImageUri] = useState<string | null>(null);
 
   const load = useCallback(async () => {
-    const res = await driverService.getTripById(tripId);
+    const res = await driverService.getTripById(tripId, driver?.id);
     if (res.success) setTrip(res.data ?? null);
     setLoading(false);
-  }, [tripId]);
+  }, [tripId, driver?.id]);
 
   useFocusEffect(
     useCallback(() => {
@@ -176,10 +176,27 @@ export default function TripDetailScreen() {
     }
   }
 
-  if (loading || !trip) {
+  if (loading) {
     return (
       <View style={styles.center}>
         <ActivityIndicator color={PRIMARY} size="large" />
+      </View>
+    );
+  }
+
+  if (!trip) {
+    return (
+      <View style={styles.center}>
+        <Ionicons name="alert-circle-outline" size={48} color="#CBD5E1" />
+        <Text style={{ color: "#64748B", fontSize: 15, fontWeight: "600", marginTop: 12, marginBottom: 20 }}>
+          Could not load trip details
+        </Text>
+        <TouchableOpacity
+          style={{ backgroundColor: PRIMARY, paddingHorizontal: 24, paddingVertical: 12, borderRadius: 10 }}
+          onPress={() => { setLoading(true); load(); }}
+        >
+          <Text style={{ color: "white", fontWeight: "700" }}>Retry</Text>
+        </TouchableOpacity>
       </View>
     );
   }

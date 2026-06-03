@@ -23,11 +23,17 @@ export default function DriverDashboard() {
   const { driver } = useDriverAuth();
   const [trips,   setTrips]   = useState<DriverTrip[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error,   setError]   = useState<string | null>(null);
 
   useEffect(() => {
-    if (!driver) return;
+    if (!driver) { setLoading(false); return; }
+    setError(null);
     driverPortalService.getActiveTrips(driver.id).then(r => {
-      if (r.success && r.data) setTrips(r.data);
+      if (r.success) {
+        setTrips(r.data ?? []);
+      } else {
+        setError(r.error ?? "Failed to load trips.");
+      }
       setLoading(false);
     });
   }, [driver]);
@@ -149,7 +155,13 @@ export default function DriverDashboard() {
         </div>
       )}
 
-      {!loading && trips.length === 0 && (
+      {error && (
+        <div style={{ background: "#FEE2E2", border: "1px solid #FCA5A5", borderRadius: 12, padding: "14px 16px", fontSize: 13, color: "#991B1B", fontWeight: 500 }}>
+          {error}
+        </div>
+      )}
+
+      {!loading && !error && trips.length === 0 && (
         <div style={{ background: "white", borderRadius: 14, padding: "40px 24px", textAlign: "center", border: "1.5px solid #E2E8F0" }}>
           <Truck size={40} color="#C7D2FE" style={{ marginBottom: 12 }} />
           <div style={{ fontSize: 15, fontWeight: 700, color: "#334155", marginBottom: 6 }}>No trips assigned yet</div>

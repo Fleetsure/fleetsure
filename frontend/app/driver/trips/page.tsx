@@ -69,12 +69,18 @@ export default function DriverTripsPage() {
   const { driver } = useDriverAuth();
   const [trips,   setTrips]   = useState<DriverTrip[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error,   setError]   = useState<string | null>(null);
   const [tab,     setTab]     = useState<"active" | "planned">("active");
 
   useEffect(() => {
-    if (!driver) return;
+    if (!driver) { setLoading(false); return; }
+    setError(null);
     driverPortalService.getActiveTrips(driver.id).then(r => {
-      if (r.success && r.data) setTrips(r.data);
+      if (r.success) {
+        setTrips(r.data ?? []);
+      } else {
+        setError(r.error ?? "Failed to load trips. Please try again.");
+      }
       setLoading(false);
     });
   }, [driver]);
@@ -101,6 +107,12 @@ export default function DriverTripsPage() {
 
       {loading && (
         <div style={{ textAlign: "center", padding: "40px 0", color: "#94A3B8" }}>Loading trips…</div>
+      )}
+
+      {error && (
+        <div style={{ background: "#FEE2E2", border: "1px solid #FCA5A5", borderRadius: 12, padding: "14px 16px", fontSize: 13, color: "#991B1B", fontWeight: 500 }}>
+          {error}
+        </div>
       )}
 
       <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
