@@ -419,7 +419,7 @@ export default function DriversPage() {
                 { label: "Phone *",         key: "phone",          placeholder: "9876543210",    maxLength: 10 },
                 { label: "Alternate Phone", key: "alternate_phone", placeholder: "Optional",     maxLength: 10 },
                 { label: "Father's Name",   key: "father_name",    placeholder: "Shiv Kumar",   maxLength: undefined },
-                { label: "License Number",  key: "license_number", placeholder: "KA0120220012345", maxLength: undefined },
+                { label: "License Number *", key: "license_number", placeholder: "KA0120220012345", maxLength: undefined },
               ].map(f => (
                 <div key={f.key}>
                   <label style={{ fontSize: 12, fontWeight: 600, color: "#555", display: "block", marginBottom: 4 }}>{f.label}</label>
@@ -451,8 +451,8 @@ export default function DriversPage() {
 
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
                 <div>
-                  <label style={{ fontSize: 12, fontWeight: 600, color: "#555", display: "block", marginBottom: 4 }}>License Expiry (Non-Transport)</label>
-                  <input type="date" value={form.license_expiry}
+                  <label style={{ fontSize: 12, fontWeight: 600, color: "#555", display: "block", marginBottom: 4 }}>License Expiry (Non-Transport) *</label>
+                  <input type="date" required value={form.license_expiry}
                     onChange={e => setForm(p => ({ ...p, license_expiry: e.target.value }))}
                     style={{ width: "100%", padding: "8px 12px", border: "1.5px solid #e8e8f0", borderRadius: 8, fontSize: 13.5, boxSizing: "border-box" }} />
                 </div>
@@ -472,8 +472,8 @@ export default function DriversPage() {
                     style={{ width: "100%", padding: "8px 12px", border: "1.5px solid #e8e8f0", borderRadius: 8, fontSize: 13.5, boxSizing: "border-box" }} />
                 </div>
                 <div>
-                  <label style={{ fontSize: 12, fontWeight: 600, color: "#555", display: "block", marginBottom: 4 }}>Issuing RTO</label>
-                  <input type="text" placeholder="MH01 - Mumbai Central" value={form.issuing_rto}
+                  <label style={{ fontSize: 12, fontWeight: 600, color: "#555", display: "block", marginBottom: 4 }}>Issuing RTO *</label>
+                  <input type="text" required placeholder="MH01 - Mumbai Central" value={form.issuing_rto}
                     onChange={e => setForm(p => ({ ...p, issuing_rto: e.target.value }))}
                     style={{ width: "100%", padding: "8px 12px", border: "1.5px solid #e8e8f0", borderRadius: 8, fontSize: 13.5, boxSizing: "border-box" }} />
                 </div>
