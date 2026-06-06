@@ -1,0 +1,98 @@
+{
+  "project_info": {
+    "project_number": "874399364699",
+    "project_id": "fleetsure-fc010",
+    "storage_bucket": "fleetsure-fc010.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:874399364699:android:f1ea672779ed4f6caa317e",
+        "android_client_info": {
+          "package_name": "com.fleetsure.driverapp"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "874399364699-1qpdtl1up3sr56bshbq7m2g9mpp5koo5.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.fleetsure.driverapp",
+            "certificate_hash": "a2d6ed42b7f5da40bf14025bb2a8e29a24c2f854"
+          }
+        },
+        {
+          "client_id": "874399364699-uokc8ai3davqm8a19udr85gpketvj3qn.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAlqIIQT2_ewdjV0a8qeFa2JkM8QVQCAII"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "874399364699-uokc8ai3davqm8a19udr85gpketvj3qn.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "874399364699-rdsl5oai5ksbbv9535gs9c6tfou9nj0g.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.fleetsure.mainapp"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:874399364699:android:3132d8f48c166246aa317e",
+        "android_client_info": {
+          "package_name": "com.fleetsure.mainapp"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "874399364699-ajl17dnj30kjdjd76238uls22g8uf9co.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.fleetsure.mainapp",
+            "certificate_hash": "8d2db63d5f16c17be0510cb3db5021cf0761c742"
+          }
+        },
+        {
+          "client_id": "874399364699-uokc8ai3davqm8a19udr85gpketvj3qn.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAlqIIQT2_ewdjV0a8qeFa2JkM8QVQCAII"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "874399364699-uokc8ai3davqm8a19udr85gpketvj3qn.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "874399364699-rdsl5oai5ksbbv9535gs9c6tfou9nj0g.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.fleetsure.mainapp"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

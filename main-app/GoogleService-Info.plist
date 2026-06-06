@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CLIENT_ID</key>
+	<string>874399364699-rdsl5oai5ksbbv9535gs9c6tfou9nj0g.apps.googleusercontent.com</string>
+	<key>REVERSED_CLIENT_ID</key>
+	<string>com.googleusercontent.apps.874399364699-rdsl5oai5ksbbv9535gs9c6tfou9nj0g</string>
+	<key>ANDROID_CLIENT_ID</key>
+	<string>874399364699-1qpdtl1up3sr56bshbq7m2g9mpp5koo5.apps.googleusercontent.com</string>
+	<key>API_KEY</key>
+	<string>AIzaSyDpCMIltTynKlyx0KbMc17GGV8gkoRR4Vs</string>
+	<key>GCM_SENDER_ID</key>
+	<string>874399364699</string>
+	<key>PLIST_VERSION</key>
+	<string>1</string>
+	<key>BUNDLE_ID</key>
+	<string>com.fleetsure.mainapp</string>
+	<key>PROJECT_ID</key>
+	<string>fleetsure-fc010</string>
+	<key>STORAGE_BUCKET</key>
+	<string>fleetsure-fc010.firebasestorage.app</string>
+	<key>IS_ADS_ENABLED</key>
+	<false></false>
+	<key>IS_ANALYTICS_ENABLED</key>
+	<false></false>
+	<key>IS_APPINVITE_ENABLED</key>
+	<true></true>
+	<key>IS_GCM_ENABLED</key>
+	<true></true>
+	<key>IS_SIGNIN_ENABLED</key>
+	<true></true>
+	<key>GOOGLE_APP_ID</key>
+	<string>1:874399364699:ios:593fd2927d70ca96aa317e</string>
+</dict>
+</plist>
