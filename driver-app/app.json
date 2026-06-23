@@ -40,6 +40,12 @@
         "projectId": "ec13f52d-b4e0-4104-875e-237c52267f80"
       }
     },
-    "owner": "fleetsureapp"
+    "owner": "fleetsureapp",
+    "ios": {
+      "bundleIdentifier": "com.fleetsure.mainapp",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
+    }
   }
 }
