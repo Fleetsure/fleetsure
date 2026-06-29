@@ -52,14 +52,7 @@
           "iosUrlScheme": "com.googleusercontent.apps.874399364699-uokc8ai3davqm8a19udr85gpketvj3qn"
         }
       ],
-      [
-        "expo-font",
-        {
-          "fonts": [
-            "./node_modules/@expo/vector-icons/build/vendor/react-native-vector-icons/Fonts/Ionicons.ttf"
-          ]
-        }
-      ]
+      "./plugins/withIonicons"
     ],
     "extra": {
       "eas": {
