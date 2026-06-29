@@ -19,12 +19,10 @@ export default function App() {
   useEffect(() => {
     // Load fonts but never block the app — proceed after 3s max
     const timeout = setTimeout(() => setReady(true), 3000);
-    Font.loadAsync(Ionicons.font)
-      .catch(() => {})
-      .finally(() => {
-        clearTimeout(timeout);
-        setReady(true);
-      });
+    Font.loadAsync(Ionicons.font).finally(() => {
+      clearTimeout(timeout);
+      setReady(true);
+    });
     return () => clearTimeout(timeout);
   }, []);
 

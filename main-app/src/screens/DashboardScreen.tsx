@@ -1,7 +1,7 @@
 import React, { useCallback, useState } from "react";
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  RefreshControl, ActivityIndicator, Linking, Alert, Image,
+  RefreshControl, ActivityIndicator, Linking, Alert,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useFocusEffect } from "@react-navigation/native";
@@ -46,7 +46,7 @@ const STATUS_STYLE: Record<string, { bg: string; color: string }> = {
 };
 
 export default function DashboardScreen() {
-  const { user, signOut } = useAuth();
+  const { user } = useAuth();
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [drivers,  setDrivers]  = useState<Driver[]>([]);
   const [trips,    setTrips]    = useState<Trip[]>([]);
@@ -149,16 +149,17 @@ export default function DashboardScreen() {
       >
         {/* ── Header ── */}
         <View style={styles.header}>
-          <View style={styles.headerLeft}>
-            <Image source={require("../../assets/logo.png")} style={styles.logo} resizeMode="contain" />
-            <View>
-              <Text style={styles.greeting}>{getGreeting()}, {user?.name?.split(" ")[0] ?? "Owner"} ✨</Text>
-              <Text style={styles.orgName}>{user?.org_name || "Fleet performance overview"}</Text>
-            </View>
+          <View>
+            <Text style={styles.greeting}>{getGreeting()}, {user?.name?.split(" ")[0] ?? "Owner"} ✨</Text>
+            <Text style={styles.orgName}>{user?.org_name || "Fleet performance overview"}</Text>
           </View>
           <View style={styles.headerActions}>
-            <TouchableOpacity onPress={signOut} style={styles.iconBtn}>
-              <Ionicons name="log-out-outline" size={20} color={MUTED} />
+            <TouchableOpacity style={styles.iconBtn}>
+              <Ionicons name="notifications-outline" size={20} color={MUTED} />
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.searchBtn}>
+              <Ionicons name="search-outline" size={15} color={MUTED} />
+              <Text style={styles.searchBtnText}>Search</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -240,21 +241,37 @@ export default function DashboardScreen() {
         )}
 
         {/* ── P&L Per Truck ── */}
-        {pnl.length > 0 && (
+        {pnl.length > 0 && (() => {
+          const totalRev = pnl.reduce((s, v) => s + (v.revenue || 0), 0);
+          const totalExp = pnl.reduce((s, v) => s + (v.expenses || 0), 0);
+          const totalPft = totalRev - totalExp;
+          const overallM = totalRev > 0 ? (totalPft / totalRev) * 100 : 0;
+          return (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>P&L Per Truck (12 months)</Text>
-            {pnl.slice(0, 5).map((v: any) => {
+            <Text style={styles.sectionTitle}>P&L per Truck</Text>
+            <View style={styles.pnlSummaryGrid}>
+              <PnLChip label="Revenue"  value={fmt(totalRev)} color="#EEF2FF"  textColor={PRIMARY} />
+              <PnLChip label="Expenses" value={fmt(totalExp)} color="#FEF2F2"  textColor={DANGER} />
+              <PnLChip label="Profit"   value={fmt(totalPft)} color={totalPft >= 0 ? "#F0FDF4" : "#FEF2F2"} textColor={totalPft >= 0 ? SUCCESS : DANGER} />
+              <PnLChip label="Margin"   value={`${overallM.toFixed(1)}%`} color={overallM >= 10 ? "#F0FDF4" : "#FEF2F2"} textColor={overallM >= 10 ? SUCCESS : DANGER} />
+            </View>
+            {pnl.slice(0, 5).map((v: any, idx: number) => {
               const mc = v.margin_pct < 0 ? DANGER : v.margin_pct < 15 ? WARNING : SUCCESS;
               return (
                 <View key={v.vehicle_id} style={styles.pnlRow}>
                   <View style={styles.pnlHeader}>
-                    <View>
-                      <Text style={styles.pnlReg}>{v.registration_number}</Text>
+                    <View style={{ flex: 1 }}>
+                      <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                        <Text style={styles.pnlReg}>{v.registration_number}</Text>
+                        {idx === 0 && v.total_trips > 0 && (
+                          <View style={styles.bestBadge}>
+                            <Text style={styles.bestBadgeText}>★ Best</Text>
+                          </View>
+                        )}
+                      </View>
                       <Text style={styles.pnlMake}>{v.make} {v.model}</Text>
                     </View>
-                    <Text style={[styles.pnlProfit, { color: mc }]}>
-                      {v.profit >= 0 ? "+" : ""}{fmt(v.profit)}
-                    </Text>
+                    <Text style={styles.pnlTrips}>{v.total_trips ?? 0} trips</Text>
                   </View>
                   <View style={styles.pnlAmounts}>
                     <PnLChip label="Revenue"  value={fmt(v.revenue)}  color="#EEF2FF"   textColor={PRIMARY} />
@@ -274,7 +291,8 @@ export default function DashboardScreen() {
               );
             })}
           </View>
-        )}
+          );
+        })()}
 
         {/* ── Recent Trips ── */}
         {recentTrips.length > 0 && (
@@ -347,7 +365,7 @@ function PnLChip({ label, value, color, textColor }: {
 
 const sc = StyleSheet.create({
   card: {
-    flex: 1,
+    width: "48%",
     backgroundColor: CARD,
     borderRadius: 14,
     padding: 14,
@@ -384,16 +402,21 @@ const styles = StyleSheet.create({
 
   // Header
   header: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
-  headerLeft: { flexDirection: "row", alignItems: "center", gap: 10, flex: 1 },
-  logo: { width: 38, height: 38, borderRadius: 10 },
   greeting: { fontSize: 14, fontWeight: "700", color: TEXT },
   orgName: { fontSize: 12, color: MUTED, marginTop: 1 },
-  headerActions: { flexDirection: "row", gap: 8 },
+  headerActions: { flexDirection: "row", alignItems: "center", gap: 8 },
   iconBtn: {
     width: 36, height: 36, borderRadius: 18,
     backgroundColor: CARD, alignItems: "center", justifyContent: "center",
     borderWidth: 1, borderColor: BORDER,
   },
+  searchBtn: {
+    flexDirection: "row", alignItems: "center", gap: 5,
+    backgroundColor: CARD, borderRadius: 20,
+    paddingHorizontal: 12, paddingVertical: 8,
+    borderWidth: 1, borderColor: BORDER,
+  },
+  searchBtnText: { fontSize: 13, color: MUTED },
 
   // Stats
   statsGrid: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
@@ -445,6 +468,10 @@ const styles = StyleSheet.create({
   },
 
   // P&L
+  pnlSummaryGrid: { flexDirection: "row", gap: 8 },
+  bestBadge: { backgroundColor: "#F0FDF4", paddingHorizontal: 8, paddingVertical: 2, borderRadius: 20 },
+  bestBadgeText: { fontSize: 11, fontWeight: "700", color: SUCCESS },
+  pnlTrips: { fontSize: 12, color: MUTED, fontWeight: "500" },
   section: { gap: 10 },
   sectionHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
   sectionTitle: { fontSize: 16, fontWeight: "800", color: TEXT },
@@ -456,7 +483,6 @@ const styles = StyleSheet.create({
   pnlHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start" },
   pnlReg: { fontSize: 15, fontWeight: "800", color: TEXT },
   pnlMake: { fontSize: 11, color: MUTED },
-  pnlProfit: { fontSize: 16, fontWeight: "800" },
   pnlAmounts: { flexDirection: "row", gap: 8 },
   pnlBarRow: { flexDirection: "row", alignItems: "center", gap: 8 },
   pnlBarBg: { flex: 1, height: 5, backgroundColor: "#F0F0F5", borderRadius: 9, overflow: "hidden" },

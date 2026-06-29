@@ -176,6 +176,18 @@ export default function TripsScreen() {
 
   const setF = (k: string, v: string) => setForm(f => ({ ...f, [k]: v }));
 
+  const completeTrip = (tripId: string) => {
+    Alert.alert("Complete Trip", "Mark this trip as completed?", [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Complete", onPress: async () => {
+          await tripService.update(tripId, { status: "completed" } as any);
+          load();
+        },
+      },
+    ]);
+  };
+
   if (loading) return <View style={s.center}><ActivityIndicator color={PRIMARY} size="large" /></View>;
 
   return (
@@ -185,6 +197,15 @@ export default function TripsScreen() {
         <View>
           <Text style={s.headerTitle}>Trips</Text>
           <Text style={s.headerSub}>{trips.length} Total Trips</Text>
+        </View>
+        <View style={s.headerActions}>
+          <TouchableOpacity style={s.iconBtn}>
+            <Ionicons name="notifications-outline" size={20} color={MUTED} />
+          </TouchableOpacity>
+          <TouchableOpacity style={s.searchBtn}>
+            <Ionicons name="search-outline" size={15} color={MUTED} />
+            <Text style={s.searchBtnText}>Search</Text>
+          </TouchableOpacity>
         </View>
       </View>
 
@@ -254,7 +275,17 @@ export default function TripsScreen() {
               </View>
               <View style={s.cardBottom}>
                 {t.material ? <Text style={s.material}>{t.material}</Text> : <View />}
-                <Text style={s.freight}>₹{Number(t.freight_amount).toLocaleString("en-IN")}</Text>
+                <View style={s.cardBottomRight}>
+                  <Text style={s.freight}>₹{Number(t.freight_amount).toLocaleString("en-IN")}</Text>
+                  {t.status === "in_progress" && (
+                    <TouchableOpacity
+                      style={s.completeBtn}
+                      onPress={() => completeTrip(t.id)}
+                    >
+                      <Text style={s.completeBtnText}>Complete</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
               </View>
             </TouchableOpacity>
           );
@@ -357,9 +388,13 @@ const f = StyleSheet.create({
 const s = StyleSheet.create({
   safe: { flex: 1, backgroundColor: BG },
   center: { flex: 1, justifyContent: "center", alignItems: "center" },
-  header: { paddingHorizontal: 16, paddingTop: 12, paddingBottom: 8 },
+  header: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: 16, paddingTop: 12, paddingBottom: 8 },
   headerTitle: { fontSize: 22, fontWeight: "800", color: TEXT },
   headerSub: { fontSize: 13, color: MUTED },
+  headerActions: { flexDirection: "row", alignItems: "center", gap: 8 },
+  iconBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: CARD, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: BORDER },
+  searchBtn: { flexDirection: "row", alignItems: "center", gap: 5, backgroundColor: CARD, borderRadius: 20, paddingHorizontal: 12, paddingVertical: 8, borderWidth: 1, borderColor: BORDER },
+  searchBtnText: { fontSize: 13, color: MUTED },
   summaryGrid: { flexDirection: "row", gap: 8, paddingHorizontal: 16, marginBottom: 4 },
   tabsScroll: { maxHeight: 52 },
   tabsContainer: { paddingHorizontal: 12, paddingVertical: 8, gap: 8 },
@@ -377,8 +412,11 @@ const s = StyleSheet.create({
   cardMid: { flexDirection: "row", justifyContent: "space-between" },
   meta: { fontSize: 12, color: MUTED },
   cardBottom: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
+  cardBottomRight: { flexDirection: "row", alignItems: "center", gap: 8 },
   material: { fontSize: 12, color: MUTED },
   freight: { fontSize: 16, fontWeight: "800", color: TEXT },
+  completeBtn: { backgroundColor: "#16A34A", borderRadius: 8, paddingHorizontal: 12, paddingVertical: 6 },
+  completeBtnText: { color: "#fff", fontWeight: "700", fontSize: 13 },
   badge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 20 },
   badgeText: { fontSize: 11, fontWeight: "700" },
   empty: { padding: 60, alignItems: "center", gap: 12 },

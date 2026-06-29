@@ -58,6 +58,14 @@
       },
       "oauth_client": [
         {
+          "client_id": "874399364699-9ak95mgvjdjnlj8u2epge0ul7c798r67.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.fleetsure.mainapp",
+            "certificate_hash": "5e8f16062ea3cd2c4a0d547876baa6f38cabf625"
+          }
+        },
+        {
           "client_id": "874399364699-ajl17dnj30kjdjd76238uls22g8uf9co.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {

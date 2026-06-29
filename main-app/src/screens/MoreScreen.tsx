@@ -27,10 +27,10 @@ type Nav = NativeStackNavigationProp<MoreStackParamList>;
 
 const MENU_ITEMS = [
   {
-    group: "Finance",
+    group: "Fleet",
     items: [
+      { screen: "Drivers" as const, label: "Drivers", desc: "Manage drivers assigned to your fleet", icon: "people", color: "#1E2D8E" },
       { screen: "Fuel" as const, label: "Fuel Logs", desc: "Track fuel fill-ups per vehicle", icon: "water", color: "#0E7490" },
-      { screen: "Expenses" as const, label: "Expenses", desc: "Maintenance, repairs & other costs", icon: "receipt", color: "#D97706" },
     ],
   },
   {

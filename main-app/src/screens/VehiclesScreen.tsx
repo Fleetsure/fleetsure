@@ -207,14 +207,24 @@ export default function VehiclesScreen() {
           <Text style={s.title}>Vehicles</Text>
           <Text style={s.sub}>{vehicles.length} vehicles in your fleet</Text>
         </View>
+        <View style={s.headerActions}>
+          <TouchableOpacity style={s.iconBtn}>
+            <Ionicons name="notifications-outline" size={20} color={MUTED} />
+          </TouchableOpacity>
+          <TouchableOpacity style={s.searchBtn}>
+            <Ionicons name="search-outline" size={15} color={MUTED} />
+            <Text style={s.searchBtnText}>Search</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
-      {/* Summary 2×2 */}
+      {/* Summary grid */}
       <View style={s.summaryGrid}>
         <SCard value={vehicles.length} label="Total Vehicles" color={PRIMARY}  bg="#EEF2FF" icon="car-outline" />
         <SCard value={available}       label="Available"       color={SUCCESS}  bg="#F0FDF4" icon="checkmark-circle-outline" />
         <SCard value={onTrip}          label="On Trip"         color={WARNING}  bg="#FFF7ED" icon="navigate-outline" />
         <SCard value={maintenance}     label="In Maintenance"  color={DANGER}   bg="#FEF2F2" icon="construct-outline" />
+        <SCard value={insDue}          label="Insurance Due"   color={insDue > 0 ? DANGER : SUCCESS} bg={insDue > 0 ? "#FEF2F2" : "#F0FDF4"} icon="alert-circle-outline" />
       </View>
       {insDue > 0 && (
         <View style={s.alertBanner}>
@@ -373,7 +383,7 @@ function SCard({ value, label, color, bg, icon }: { value: number; label: string
 }
 
 const sc = StyleSheet.create({
-  card: { flex: 1, borderRadius: 12, padding: 12, alignItems: "center", gap: 4 },
+  card: { width: "48%", borderRadius: 12, padding: 12, alignItems: "center", gap: 4 },
   value: { fontSize: 22, fontWeight: "800" },
   label: { fontSize: 10, color: MUTED, fontWeight: "500", textAlign: "center" },
 });
@@ -414,10 +424,14 @@ const f = StyleSheet.create({
 const s = StyleSheet.create({
   safe: { flex: 1, backgroundColor: BG },
   center: { flex: 1, justifyContent: "center", alignItems: "center" },
-  header: { paddingHorizontal: 16, paddingTop: 12, paddingBottom: 8 },
+  header: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: 16, paddingTop: 12, paddingBottom: 8 },
   title: { fontSize: 22, fontWeight: "800", color: TEXT },
   sub: { fontSize: 13, color: MUTED },
-  summaryGrid: { flexDirection: "row", gap: 8, paddingHorizontal: 16, marginBottom: 8 },
+  headerActions: { flexDirection: "row", alignItems: "center", gap: 8 },
+  iconBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: CARD, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: BORDER },
+  searchBtn: { flexDirection: "row", alignItems: "center", gap: 5, backgroundColor: CARD, borderRadius: 20, paddingHorizontal: 12, paddingVertical: 8, borderWidth: 1, borderColor: BORDER },
+  searchBtnText: { fontSize: 13, color: MUTED },
+  summaryGrid: { flexDirection: "row", flexWrap: "wrap", gap: 8, paddingHorizontal: 16, marginBottom: 8 },
   alertBanner: {
     flexDirection: "row", alignItems: "center", gap: 8,
     backgroundColor: "#FFF7ED", borderWidth: 1, borderColor: "#FED7AA",

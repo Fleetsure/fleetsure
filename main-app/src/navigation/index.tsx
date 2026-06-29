@@ -25,7 +25,7 @@ export type MainTabParamList = {
   DashboardTab: undefined;
   TripsTab: undefined;
   VehiclesTab: undefined;
-  DriversTab: undefined;
+  ExpensesTab: undefined;
   MoreTab: undefined;
 };
 export type TripsStackParamList = {
@@ -35,7 +35,7 @@ export type TripsStackParamList = {
 export type MoreStackParamList = {
   MoreMenu: undefined;
   Fuel: undefined;
-  Expenses: undefined;
+  Drivers: undefined;
   Reports: undefined;
   Settings: undefined;
 };
@@ -59,7 +59,7 @@ function MoreNavigator() {
     <MoreStack.Navigator screenOptions={{ headerShown: false }}>
       <MoreStack.Screen name="MoreMenu" component={MoreScreen} />
       <MoreStack.Screen name="Fuel" component={FuelScreen} />
-      <MoreStack.Screen name="Expenses" component={ExpensesScreen} />
+      <MoreStack.Screen name="Drivers" component={DriversScreen} />
       <MoreStack.Screen name="Reports" component={ReportsScreen} />
       <MoreStack.Screen name="Settings" component={SettingsScreen} />
     </MoreStack.Navigator>
@@ -70,7 +70,7 @@ const TAB_CONFIG: Record<string, { label: string; active: string; inactive: stri
   DashboardTab: { label: "Home",     active: "grid",    inactive: "grid-outline" },
   TripsTab:     { label: "Trips",    active: "map",     inactive: "map-outline" },
   VehiclesTab:  { label: "Vehicles", active: "car",     inactive: "car-outline" },
-  DriversTab:   { label: "Drivers",  active: "people",  inactive: "people-outline" },
+  ExpensesTab:  { label: "Expenses", active: "receipt", inactive: "receipt-outline" },
   MoreTab:      { label: "More",     active: "apps",    inactive: "apps-outline" },
 };
 
@@ -114,7 +114,7 @@ function MainTabs() {
       <Tab.Screen name="DashboardTab" component={DashboardScreen} />
       <Tab.Screen name="TripsTab"     component={TripsNavigator} />
       <Tab.Screen name="VehiclesTab"  component={VehiclesScreen} />
-      <Tab.Screen name="DriversTab"   component={DriversScreen} />
+      <Tab.Screen name="ExpensesTab"  component={ExpensesScreen} />
       <Tab.Screen name="MoreTab"      component={MoreNavigator} />
     </Tab.Navigator>
   );
