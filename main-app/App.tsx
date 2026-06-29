@@ -19,7 +19,9 @@ export default function App() {
   useEffect(() => {
     // Load fonts but never block the app — proceed after 3s max
     const timeout = setTimeout(() => setReady(true), 3000);
-    Font.loadAsync(Ionicons.font).finally(() => {
+    Font.loadAsync({
+      Ionicons: require("./assets/fonts/Ionicons.ttf"),
+    }).finally(() => {
       clearTimeout(timeout);
       setReady(true);
     });
