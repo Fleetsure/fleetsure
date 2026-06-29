@@ -19,7 +19,11 @@ export default function App() {
   useEffect(() => {
     // Load fonts but never block the app — proceed after 3s max
     const timeout = setTimeout(() => setReady(true), 3000);
-    Font.loadAsync(Ionicons.font).finally(() => {
+    Font.loadAsync({
+      // 'ionicons' (lowercase) is the font family name @expo/vector-icons registers internally.
+      // Load from a local project asset so Metro always bundles it — node_modules refs can fail in EAS.
+      ionicons: require("./assets/fonts/Ionicons.ttf"),
+    }).finally(() => {
       clearTimeout(timeout);
       setReady(true);
     });
