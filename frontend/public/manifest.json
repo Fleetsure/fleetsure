@@ -1,0 +1,31 @@
+{
+  "name": "FleetSure",
+  "short_name": "FleetSure",
+  "description": "Fleet Management Platform",
+  "theme_color": "#1E2D8E",
+  "background_color": "#1E2D8E",
+  "display": "standalone",
+  "scope": "/",
+  "start_url": "/",
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    }
+  ]
+}

@@ -16,7 +16,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useFocusEffect } from "@react-navigation/native";
-import { Ionicons } from "@expo/vector-icons";
+import { ChevronDown, Check, Droplets, Trash2, Plus, X } from "lucide-react-native";
 
 import { fuelService } from "../services/fuelService";
 import { vehicleService } from "../services/vehicleService";
@@ -53,7 +53,7 @@ function EntityPicker({
         <Text style={[formStyles.pickerText, !selected && { color: TEXT_MUTED }]}>
           {selected?.label ?? placeholder ?? "Select…"}
         </Text>
-        <Ionicons name="chevron-down" size={16} color={TEXT_MUTED} />
+        <ChevronDown size={16} color={TEXT_MUTED} />
       </TouchableOpacity>
       <Modal visible={open} transparent animationType="fade">
         <TouchableOpacity style={formStyles.overlay} onPress={() => setOpen(false)}>
@@ -70,7 +70,7 @@ function EntityPicker({
                   <Text style={[formStyles.pickerOptionText, item.id === value && { color: PRIMARY, fontWeight: "700" }]}>
                     {item.label}
                   </Text>
-                  {item.id === value && <Ionicons name="checkmark" size={16} color={PRIMARY} />}
+                  {item.id === value && <Check size={16} color={PRIMARY} />}
                 </TouchableOpacity>
               )}
             />
@@ -209,7 +209,7 @@ export default function FuelScreen() {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={PRIMARY} />}
         ListEmptyComponent={
           <View style={styles.empty}>
-            <Ionicons name="water-outline" size={48} color={TEXT_MUTED} />
+            <Droplets size={48} color={TEXT_MUTED} />
             <Text style={styles.emptyText}>No fuel logs yet.</Text>
           </View>
         }
@@ -228,7 +228,7 @@ export default function FuelScreen() {
                   <Text style={styles.litres}>{parseFloat(String(l.litres)).toFixed(1)} L</Text>
                   <Text style={styles.amount}>₹{parseFloat(String(l.amount)).toLocaleString("en-IN")}</Text>
                   <TouchableOpacity onPress={() => handleDelete(l.id)} style={styles.deleteIconBtn}>
-                    <Ionicons name="trash-outline" size={16} color={DANGER} />
+                    <Trash2 size={16} color={DANGER} />
                   </TouchableOpacity>
                 </View>
               </View>
@@ -238,7 +238,7 @@ export default function FuelScreen() {
       />
 
       <TouchableOpacity style={styles.fab} onPress={() => setModalVisible(true)}>
-        <Ionicons name="add" size={28} color="#fff" />
+        <Plus size={28} color="#fff" />
       </TouchableOpacity>
 
       {/* Add Fuel Log Modal */}
@@ -248,7 +248,7 @@ export default function FuelScreen() {
             <View style={formStyles.header}>
               <Text style={formStyles.title}>Add Fuel Log</Text>
               <TouchableOpacity onPress={() => setModalVisible(false)}>
-                <Ionicons name="close" size={24} color={TEXT} />
+                <X size={24} color={TEXT} />
               </TouchableOpacity>
             </View>
             <ScrollView contentContainerStyle={formStyles.scroll}>

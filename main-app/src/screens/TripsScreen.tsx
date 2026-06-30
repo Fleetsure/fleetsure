@@ -7,7 +7,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import { Ionicons } from "@expo/vector-icons";
+import { ChevronDown, Check, Bell, Search, Map, Plus, ArrowLeft } from "lucide-react-native";
 
 import { tripService } from "../services/tripService";
 import { vehicleService } from "../services/vehicleService";
@@ -49,7 +49,7 @@ function EntityPicker({ label, value, options, onSelect, placeholder }: {
         <Text style={[f.pickerText, !selected && { color: MUTED }]} numberOfLines={1}>
           {selected?.label ?? placeholder ?? "Select…"}
         </Text>
-        <Ionicons name="chevron-down" size={16} color={MUTED} />
+        <ChevronDown size={16} color={MUTED} />
       </TouchableOpacity>
       <Modal visible={open} transparent animationType="fade">
         <TouchableOpacity style={f.overlay} onPress={() => setOpen(false)}>
@@ -66,7 +66,7 @@ function EntityPicker({ label, value, options, onSelect, placeholder }: {
                   <Text style={[f.sheetOptionText, item.id === value && { color: PRIMARY, fontWeight: "700" }]} numberOfLines={1}>
                     {item.label}
                   </Text>
-                  {item.id === value && <Ionicons name="checkmark" size={16} color={PRIMARY} />}
+                  {item.id === value && <Check size={16} color={PRIMARY} />}
                 </TouchableOpacity>
               )}
             />
@@ -200,10 +200,10 @@ export default function TripsScreen() {
         </View>
         <View style={s.headerActions}>
           <TouchableOpacity style={s.iconBtn}>
-            <Ionicons name="notifications-outline" size={20} color={MUTED} />
+            <Bell size={20} color={MUTED} />
           </TouchableOpacity>
           <TouchableOpacity style={s.searchBtn}>
-            <Ionicons name="search-outline" size={15} color={MUTED} />
+            <Search size={15} color={MUTED} />
             <Text style={s.searchBtnText}>Search</Text>
           </TouchableOpacity>
         </View>
@@ -246,7 +246,7 @@ export default function TripsScreen() {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={PRIMARY} />}
         ListEmptyComponent={
           <View style={s.empty}>
-            <Ionicons name="map-outline" size={48} color={MUTED} />
+            <Map size={48} color={MUTED} />
             <Text style={s.emptyText}>No trips in this category.</Text>
           </View>
         }
@@ -294,7 +294,7 @@ export default function TripsScreen() {
 
       {/* FAB */}
       <TouchableOpacity style={s.fab} onPress={() => setModalVisible(true)}>
-        <Ionicons name="add" size={28} color="#fff" />
+        <Plus size={28} color="#fff" />
       </TouchableOpacity>
 
       {/* Add Trip Modal */}
@@ -303,7 +303,7 @@ export default function TripsScreen() {
           <SafeAreaView style={f.safe} edges={["top", "bottom"]}>
             <View style={f.header}>
               <TouchableOpacity onPress={() => setModalVisible(false)} style={f.backBtn}>
-                <Ionicons name="arrow-back" size={22} color={TEXT} />
+                <ArrowLeft size={22} color={TEXT} />
               </TouchableOpacity>
               <Text style={f.title}>New Trip</Text>
               <View style={{ width: 36 }} />

@@ -12,7 +12,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useFocusEffect } from "@react-navigation/native";
-import { Ionicons } from "@expo/vector-icons";
+import { Share2, TrendingUp, TrendingDown, Wallet, BarChart2, Map, Truck, type LucideIcon } from "lucide-react-native";
 
 import { analyticsService } from "../services/analyticsService";
 
@@ -102,7 +102,7 @@ export default function ReportsScreen() {
           <Text style={styles.headerSub}>Fleet performance summary</Text>
         </View>
         <TouchableOpacity style={styles.shareBtn} onPress={exportReport}>
-          <Ionicons name="share-outline" size={18} color={PRIMARY} />
+          <Share2 size={18} color={PRIMARY} />
           <Text style={styles.shareBtnText}>Export</Text>
         </TouchableOpacity>
       </View>
@@ -131,16 +131,16 @@ export default function ReportsScreen() {
         {overview && (
           <>
             <View style={styles.kpiRow}>
-              <KpiCard label="Revenue" value={fmt(overview.total_revenue)} color={SUCCESS} icon="trending-up" />
-              <KpiCard label="Expenses" value={fmt(overview.total_expenses)} color={DANGER} icon="trending-down" />
+              <KpiCard label="Revenue" value={fmt(overview.total_revenue)} color={SUCCESS} icon={TrendingUp} />
+              <KpiCard label="Expenses" value={fmt(overview.total_expenses)} color={DANGER} icon={TrendingDown} />
             </View>
             <View style={styles.kpiRow}>
-              <KpiCard label="Net Profit" value={fmt(overview.net_profit)} color={overview.net_profit >= 0 ? SUCCESS : DANGER} icon="wallet" />
-              <KpiCard label="Margin" value={`${margin}%`} color={marginColor} icon="bar-chart" />
+              <KpiCard label="Net Profit" value={fmt(overview.net_profit)} color={overview.net_profit >= 0 ? SUCCESS : DANGER} icon={Wallet} />
+              <KpiCard label="Margin" value={`${margin}%`} color={marginColor} icon={BarChart2} />
             </View>
             <View style={styles.kpiRow}>
-              <KpiCard label="Total Trips" value={String(overview.total_trips)} color={PRIMARY} icon="map" />
-              <KpiCard label="Vehicles" value={String(overview.total_vehicles)} color="#0E7490" icon="car" />
+              <KpiCard label="Total Trips" value={String(overview.total_trips)} color={PRIMARY} icon={Map} />
+              <KpiCard label="Vehicles" value={String(overview.total_vehicles)} color="#0E7490" icon={Truck} />
             </View>
 
             {/* Margin Bar */}
@@ -216,10 +216,10 @@ export default function ReportsScreen() {
   );
 }
 
-function KpiCard({ label, value, color, icon }: { label: string; value: string; color: string; icon: string }) {
+function KpiCard({ label, value, color, icon: Icon }: { label: string; value: string; color: string; icon: LucideIcon }) {
   return (
     <View style={[kpiStyles.card, { borderLeftColor: color }]}>
-      <Ionicons name={icon as any} size={16} color={color} />
+      <Icon size={16} color={color} />
       <Text style={[kpiStyles.value, { color }]}>{value}</Text>
       <Text style={kpiStyles.label}>{label}</Text>
     </View>

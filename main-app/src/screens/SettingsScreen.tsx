@@ -14,7 +14,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useFocusEffect } from "@react-navigation/native";
-import { Ionicons } from "@expo/vector-icons";
+import { Info, Server, UserCircle, LogOut } from "lucide-react-native";
 
 import { useAuth } from "../context/AuthContext";
 import { analyticsService } from "../services/analyticsService";
@@ -152,21 +152,21 @@ export default function SettingsScreen() {
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>About</Text>
             <View style={styles.infoRow}>
-              <Ionicons name="information-circle-outline" size={18} color={TEXT_MUTED} />
+              <Info size={18} color={TEXT_MUTED} />
               <View style={styles.infoText}>
                 <Text style={styles.infoLabel}>FleetSure Main App</Text>
                 <Text style={styles.infoValue}>Version 1.0.0</Text>
               </View>
             </View>
             <View style={styles.infoRow}>
-              <Ionicons name="server-outline" size={18} color={TEXT_MUTED} />
+              <Server size={18} color={TEXT_MUTED} />
               <View style={styles.infoText}>
                 <Text style={styles.infoLabel}>Backend</Text>
                 <Text style={styles.infoValue}>Supabase + Firebase</Text>
               </View>
             </View>
             <View style={styles.infoRow}>
-              <Ionicons name="person-circle-outline" size={18} color={TEXT_MUTED} />
+              <UserCircle size={18} color={TEXT_MUTED} />
               <View style={styles.infoText}>
                 <Text style={styles.infoLabel}>Account ID</Text>
                 <Text style={styles.infoValue} numberOfLines={1}>{user?.id ?? "—"}</Text>
@@ -176,7 +176,7 @@ export default function SettingsScreen() {
 
           {/* Sign Out */}
           <TouchableOpacity style={styles.signOutBtn} onPress={handleSignOut}>
-            <Ionicons name="log-out-outline" size={18} color={DANGER} />
+            <LogOut size={18} color={DANGER} />
             <Text style={styles.signOutText}>Sign Out</Text>
           </TouchableOpacity>
 

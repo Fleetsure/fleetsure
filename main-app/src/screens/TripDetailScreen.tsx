@@ -14,7 +14,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRoute, useNavigation, RouteProp, useFocusEffect } from "@react-navigation/native";
-import { Ionicons } from "@expo/vector-icons";
+import { ArrowLeft, MessageCircle, Plus, Trash2, X, ChevronDown, Check } from "lucide-react-native";
 
 import { tripService } from "../services/tripService";
 import { vehicleService } from "../services/vehicleService";
@@ -258,7 +258,7 @@ export default function TripDetailScreen() {
       {/* Header */}
       <View style={styles.topBar}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-          <Ionicons name="arrow-back" size={22} color={TEXT} />
+          <ArrowLeft size={22} color={TEXT} />
         </TouchableOpacity>
         <View style={styles.topBarCenter}>
           <Text style={styles.topBarRoute} numberOfLines={1}>
@@ -266,7 +266,7 @@ export default function TripDetailScreen() {
           </Text>
         </View>
         <TouchableOpacity onPress={shareOnWhatsApp} style={styles.waBtn}>
-          <Ionicons name="logo-whatsapp" size={22} color="#25D366" />
+          <MessageCircle size={22} color="#25D366" />
         </TouchableOpacity>
       </View>
 
@@ -342,7 +342,7 @@ export default function TripDetailScreen() {
               style={styles.addExpBtn}
               onPress={() => setExpModal(true)}
             >
-              <Ionicons name="add" size={16} color={PRIMARY} />
+              <Plus size={16} color={PRIMARY} />
               <Text style={styles.addExpBtnText}>Add</Text>
             </TouchableOpacity>
           </View>
@@ -362,7 +362,7 @@ export default function TripDetailScreen() {
                   <Text style={styles.expAmount}>₹{parseFloat(String(e.amount)).toLocaleString("en-IN")}</Text>
                   {!e._source && (
                     <TouchableOpacity onPress={() => handleDeleteExpense(e.id)}>
-                      <Ionicons name="trash-outline" size={16} color={DANGER} />
+                      <Trash2 size={16} color={DANGER} />
                     </TouchableOpacity>
                   )}
                 </View>
@@ -411,7 +411,7 @@ export default function TripDetailScreen() {
           <View style={expStyles.header}>
             <Text style={expStyles.title}>Add Expense</Text>
             <TouchableOpacity onPress={() => setExpModal(false)}>
-              <Ionicons name="close" size={24} color={TEXT} />
+              <X size={24} color={TEXT} />
             </TouchableOpacity>
           </View>
           <ScrollView contentContainerStyle={expStyles.content}>
@@ -421,7 +421,7 @@ export default function TripDetailScreen() {
               <Text style={expStyles.typeBtnText}>
                 {EXPENSE_TYPES.find((t) => t.value === expType)?.label ?? expType}
               </Text>
-              <Ionicons name="chevron-down" size={16} color={TEXT_MUTED} />
+              <ChevronDown size={16} color={TEXT_MUTED} />
             </TouchableOpacity>
 
             <Text style={expStyles.label}>Amount (₹) *</Text>
@@ -482,7 +482,7 @@ export default function TripDetailScreen() {
                   <Text style={[styles.pickerOptionText, t.value === expType && { color: PRIMARY, fontWeight: "700" }]}>
                     {t.label}
                   </Text>
-                  {t.value === expType && <Ionicons name="checkmark" size={16} color={PRIMARY} />}
+                  {t.value === expType && <Check size={16} color={PRIMARY} />}
                 </TouchableOpacity>
               ))}
             </ScrollView>

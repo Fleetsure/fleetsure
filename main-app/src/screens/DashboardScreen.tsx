@@ -5,7 +5,10 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useFocusEffect } from "@react-navigation/native";
-import { Ionicons } from "@expo/vector-icons";
+import {
+  Bell, Search, MessageCircle, ChevronLeft, ChevronRight,
+  Truck, Users, Map, TrendingUp, type LucideIcon,
+} from "lucide-react-native";
 
 import { useAuth } from "../context/AuthContext";
 import { vehicleService } from "../services/vehicleService";
@@ -155,10 +158,10 @@ export default function DashboardScreen() {
           </View>
           <View style={styles.headerActions}>
             <TouchableOpacity style={styles.iconBtn}>
-              <Ionicons name="notifications-outline" size={20} color={MUTED} />
+              <Bell size={20} color={MUTED} />
             </TouchableOpacity>
             <TouchableOpacity style={styles.searchBtn}>
-              <Ionicons name="search-outline" size={15} color={MUTED} />
+              <Search size={15} color={MUTED} />
               <Text style={styles.searchBtnText}>Search</Text>
             </TouchableOpacity>
           </View>
@@ -167,22 +170,22 @@ export default function DashboardScreen() {
         {/* ── 2×2 Stats Grid ── */}
         <View style={styles.statsGrid}>
           <StatCard
-            icon="car-outline" iconBg="#EEF2FF" iconColor={PRIMARY}
+            icon={Truck} iconBg="#EEF2FF" iconColor={PRIMARY}
             value={String(vehicles.length)} label="Total Vehicles"
             sub={`${activeVehicles} Available · ${inTripVehicles} On Trip`}
           />
           <StatCard
-            icon="people-outline" iconBg="#E0F2FE" iconColor="#0E7490"
+            icon={Users} iconBg="#E0F2FE" iconColor="#0E7490"
             value={String(drivers.length)} label="Total Drivers"
             sub={`${activeDrivers} Available`}
           />
           <StatCard
-            icon="map-outline" iconBg="#FFF7ED" iconColor={WARNING}
+            icon={Map} iconBg="#FFF7ED" iconColor={WARNING}
             value={String(trips.length)} label="Total Trips"
             sub={`${completedTrips} Completed`}
           />
           <StatCard
-            icon="trending-up-outline" iconBg="#F0FDF4" iconColor={SUCCESS}
+            icon={TrendingUp} iconBg="#F0FDF4" iconColor={SUCCESS}
             value={fmt(overview?.total_revenue ?? 0)} label="Revenue"
             sub="Completed"
           />
@@ -193,7 +196,7 @@ export default function DashboardScreen() {
           <View style={styles.waCardTop}>
             <View style={styles.waCardLeft}>
               <View style={styles.waIconBox}>
-                <Ionicons name="logo-whatsapp" size={20} color="#25D366" />
+                <MessageCircle size={20} color="#25D366" />
               </View>
               <View>
                 <Text style={styles.waTitle}>WhatsApp Daily Report</Text>
@@ -202,7 +205,7 @@ export default function DashboardScreen() {
             </View>
           </View>
           <TouchableOpacity style={styles.waSendBtn} onPress={sendWhatsApp} disabled={waLoading}>
-            <Ionicons name="logo-whatsapp" size={16} color="#fff" />
+            <MessageCircle size={16} color="#fff" />
             <Text style={styles.waSendBtnText}>{waLoading ? "Preparing…" : "Send Summary"}</Text>
             {waLoading && <ActivityIndicator size="small" color="#fff" />}
           </TouchableOpacity>
@@ -226,13 +229,13 @@ export default function DashboardScreen() {
                     style={styles.insightNavBtn}
                     onPress={() => setInsightIdx((i) => (i - 1 + insights.length) % insights.length)}
                   >
-                    <Ionicons name="chevron-back" size={16} color={SUCCESS} />
+                    <ChevronLeft size={16} color={SUCCESS} />
                   </TouchableOpacity>
                   <TouchableOpacity
                     style={styles.insightNavBtn}
                     onPress={() => setInsightIdx((i) => (i + 1) % insights.length)}
                   >
-                    <Ionicons name="chevron-forward" size={16} color={SUCCESS} />
+                    <ChevronRight size={16} color={SUCCESS} />
                   </TouchableOpacity>
                 </View>
               )}
@@ -336,14 +339,14 @@ export default function DashboardScreen() {
   );
 }
 
-function StatCard({ icon, iconBg, iconColor, value, label, sub }: {
-  icon: string; iconBg: string; iconColor: string;
+function StatCard({ icon: Icon, iconBg, iconColor, value, label, sub }: {
+  icon: LucideIcon; iconBg: string; iconColor: string;
   value: string; label: string; sub: string;
 }) {
   return (
     <View style={sc.card}>
       <View style={[sc.iconBox, { backgroundColor: iconBg }]}>
-        <Ionicons name={icon as any} size={20} color={iconColor} />
+        <Icon size={20} color={iconColor} />
       </View>
       <Text style={sc.value}>{value}</Text>
       <Text style={sc.label}>{label}</Text>

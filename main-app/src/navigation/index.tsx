@@ -3,7 +3,7 @@ import { ActivityIndicator, View } from "react-native";
 import { NavigationContainer } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
-import { Ionicons } from "@expo/vector-icons";
+import { LayoutGrid, Map, Truck, Receipt, MoreHorizontal, type LucideIcon } from "lucide-react-native";
 
 import { useAuth } from "../context/AuthContext";
 import LoginScreen from "../screens/LoginScreen";
@@ -66,12 +66,12 @@ function MoreNavigator() {
   );
 }
 
-const TAB_CONFIG: Record<string, { label: string; active: string; inactive: string }> = {
-  DashboardTab: { label: "Home",     active: "grid",    inactive: "grid-outline" },
-  TripsTab:     { label: "Trips",    active: "map",     inactive: "map-outline" },
-  VehiclesTab:  { label: "Vehicles", active: "car",     inactive: "car-outline" },
-  ExpensesTab:  { label: "Expenses", active: "receipt", inactive: "receipt-outline" },
-  MoreTab:      { label: "More",     active: "apps",    inactive: "apps-outline" },
+const TAB_CONFIG: Record<string, { label: string; icon: LucideIcon }> = {
+  DashboardTab: { label: "Home",     icon: LayoutGrid },
+  TripsTab:     { label: "Trips",    icon: Map },
+  VehiclesTab:  { label: "Vehicles", icon: Truck },
+  ExpensesTab:  { label: "Expenses", icon: Receipt },
+  MoreTab:      { label: "More",     icon: MoreHorizontal },
 };
 
 function MainTabs() {
@@ -101,13 +101,10 @@ function MainTabs() {
             marginTop: 2,
           },
           tabBarLabel: cfg.label,
-          tabBarIcon: ({ color, focused }) => (
-            <Ionicons
-              name={(focused ? cfg.active : cfg.inactive) as any}
-              size={22}
-              color={color}
-            />
-          ),
+          tabBarIcon: ({ color }) => {
+            const Icon = cfg.icon;
+            return <Icon size={22} color={color} />;
+          },
         };
       }}
     >

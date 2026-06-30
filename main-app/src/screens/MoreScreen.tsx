@@ -10,7 +10,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import { Ionicons } from "@expo/vector-icons";
+import { Users, Droplets, BarChart2, Settings, ChevronRight, type LucideIcon } from "lucide-react-native";
 
 import { useAuth } from "../context/AuthContext";
 import type { MoreStackParamList } from "../navigation";
@@ -25,24 +25,24 @@ const DANGER = "#DC2626";
 
 type Nav = NativeStackNavigationProp<MoreStackParamList>;
 
-const MENU_ITEMS = [
+const MENU_ITEMS: { group: string; items: { screen: keyof MoreStackParamList; label: string; desc: string; icon: LucideIcon; color: string }[] }[] = [
   {
     group: "Fleet",
     items: [
-      { screen: "Drivers" as const, label: "Drivers", desc: "Manage drivers assigned to your fleet", icon: "people", color: "#1E2D8E" },
-      { screen: "Fuel" as const, label: "Fuel Logs", desc: "Track fuel fill-ups per vehicle", icon: "water", color: "#0E7490" },
+      { screen: "Drivers", label: "Drivers", desc: "Manage drivers assigned to your fleet", icon: Users, color: "#1E2D8E" },
+      { screen: "Fuel", label: "Fuel Logs", desc: "Track fuel fill-ups per vehicle", icon: Droplets, color: "#0E7490" },
     ],
   },
   {
     group: "Insights",
     items: [
-      { screen: "Reports" as const, label: "Reports & Analytics", desc: "P&L summary and vehicle performance", icon: "bar-chart", color: "#7C3AED" },
+      { screen: "Reports", label: "Reports & Analytics", desc: "P&L summary and vehicle performance", icon: BarChart2, color: "#7C3AED" },
     ],
   },
   {
     group: "Account",
     items: [
-      { screen: "Settings" as const, label: "Settings", desc: "Profile, organisation and preferences", icon: "settings", color: TEXT_MUTED },
+      { screen: "Settings", label: "Settings", desc: "Profile, organisation and preferences", icon: Settings, color: TEXT_MUTED },
     ],
   },
 ];
@@ -86,13 +86,13 @@ export default function MoreScreen() {
                   activeOpacity={0.7}
                 >
                   <View style={[styles.menuIcon, { backgroundColor: item.color + "1A" }]}>
-                    <Ionicons name={item.icon as any} size={20} color={item.color} />
+                    <item.icon size={20} color={item.color} />
                   </View>
                   <View style={styles.menuText}>
                     <Text style={styles.menuLabel}>{item.label}</Text>
                     <Text style={styles.menuDesc}>{item.desc}</Text>
                   </View>
-                  <Ionicons name="chevron-forward" size={16} color={TEXT_MUTED} />
+                  <ChevronRight size={16} color={TEXT_MUTED} />
                 </TouchableOpacity>
               ))}
             </View>

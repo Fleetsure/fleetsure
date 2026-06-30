@@ -2,7 +2,14 @@
   "permissions": {
     "allow": [
       "Bash(git pull *)",
-      "Bash(npm run *)"
+      "Bash(npm run *)",
+      "Bash(npx tsc *)",
+      "Bash(mkdir -p /Users/dilip.ace/Documents/fleetsure/main-app/android/app/src/main/assets/fonts)",
+      "Bash(cp /Users/dilip.ace/Documents/fleetsure/main-app/node_modules/@expo/vector-icons/build/vendor/react-native-vector-icons/Fonts/Ionicons.ttf /Users/dilip.ace/Documents/fleetsure/main-app/android/app/src/main/assets/fonts/)",
+      "Bash(node -e \"const { Ionicons } = require\\('@expo/vector-icons'\\); console.log\\('font key:', JSON.stringify\\(Object.keys\\(Ionicons.font\\)\\)\\); console.log\\('font family used internally:', Ionicons.getFontFamily?.\\(\\) ?? 'unknown'\\);\")",
+      "Bash(node -e \"const I = require\\('/Users/dilip.ace/Documents/fleetsure/main-app/node_modules/@expo/vector-icons'\\); console.log\\(Object.keys\\(I.Ionicons.font\\)\\);\")",
+      "Bash(node -e ' *)",
+      "Bash(node -e \"const I = require\\('/Users/dilip.ace/Documents/fleetsure/main-app/node_modules/@expo/vector-icons/build/Ionicons.js'\\); console.log\\('Ionicons.font type:', typeof I.default?.font\\); console.log\\('Ionicons.font value:', JSON.stringify\\(I.default?.font\\)\\);\")"
     ]
   }
 }

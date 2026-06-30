@@ -5,7 +5,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useFocusEffect } from "@react-navigation/native";
-import { Ionicons } from "@expo/vector-icons";
+import { Bell, Search, Info, ChevronDown, GitBranch, Check } from "lucide-react-native";
 
 import { tripService } from "../services/tripService";
 import type { Trip } from "../types";
@@ -110,10 +110,10 @@ export default function ExpensesScreen() {
         </View>
         <View style={s.headerActions}>
           <TouchableOpacity style={s.iconBtn}>
-            <Ionicons name="notifications-outline" size={20} color={MUTED} />
+            <Bell size={20} color={MUTED} />
           </TouchableOpacity>
           <TouchableOpacity style={s.searchBtn}>
-            <Ionicons name="search-outline" size={15} color={MUTED} />
+            <Search size={15} color={MUTED} />
             <Text style={s.searchBtnText}>Search</Text>
           </TouchableOpacity>
         </View>
@@ -121,7 +121,7 @@ export default function ExpensesScreen() {
 
       {/* Info banner */}
       <View style={s.infoBanner}>
-        <Ionicons name="information-circle-outline" size={18} color="#1E40AF" style={{ marginTop: 1 }} />
+        <Info size={18} color="#1E40AF" style={{ marginTop: 1 }} />
         <Text style={s.infoBannerText}>
           This is a <Text style={{ fontWeight: "700" }}>read-only view</Text>. To add or manage
           expenses, open the trip from the{" "}
@@ -139,7 +139,7 @@ export default function ExpensesScreen() {
               ? `${selectedTrip.origin} → ${selectedTrip.destination}`
               : "— Choose a trip —"}
           </Text>
-          <Ionicons name="chevron-down" size={16} color={MUTED} />
+          <ChevronDown size={16} color={MUTED} />
         </TouchableOpacity>
       </View>
 
@@ -150,7 +150,7 @@ export default function ExpensesScreen() {
       >
         {!selectedId ? (
           <View style={s.empty}>
-            <Ionicons name="git-branch-outline" size={48} color={MUTED} />
+            <GitBranch size={48} color={MUTED} />
             <Text style={s.emptyText}>Select a trip above to view its expenses</Text>
           </View>
         ) : loadingExp ? (
@@ -214,7 +214,7 @@ export default function ExpensesScreen() {
                     </Text>
                     <Text style={s.sheetOptionSub}>{t.driver_name} · {t.start_date}</Text>
                   </View>
-                  {t.id === selectedId && <Ionicons name="checkmark" size={16} color={PRIMARY} />}
+                  {t.id === selectedId && <Check size={16} color={PRIMARY} />}
                 </TouchableOpacity>
               )}
             />

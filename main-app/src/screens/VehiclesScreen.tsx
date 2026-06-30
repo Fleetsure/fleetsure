@@ -6,7 +6,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useFocusEffect } from "@react-navigation/native";
-import { Ionicons } from "@expo/vector-icons";
+import { ChevronDown, Check, Bell, Search, AlertCircle, Plus, Truck, Pencil, Trash2, ArrowLeft, type LucideIcon } from "lucide-react-native";
 import { vehicleService } from "../services/vehicleService";
 import type { Vehicle } from "../types";
 
@@ -63,7 +63,7 @@ function PickerRow({ label, value, options, onSelect }: {
       <Text style={f.label}>{label}</Text>
       <TouchableOpacity style={f.pickerBtn} onPress={() => setOpen(true)}>
         <Text style={f.pickerText}>{value || "Select…"}</Text>
-        <Ionicons name="chevron-down" size={16} color={MUTED} />
+        <ChevronDown size={16} color={MUTED} />
       </TouchableOpacity>
       <Modal visible={open} transparent animationType="fade">
         <TouchableOpacity style={f.overlay} onPress={() => setOpen(false)}>
@@ -78,7 +78,7 @@ function PickerRow({ label, value, options, onSelect }: {
                 <Text style={[f.sheetOptionText, opt === value && { color: PRIMARY, fontWeight: "700" }]}>
                   {STATUS_STYLE[opt]?.label ?? opt}
                 </Text>
-                {opt === value && <Ionicons name="checkmark" size={16} color={PRIMARY} />}
+                {opt === value && <Check size={16} color={PRIMARY} />}
               </TouchableOpacity>
             ))}
           </View>
@@ -209,10 +209,10 @@ export default function VehiclesScreen() {
         </View>
         <View style={s.headerActions}>
           <TouchableOpacity style={s.iconBtn}>
-            <Ionicons name="notifications-outline" size={20} color={MUTED} />
+            <Bell size={20} color={MUTED} />
           </TouchableOpacity>
           <TouchableOpacity style={s.searchBtn}>
-            <Ionicons name="search-outline" size={15} color={MUTED} />
+            <Search size={15} color={MUTED} />
             <Text style={s.searchBtnText}>Search</Text>
           </TouchableOpacity>
         </View>
@@ -220,15 +220,15 @@ export default function VehiclesScreen() {
 
       {/* Summary grid */}
       <View style={s.summaryGrid}>
-        <SCard value={vehicles.length} label="Total Vehicles" color={PRIMARY}  bg="#EEF2FF" icon="car-outline" />
-        <SCard value={available}       label="Available"       color={SUCCESS}  bg="#F0FDF4" icon="checkmark-circle-outline" />
-        <SCard value={onTrip}          label="On Trip"         color={WARNING}  bg="#FFF7ED" icon="navigate-outline" />
-        <SCard value={maintenance}     label="In Maintenance"  color={DANGER}   bg="#FEF2F2" icon="construct-outline" />
-        <SCard value={insDue}          label="Insurance Due"   color={insDue > 0 ? DANGER : SUCCESS} bg={insDue > 0 ? "#FEF2F2" : "#F0FDF4"} icon="alert-circle-outline" />
+        <SCard value={vehicles.length} label="Total Vehicles" color={PRIMARY}  bg="#EEF2FF" icon={Truck} />
+        <SCard value={available}       label="Available"       color={SUCCESS}  bg="#F0FDF4" icon={Check} />
+        <SCard value={onTrip}          label="On Trip"         color={WARNING}  bg="#FFF7ED" icon={Bell} />
+        <SCard value={maintenance}     label="In Maintenance"  color={DANGER}   bg="#FEF2F2" icon={AlertCircle} />
+        <SCard value={insDue}          label="Insurance Due"   color={insDue > 0 ? DANGER : SUCCESS} bg={insDue > 0 ? "#FEF2F2" : "#F0FDF4"} icon={AlertCircle} />
       </View>
       {insDue > 0 && (
         <View style={s.alertBanner}>
-          <Ionicons name="alert-circle-outline" size={16} color={WARNING} />
+          <AlertCircle size={16} color={WARNING} />
           <Text style={s.alertText}>{insDue} vehicle{insDue > 1 ? "s" : ""} with compliance expiring within 30 days</Text>
         </View>
       )}
@@ -236,7 +236,7 @@ export default function VehiclesScreen() {
       {/* Search + Add */}
       <View style={s.searchRow}>
         <View style={s.searchInput}>
-          <Ionicons name="search-outline" size={16} color={MUTED} />
+          <Search size={16} color={MUTED} />
           <TextInput
             style={s.searchText}
             placeholder="Search vehicles…"
@@ -246,7 +246,7 @@ export default function VehiclesScreen() {
           />
         </View>
         <TouchableOpacity style={s.addBtn} onPress={openAdd}>
-          <Ionicons name="add" size={18} color="#fff" />
+          <Plus size={18} color="#fff" />
           <Text style={s.addBtnText}>Add</Text>
         </TouchableOpacity>
       </View>
@@ -258,7 +258,7 @@ export default function VehiclesScreen() {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={PRIMARY} />}
         ListEmptyComponent={
           <View style={s.empty}>
-            <Ionicons name="car-outline" size={48} color={MUTED} />
+            <Truck size={48} color={MUTED} />
             <Text style={s.emptyText}>No vehicles yet. Add your first truck!</Text>
           </View>
         }
@@ -307,11 +307,11 @@ export default function VehiclesScreen() {
                   </View>
                   <View style={s.expandActions}>
                     <TouchableOpacity style={s.editBtn} onPress={() => openEdit(v)}>
-                      <Ionicons name="pencil-outline" size={14} color={PRIMARY} />
+                      <Pencil size={14} color={PRIMARY} />
                       <Text style={s.editBtnText}>Edit</Text>
                     </TouchableOpacity>
                     <TouchableOpacity style={s.deleteBtn} onPress={() => handleDelete(v)}>
-                      <Ionicons name="trash-outline" size={14} color={DANGER} />
+                      <Trash2 size={14} color={DANGER} />
                       <Text style={s.deleteBtnText}>Delete</Text>
                     </TouchableOpacity>
                   </View>
@@ -328,7 +328,7 @@ export default function VehiclesScreen() {
           <SafeAreaView style={f.safe} edges={["top", "bottom"]}>
             <View style={f.header}>
               <TouchableOpacity onPress={() => setModal(false)} style={f.backBtn}>
-                <Ionicons name="arrow-back" size={22} color={TEXT} />
+                <ArrowLeft size={22} color={TEXT} />
               </TouchableOpacity>
               <Text style={f.title}>{editId ? "Edit Vehicle" : "Add Vehicle"}</Text>
               <View style={{ width: 36 }} />
@@ -372,10 +372,10 @@ export default function VehiclesScreen() {
   );
 }
 
-function SCard({ value, label, color, bg, icon }: { value: number; label: string; color: string; bg: string; icon: string }) {
+function SCard({ value, label, color, bg, icon: Icon }: { value: number; label: string; color: string; bg: string; icon: LucideIcon }) {
   return (
     <View style={[sc.card, { backgroundColor: bg }]}>
-      <Ionicons name={icon as any} size={20} color={color} />
+      <Icon size={20} color={color} />
       <Text style={[sc.value, { color }]}>{value}</Text>
       <Text style={sc.label}>{label}</Text>
     </View>

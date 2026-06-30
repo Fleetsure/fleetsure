@@ -16,7 +16,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useFocusEffect } from "@react-navigation/native";
-import { Ionicons } from "@expo/vector-icons";
+import { ChevronDown, ChevronUp, Check, Search, User, CreditCard, Wallet, Pencil, Trash2, Plus, ArrowLeft } from "lucide-react-native";
 
 import { driverService } from "../services/driverService";
 import type { Driver, DriverPayment } from "../types";
@@ -82,7 +82,7 @@ function PickerRow({
       <Text style={formStyles.label}>{label}</Text>
       <TouchableOpacity style={formStyles.pickerBtn} onPress={() => setOpen(true)}>
         <Text style={formStyles.pickerText}>{value || "Select…"}</Text>
-        <Ionicons name="chevron-down" size={16} color={TEXT_MUTED} />
+        <ChevronDown size={16} color={TEXT_MUTED} />
       </TouchableOpacity>
       <Modal visible={open} transparent animationType="fade">
         <TouchableOpacity style={formStyles.overlay} onPress={() => setOpen(false)}>
@@ -97,7 +97,7 @@ function PickerRow({
                 <Text style={[formStyles.pickerOptionText, opt === value && { color: PRIMARY, fontWeight: "700" }]}>
                   {opt}
                 </Text>
-                {opt === value && <Ionicons name="checkmark" size={16} color={PRIMARY} />}
+                {opt === value && <Check size={16} color={PRIMARY} />}
               </TouchableOpacity>
             ))}
           </View>
@@ -256,7 +256,7 @@ export default function DriversScreen() {
       </View>
 
       <View style={styles.searchRow}>
-        <Ionicons name="search-outline" size={18} color={TEXT_MUTED} style={styles.searchIcon} />
+        <Search size={18} color={TEXT_MUTED} style={styles.searchIcon} />
         <TextInput
           style={styles.searchInput}
           placeholder="Search drivers…"
@@ -273,7 +273,7 @@ export default function DriversScreen() {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={PRIMARY} />}
         ListEmptyComponent={
           <View style={styles.empty}>
-            <Ionicons name="person-outline" size={48} color={TEXT_MUTED} />
+            <User size={48} color={TEXT_MUTED} />
             <Text style={styles.emptyText}>No drivers yet. Add your first driver!</Text>
           </View>
         }
@@ -296,13 +296,13 @@ export default function DriversScreen() {
                   <View style={[styles.badge, { backgroundColor: sc.bg }]}>
                     <Text style={[styles.badgeText, { color: sc.text }]}>{d.status ?? "inactive"}</Text>
                   </View>
-                  <Ionicons name={expanded ? "chevron-up" : "chevron-down"} size={16} color={TEXT_MUTED} />
+                  {expanded ? <ChevronUp size={16} color={TEXT_MUTED} /> : <ChevronDown size={16} color={TEXT_MUTED} />}
                 </View>
               </View>
 
               {d.license_number && (
                 <View style={styles.licRow}>
-                  <Ionicons name="card-outline" size={12} color={TEXT_MUTED} />
+                  <CreditCard size={12} color={TEXT_MUTED} />
                   <Text style={styles.licText}>{d.license_number}</Text>
                   {licDays !== null && (
                     <View style={[styles.smallBadge, { backgroundColor: licDays < 30 ? "#FEF2F2" : "#F0FDF4" }]}>
@@ -324,15 +324,15 @@ export default function DriversScreen() {
                   </View>
                   <View style={styles.expandedActions}>
                     <TouchableOpacity style={styles.ledgerBtn} onPress={() => openLedger(d)}>
-                      <Ionicons name="wallet-outline" size={14} color={SUCCESS} />
+                      <Wallet size={14} color={SUCCESS} />
                       <Text style={styles.ledgerBtnText}>Ledger</Text>
                     </TouchableOpacity>
                     <TouchableOpacity style={styles.editBtn} onPress={() => openEdit(d)}>
-                      <Ionicons name="pencil-outline" size={14} color={PRIMARY} />
+                      <Pencil size={14} color={PRIMARY} />
                       <Text style={styles.editBtnText}>Edit</Text>
                     </TouchableOpacity>
                     <TouchableOpacity style={styles.deleteBtn} onPress={() => handleDelete(d)}>
-                      <Ionicons name="trash-outline" size={14} color={DANGER} />
+                      <Trash2 size={14} color={DANGER} />
                       <Text style={styles.deleteBtnText}>Delete</Text>
                     </TouchableOpacity>
                   </View>
@@ -344,7 +344,7 @@ export default function DriversScreen() {
       />
 
       <TouchableOpacity style={styles.fab} onPress={openAdd}>
-        <Ionicons name="add" size={28} color="#fff" />
+        <Plus size={28} color="#fff" />
       </TouchableOpacity>
 
       {/* Add/Edit Modal */}
@@ -353,7 +353,7 @@ export default function DriversScreen() {
           <SafeAreaView style={formStyles.safe} edges={["top", "bottom"]}>
             <View style={formStyles.header}>
               <TouchableOpacity onPress={() => setModalVisible(false)} style={formStyles.backBtn}>
-                <Ionicons name="arrow-back" size={22} color={TEXT} />
+                <ArrowLeft size={22} color={TEXT} />
               </TouchableOpacity>
               <Text style={formStyles.title}>{editId ? "Edit Driver" : "Add Driver"}</Text>
               <View style={{ width: 36 }} />
@@ -395,7 +395,7 @@ export default function DriversScreen() {
         <SafeAreaView style={formStyles.safe} edges={["top", "bottom"]}>
           <View style={formStyles.header}>
             <TouchableOpacity onPress={() => setLedgerVisible(false)} style={formStyles.backBtn}>
-              <Ionicons name="arrow-back" size={22} color={TEXT} />
+              <ArrowLeft size={22} color={TEXT} />
             </TouchableOpacity>
             <Text style={formStyles.title}>{ledgerDriver?.name} — Ledger</Text>
             <View style={{ width: 36 }} />
@@ -497,7 +497,7 @@ export default function DriversScreen() {
                       {p.type === "deduction" ? "-" : "+"}₹{Number(p.amount).toLocaleString("en-IN")}
                     </Text>
                     <TouchableOpacity onPress={() => handleDeletePayment(p.id)}>
-                      <Ionicons name="trash-outline" size={16} color={DANGER} />
+                      <Trash2 size={16} color={DANGER} />
                     </TouchableOpacity>
                   </View>
                 </View>

@@ -52,7 +52,7 @@
           "iosUrlScheme": "com.googleusercontent.apps.874399364699-uokc8ai3davqm8a19udr85gpketvj3qn"
         }
       ],
-      "./plugins/withIonicons"
+      "react-native-svg"
     ],
     "extra": {
       "eas": {
