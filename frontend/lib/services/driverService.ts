@@ -1,6 +1,11 @@
 import { supabase } from "@/lib/supabase";
 import { query, getUid } from "./_base";
 import type { Driver, DriverPayment, ServiceResponse } from "@/lib/types";
+import type { Database } from "@/lib/database.types";
+
+type DriverInsert = Database["public"]["Tables"]["drivers"]["Insert"];
+type DriverUpdate = Database["public"]["Tables"]["drivers"]["Update"];
+type DriverPaymentInsert = Database["public"]["Tables"]["driver_payments"]["Insert"];
 
 export const driverService = {
   async getAll(): Promise<ServiceResponse<Driver[]>> {
@@ -10,13 +15,13 @@ export const driverService = {
     );
   },
 
-  async create(data: Omit<Driver, "id" | "owner_id" | "created_at">): Promise<ServiceResponse<Driver>> {
+  async create(data: Omit<DriverInsert, "owner_id">): Promise<ServiceResponse<Driver>> {
     return query(
       supabase.from("drivers").insert({ ...data, owner_id: getUid() }).select().single()
     );
   },
 
-  async update(id: string, data: Partial<Driver>): Promise<ServiceResponse<Driver>> {
+  async update(id: string, data: DriverUpdate): Promise<ServiceResponse<Driver>> {
     return query(
       supabase.from("drivers").update(data).eq("id", id).eq("owner_id", getUid()).select().single()
     );
@@ -34,7 +39,7 @@ export const driverService = {
     );
   },
 
-  async addPayment(data: Omit<DriverPayment, "id" | "owner_id">): Promise<ServiceResponse<DriverPayment>> {
+  async addPayment(data: Omit<DriverPaymentInsert, "owner_id">): Promise<ServiceResponse<DriverPayment>> {
     return query(
       supabase.from("driver_payments").insert({ ...data, owner_id: getUid() }).select().single()
     );

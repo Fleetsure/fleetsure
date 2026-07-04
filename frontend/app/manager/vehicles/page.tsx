@@ -60,16 +60,18 @@ export default function ManagerVehicles() {
   const set = (k: string, v: string) => setForm(p => ({ ...p, [k]: v }));
 
   const handleSave = async () => {
-    if (!form.registration_number.trim()) { setFormError("Registration number is required."); return; }
+    if (!form.registration_number.trim() || !form.make.trim() || !form.model.trim()) {
+      setFormError("Registration number, make and model are required."); return;
+    }
     setSaving(true); setFormError("");
     const payload = {
       registration_number: form.registration_number.trim().toUpperCase(),
-      make:         form.make.trim()         || undefined,
-      model:        form.model.trim()        || undefined,
+      make:         form.make.trim(),
+      model:        form.model.trim(),
       year:         form.year ? Number(form.year) : undefined,
       fuel_type:    form.fuel_type           || undefined,
-      vehicle_type: form.vehicle_type        || undefined,
-      status:       form.status,
+      vehicle_type: (form.vehicle_type || undefined) as "truck" | "mini_truck" | "trailer" | "tanker" | "container" | "other" | undefined,
+      status:       form.status as "active" | "inactive" | "in_trip" | "maintenance",
     };
     let result;
     if (editing) {

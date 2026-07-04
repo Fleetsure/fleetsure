@@ -276,16 +276,22 @@ CREATE TABLE IF NOT EXISTS operational_insights (
   created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+-- NOTE: corrected against live `supabase gen types` output -- the original
+-- version of this baseline (and MIGRATE_VEHICLES.sql before it) documented
+-- starts_at/ends_at columns that don't actually exist live; the real column
+-- is current_period_end. authService.ts was reading the wrong field name
+-- (data.ends_at, always undefined) until this was caught by wiring up
+-- generated types.
 CREATE TABLE IF NOT EXISTS subscriptions (
   id                       UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id                  TEXT        NOT NULL REFERENCES users(id),
   plan                     TEXT        NOT NULL DEFAULT 'trial',
   status                   TEXT        NOT NULL DEFAULT 'trial',
   trial_ends_at            TIMESTAMPTZ,
-  starts_at                TIMESTAMPTZ,
-  ends_at                  TIMESTAMPTZ,
+  current_period_end       TIMESTAMPTZ,
   razorpay_subscription_id TEXT,
-  created_at               TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  created_at               TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at               TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 CREATE TABLE IF NOT EXISTS notification_settings (

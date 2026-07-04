@@ -1,6 +1,11 @@
 import { supabase } from "@/lib/supabase";
 import { query, ok, getUid } from "./_base";
 import type { Trip, Expense, ServiceResponse } from "@/lib/types";
+import type { Database } from "@/lib/database.types";
+
+type TripInsert = Database["public"]["Tables"]["trips"]["Insert"];
+type TripUpdate = Database["public"]["Tables"]["trips"]["Update"];
+type ExpenseInsert = Database["public"]["Tables"]["expenses"]["Insert"];
 
 export const tripService = {
   async getAll(limit = 200): Promise<ServiceResponse<Trip[]>> {
@@ -29,13 +34,13 @@ export const tripService = {
     } as Trip);
   },
 
-  async create(data: Omit<Trip, "id" | "owner_id" | "status"> & { status?: string }): Promise<ServiceResponse<Trip>> {
+  async create(data: Omit<TripInsert, "owner_id">): Promise<ServiceResponse<Trip>> {
     return query(
       supabase.from("trips").insert({ ...data, owner_id: getUid() }).select().single()
     );
   },
 
-  async update(id: string, data: Partial<Trip>): Promise<ServiceResponse<Trip>> {
+  async update(id: string, data: TripUpdate): Promise<ServiceResponse<Trip>> {
     return query(
       supabase.from("trips").update(data).eq("id", id).eq("owner_id", getUid()).select().single()
     );
@@ -47,7 +52,7 @@ export const tripService = {
     );
   },
 
-  async addExpense(tripId: string, data: Omit<Expense, "id" | "trip_id">): Promise<ServiceResponse<Expense>> {
+  async addExpense(tripId: string, data: Omit<ExpenseInsert, "trip_id">): Promise<ServiceResponse<Expense>> {
     return query(
       supabase.from("expenses").insert({ ...data, trip_id: tripId }).select().single()
     );

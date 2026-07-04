@@ -1,3 +1,5 @@
+import type { Database } from "@/lib/database.types";
+
 // ── Shared response wrapper ───────────────────────────────
 export interface ServiceResponse<T = undefined> {
   success: boolean;
@@ -5,247 +7,47 @@ export interface ServiceResponse<T = undefined> {
   error?: string;
 }
 
-// ── User / Auth ───────────────────────────────────────────
-export interface User {
-  id: string;
-  email: string;
-  name: string;
-  phone?: string;
-  org_name?: string;
-  org_logo?: string;
-  google_picture?: string;
-  gst_number?: string;
-  is_active: boolean;
-  created_at?: string;
-  last_login_at?: string;
-}
+// Every domain type below is a direct alias of the generated Supabase Row
+// type instead of a hand-maintained copy — hand-rolled versions had drifted
+// from the live schema (wrong nullability, a couple of renamed/missing
+// columns caught a real bug in authService.getBillingStatus). Extra fields
+// below are for query-time joins/enrichment that aren't part of the table
+// itself.
 
-// ── Vehicle ───────────────────────────────────────────────
-export interface Vehicle {
-  id: string;
-  owner_id: string;
-  registration_number: string;
-  make: string;
-  model: string;
-  year?: number;
-  vehicle_type?: string;
-  fuel_type?: string;
-  status?: string;
-  insurance_expiry?: string;
-  fitness_expiry?: string;
-  permit_expiry?: string;
-  puc_expiry?: string;
-  avg_mileage_kmpl?: number | null;
-  created_at?: string;
-}
+export type User = Database["public"]["Tables"]["users"]["Row"];
+export type Vehicle = Database["public"]["Tables"]["vehicles"]["Row"];
+export type Driver = Database["public"]["Tables"]["drivers"]["Row"];
+export type DriverPayment = Database["public"]["Tables"]["driver_payments"]["Row"];
+export type Expense = Database["public"]["Tables"]["expenses"]["Row"];
+export type FuelLog = Database["public"]["Tables"]["fuel_logs"]["Row"];
+export type TollLog = Database["public"]["Tables"]["toll_logs"]["Row"];
+export type TyreLog = Database["public"]["Tables"]["tyre_logs"]["Row"];
+export type MiscExpense = Database["public"]["Tables"]["misc_expenses"]["Row"];
+export type Party = Database["public"]["Tables"]["parties"]["Row"];
+export type TeamMember = Database["public"]["Tables"]["team_members"]["Row"];
+export type Insight = Database["public"]["Tables"]["operational_insights"]["Row"];
 
-// ── Driver ────────────────────────────────────────────────
-export interface Driver {
-  id: string;
-  owner_id: string;
-  name: string;
-  phone: string;
-  alternate_phone?: string | null;
-  address?: string | null;
-  license_number?: string | null;
-  license_expiry?: string | null;
-  transport_validity?: string | null;
-  badge_issue_date?: string | null;
-  dob?: string | null;
-  blood_group?: string | null;
-  license_class?: string;
-  status?: string;
-  created_at?: string;
-}
-
-export interface DriverPayment {
-  id: string;
-  owner_id: string;
-  driver_id: string;
-  date: string;
-  type: string;
-  amount: number;
-  notes?: string;
-  trip_id?: string;
-}
-
-// ── Trip ──────────────────────────────────────────────────
-export interface Trip {
-  id: string;
-  owner_id: string;
-  vehicle_id: string;
-  driver_id?: string | null;
-  driver_name: string;
-  driver_phone?: string | null;
-  origin: string;
-  destination: string;
-  distance_km?: number | null;
-  start_date: string;
-  end_date?: string | null;
-  doc_number?: string | null;
-  material?: string | null;
-  weight_tonnes?: number | null;
-  freight_amount: number;
-  driver_advance?: number | null;
-  status: string;
-  notes?: string;
+export type Trip = Database["public"]["Tables"]["trips"]["Row"] & {
+  // Joined per-trip expense sources (tripService.getById)
   expenses?: Expense[];
   fuel_logs?: FuelLog[];
   toll_logs?: TollLog[];
   misc_expenses?: MiscExpense[];
-}
+};
 
-export interface Expense {
-  id: string;
-  trip_id: string;
-  expense_type: string;
-  amount: number;
-  date: string;
-  description?: string | null;
-}
-
-// ── Fuel Log ──────────────────────────────────────────────
-export interface FuelLog {
-  id: string;
-  owner_id: string;
-  vehicle_id: string;
-  trip_id?: string | null;
-  date: string;
-  odometer_km?: number | null;
-  litres: number;
-  amount: number;
-  fuel_station?: string | null;
-  notes?: string | null;
-}
-
-// ── Toll Log ──────────────────────────────────────────────
-export interface TollLog {
-  id: string;
-  owner_id: string;
-  vehicle_id: string;
-  trip_id?: string;
-  date: string;
-  amount: number;
-  toll_plaza?: string;
-  route?: string;
-  payment_mode?: string;
-  notes?: string;
-}
-
-// ── Tyre Log ──────────────────────────────────────────────
-export interface TyreLog {
-  id: string;
-  owner_id: string;
-  vehicle_id: string;
-  date: string;
-  amount: number;
-  tyre_brand?: string;
-  tyre_count?: number;
-  tyre_type?: string;
-  tyre_position?: string;
-  odometer_km?: number;
-  notes?: string;
-}
-
-// ── Misc Expense ──────────────────────────────────────────
-export interface MiscExpense {
-  id: string;
-  owner_id: string;
-  vehicle_id?: string;
-  trip_id?: string;
-  date: string;
-  amount: number;
-  category: string;
-  description?: string;
-  notes?: string;
-}
-
-// ── Insurance Policy ──────────────────────────────────────
-export interface InsurancePolicy {
-  id: string;
-  owner_id: string;
-  vehicle_id: string;
-  policy_type: string;
-  policy_number?: string;
-  insurer?: string;
-  start_date?: string;
-  expiry_date: string;
-  premium?: number;
-  notes?: string;
-  // enriched fields
+export type InsurancePolicy = Database["public"]["Tables"]["insurance_policies"]["Row"] & {
+  // Enriched client-side for the compliance dashboard, not DB columns
   days_left?: number;
   status?: string;
   reg_number?: string;
-}
+};
 
-// ── Document ──────────────────────────────────────────────
-export interface Document {
-  id: string;
-  owner_id: string;
-  vehicle_id?: string;
-  name: string;
-  doc_type?: string;
-  file_name?: string;
-  file_size?: number;
-  mime_type?: string;
-  content_b64?: string;
-  notes?: string;
-  created_at?: string;
+export type Document = Database["public"]["Tables"]["documents"]["Row"] & {
   reg_number?: string;
-}
+};
 
-// ── Party ─────────────────────────────────────────────────
-export interface Party {
-  id: string;
-  owner_id: string;
-  name: string;
-  phone?: string;
-  gstin?: string;
-  address?: string;
-  party_type: string;
-  opening_balance?: number;
-  notes?: string;
-}
+export type ReturnLoad = Database["public"]["Tables"]["marketplace_return_loads"]["Row"];
 
-// ── Marketplace ───────────────────────────────────────────
-export interface ReturnLoad {
-  id: string;
-  owner_id: string;
-  from_city: string;
-  to_city: string;
-  available_date: string;
-  vehicle_type?: string;
-  capacity_tonnes?: number;
-  contact_phone?: string;
-  contact_name?: string;
-  notes?: string;
-  status?: string;
-  created_at?: string;
-}
-
-export interface LoadInterest {
-  id: string;
-  return_load_id: string;
-  interested_user_id: string;
-  message?: string;
-  status?: string;
-  rating?: number;
-  created_at?: string;
+export type LoadInterest = Database["public"]["Tables"]["marketplace_load_interests"]["Row"] & {
   marketplace_return_loads?: ReturnLoad;
-}
-
-// ── Insight ───────────────────────────────────────────────
-export interface Insight {
-  id: string;
-  owner_id: string;
-  insight_type: string;
-  severity: "info" | "warning" | "critical";
-  title: string;
-  body?: string | null;
-  is_read: boolean;
-  is_dismissed: boolean;
-  vehicle_id?: string;
-  trip_id?: string;
-  meta?: Record<string, any>;
-  created_at?: string;
-}
+};

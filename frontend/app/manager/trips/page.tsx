@@ -76,8 +76,8 @@ export default function ManagerTrips() {
   const set = (k: string, v: string) => setForm(p => ({ ...p, [k]: v }));
 
   const handleSave = async () => {
-    if (!form.origin.trim() || !form.destination.trim() || !form.start_date) {
-      setFormError("Origin, destination and start date are required.");
+    if (!form.origin.trim() || !form.destination.trim() || !form.start_date || !form.vehicle_id) {
+      setFormError("Vehicle, origin, destination and start date are required.");
       return;
     }
     setSaving(true); setFormError("");
@@ -87,10 +87,11 @@ export default function ManagerTrips() {
       destination:    form.destination.trim(),
       start_date:     form.start_date,
       end_date:       form.end_date       || undefined,
-      vehicle_id:     form.vehicle_id     || undefined,
+      vehicle_id:     form.vehicle_id,
       driver_id:      form.driver_id      || undefined,
+      driver_name:    drivers.find(d => d.id === form.driver_id)?.name ?? "",
       freight_amount: form.freight_amount ? Number(form.freight_amount) : undefined,
-      status:         form.status,
+      status:         form.status as "planned" | "in_progress" | "completed" | "cancelled",
       notes:          form.notes.trim()   || undefined,
     };
 

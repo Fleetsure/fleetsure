@@ -30,7 +30,7 @@ export const authService = {
       if (error) throw error;
       if (!data) return ok({ plan: "trial", status: "trial", days_left: 60 });
       const trialEnd  = data.trial_ends_at ? new Date(data.trial_ends_at) : null;
-      const periodEnd = data.ends_at ? new Date(data.ends_at) : null;
+      const periodEnd = data.current_period_end ? new Date(data.current_period_end) : null;
       const refDate = periodEnd || trialEnd;
       const daysLeft = refDate
         ? Math.max(0, Math.ceil((refDate.getTime() - Date.now()) / 86_400_000))

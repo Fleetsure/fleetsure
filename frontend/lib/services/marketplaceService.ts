@@ -1,6 +1,11 @@
 import { supabase } from "@/lib/supabase";
 import { query, getUid } from "./_base";
 import type { ReturnLoad, LoadInterest, ServiceResponse } from "@/lib/types";
+import type { Database } from "@/lib/database.types";
+
+type ReturnLoadInsert = Database["public"]["Tables"]["marketplace_return_loads"]["Insert"];
+type ReturnLoadUpdate = Database["public"]["Tables"]["marketplace_return_loads"]["Update"];
+type LoadInterestUpdate = Database["public"]["Tables"]["marketplace_load_interests"]["Update"];
 
 interface LoadFilters {
   from_city?: string;
@@ -25,13 +30,13 @@ export const marketplaceService = {
     );
   },
 
-  async post(data: Omit<ReturnLoad, "id" | "owner_id" | "created_at">): Promise<ServiceResponse<ReturnLoad>> {
+  async post(data: Omit<ReturnLoadInsert, "owner_id">): Promise<ServiceResponse<ReturnLoad>> {
     return query(
       supabase.from("marketplace_return_loads").insert({ ...data, owner_id: getUid() }).select().single()
     );
   },
 
-  async update(id: string, data: Partial<ReturnLoad>): Promise<ServiceResponse<ReturnLoad>> {
+  async update(id: string, data: ReturnLoadUpdate): Promise<ServiceResponse<ReturnLoad>> {
     return query(
       supabase.from("marketplace_return_loads").update(data).eq("id", id).eq("owner_id", getUid()).select().single()
     );
@@ -70,7 +75,7 @@ export const marketplaceService = {
     );
   },
 
-  async updateInterest(id: string, data: { status?: string; rating?: number }): Promise<ServiceResponse<LoadInterest>> {
+  async updateInterest(id: string, data: LoadInterestUpdate): Promise<ServiceResponse<LoadInterest>> {
     return query(
       supabase.from("marketplace_load_interests").update(data).eq("id", id).select().single()
     );

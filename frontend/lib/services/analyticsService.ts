@@ -28,7 +28,7 @@ async function expensesByTrip(tripIds: string[], uid: string): Promise<Record<st
     supabase.from("misc_expenses").select("trip_id,amount").eq("owner_id", uid).in("trip_id", tripIds),
   ]);
   for (const e of [...(exps.data || []), ...(fuels.data || []), ...(tolls.data || []), ...(misc.data || [])])
-    add(e.trip_id, parseFloat(e.amount));
+    add(e.trip_id, e.amount);
   return perTrip;
 }
 
@@ -47,10 +47,10 @@ async function sumExpensesForTrips(tripIds: string[]): Promise<Record<string, nu
     supabase.from("misc_expenses").select("category,amount").eq("owner_id", uid).in("trip_id", tripIds),
   ]);
 
-  for (const e of exps.data || []) add(e.expense_type, parseFloat(e.amount));
-  for (const e of fuels.data || []) add("fuel", parseFloat(e.amount));
-  for (const e of tolls.data || []) add("toll", parseFloat(e.amount));
-  for (const e of misc.data  || []) add(e.category || "other", parseFloat(e.amount));
+  for (const e of exps.data || []) add(e.expense_type, e.amount);
+  for (const e of fuels.data || []) add("fuel", e.amount);
+  for (const e of tolls.data || []) add("toll", e.amount);
+  for (const e of misc.data  || []) add(e.category || "other", e.amount);
 
   return totals;
 }
@@ -114,7 +114,7 @@ export const analyticsService = {
         const label = d.toLocaleString("en-IN", { month: "short", year: "numeric" });
         if (!months[key]) months[key] = { month: label, month_key: key, trips: 0, revenue: 0, expenses: 0, profit: 0 };
         months[key].trips++;
-        if (t.status === "completed") months[key].revenue += parseFloat(t.freight_amount || 0);
+        if (t.status === "completed") months[key].revenue += (t.freight_amount || 0);
       }
 
       const tripsByMonth: Record<string, string[]> = {};
@@ -165,9 +165,9 @@ export const analyticsService = {
         vMap[t.vehicle_id].total_trips++;
         if (t.status === "completed") {
           vMap[t.vehicle_id].completed_trips++;
-          vMap[t.vehicle_id].revenue += parseFloat(t.freight_amount || 0);
+          vMap[t.vehicle_id].revenue += (t.freight_amount || 0);
         }
-        vMap[t.vehicle_id].total_km += parseFloat(t.distance_km || 0);
+        vMap[t.vehicle_id].total_km += (t.distance_km || 0);
         if (!tripsByVehicle[t.vehicle_id]) tripsByVehicle[t.vehicle_id] = [];
         tripsByVehicle[t.vehicle_id].push(t.id);
       }
@@ -270,7 +270,7 @@ export const analyticsService = {
         byDriver[name].trips++;
         if (t.status === "completed") {
           byDriver[name].completed++;
-          byDriver[name].revenue += parseFloat(t.freight_amount || 0);
+          byDriver[name].revenue += (t.freight_amount || 0);
         }
       }
 

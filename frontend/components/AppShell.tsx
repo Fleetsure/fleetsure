@@ -42,7 +42,7 @@ function OnboardingModal({ onDone, onSkip }: { onDone: () => void; onSkip: () =>
       } else {
         ({ error: dbError } = await supabase.from("users").insert({
           id: uid,
-          email: fbUser.email,
+          email: fbUser.email || "",
           name: form.name.trim(),
           org_name: form.org_name.trim(),
           phone: form.phone.trim() || null,

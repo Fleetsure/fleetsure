@@ -1,6 +1,9 @@
 import { supabase } from "@/lib/supabase";
 import { query, ok, fail, getUid } from "./_base";
 import type { FuelLog, ServiceResponse } from "@/lib/types";
+import type { Database } from "@/lib/database.types";
+
+type FuelLogInsert = Database["public"]["Tables"]["fuel_logs"]["Insert"];
 
 export const fuelService = {
   async getAll(vehicle_id?: string): Promise<ServiceResponse<FuelLog[]>> {
@@ -9,7 +12,7 @@ export const fuelService = {
     return query(vehicle_id ? q.eq("vehicle_id", vehicle_id) : q);
   },
 
-  async add(data: Omit<FuelLog, "id" | "owner_id">): Promise<ServiceResponse<FuelLog>> {
+  async add(data: Omit<FuelLogInsert, "owner_id">): Promise<ServiceResponse<FuelLog>> {
     return query(
       supabase.from("fuel_logs").insert({ ...data, owner_id: getUid() }).select().single()
     );

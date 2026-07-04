@@ -52,13 +52,14 @@ export default function ManagerDrivers() {
   const set = (k: string, v: string) => setForm(p => ({ ...p, [k]: v }));
 
   const handleSave = async () => {
-    if (!form.name.trim()) { setFormError("Driver name is required."); return; }
+    if (!form.name.trim())  { setFormError("Driver name is required.");  return; }
+    if (!form.phone.trim()) { setFormError("Driver phone is required."); return; }
     setSaving(true); setFormError("");
     const payload = {
       name:           form.name.trim(),
-      phone:          form.phone.trim()          || undefined,
+      phone:          form.phone.trim(),
       license_number: form.license_number.trim() || undefined,
-      license_class:  form.license_class.trim()  || undefined,
+      license_class:  (form.license_class.trim() || undefined) as "LMV" | "HMV" | "HGMV" | "HPMV" | "other" | undefined,
       address:        form.address.trim()         || undefined,
       blood_group:    form.blood_group.trim()     || undefined,
       dob:            form.dob                   || undefined,
@@ -215,8 +216,8 @@ export default function ManagerDrivers() {
               </div>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
                 <div>
-                  <label style={labelStyle}>Phone Number</label>
-                  <input style={inputStyle} placeholder="+91 98765 43210" value={form.phone} onChange={e => set("phone", e.target.value)} />
+                  <label style={labelStyle}>Phone Number *</label>
+                  <input required style={inputStyle} placeholder="+91 98765 43210" value={form.phone} onChange={e => set("phone", e.target.value)} />
                 </div>
                 <div>
                   <label style={labelStyle}>Blood Group</label>

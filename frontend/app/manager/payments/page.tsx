@@ -48,7 +48,7 @@ export default function ManagerPayments() {
       owner_id:  member!.owner_id,
       driver_id: form.driver_id,
       date:      form.date,
-      type:      form.type,
+      type:      form.type as "advance" | "salary" | "deduction" | "bonus" | "settlement",
       amount:    Number(form.amount),
       notes:     form.notes.trim() || undefined,
       trip_id:   form.trip_id     || undefined,

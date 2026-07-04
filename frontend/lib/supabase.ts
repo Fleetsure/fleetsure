@@ -1,6 +1,7 @@
 import { createClient } from "@supabase/supabase-js";
 import { onAuthStateChanged } from "firebase/auth";
 import { auth } from "@/lib/firebase";
+import type { Database } from "@/lib/database.types";
 
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
@@ -110,7 +111,7 @@ async function authFetch(input: RequestInfo | URL, init: RequestInit = {}): Prom
   return fetch(input as RequestInfo, { ...init, headers });
 }
 
-export const supabase = createClient(url, key, {
+export const supabase = createClient<Database>(url, key, {
   auth: {
     persistSession: false,
     autoRefreshToken: false,

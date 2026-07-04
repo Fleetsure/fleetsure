@@ -1,6 +1,9 @@
 import { supabase } from "@/lib/supabase";
 import { query, getUid } from "./_base";
 import type { TollLog, ServiceResponse } from "@/lib/types";
+import type { Database } from "@/lib/database.types";
+
+type TollLogInsert = Database["public"]["Tables"]["toll_logs"]["Insert"];
 
 export const tollService = {
   async getAll(vehicle_id?: string): Promise<ServiceResponse<TollLog[]>> {
@@ -9,7 +12,7 @@ export const tollService = {
     return query(vehicle_id ? q.eq("vehicle_id", vehicle_id) : q);
   },
 
-  async add(data: Omit<TollLog, "id" | "owner_id">): Promise<ServiceResponse<TollLog>> {
+  async add(data: Omit<TollLogInsert, "owner_id">): Promise<ServiceResponse<TollLog>> {
     return query(
       supabase.from("toll_logs").insert({ ...data, owner_id: getUid() }).select().single()
     );

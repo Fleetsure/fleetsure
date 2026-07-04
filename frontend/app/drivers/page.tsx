@@ -31,7 +31,12 @@ function DriverLedgerModal({ driver, onClose }: { driver: any; onClose: () => vo
   const handleAdd = async (e: any) => {
     e.preventDefault(); setSaving(true);
     try {
-      await driverService.addPayment({ driver_id: driver.id, ...form, amount: parseFloat(form.amount) });
+      await driverService.addPayment({
+        driver_id: driver.id,
+        ...form,
+        type: form.type as "advance" | "salary" | "deduction" | "bonus" | "settlement",
+        amount: parseFloat(form.amount),
+      });
       setShowAdd(false);
       setForm({ date: todayISO(), type: "advance", amount: "", notes: "" });
       load();
@@ -212,6 +217,7 @@ export default function DriversPage() {
     setError("");
     const payload = {
       ...form,
+      license_class:       form.license_class as "LMV" | "HMV" | "HGMV" | "HPMV" | "other",
       license_expiry:     form.license_expiry     || null,
       dob:                form.dob                || null,
       transport_validity: form.transport_validity || null,

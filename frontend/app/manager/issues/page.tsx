@@ -82,23 +82,29 @@ export default function ManagerIssues() {
   const set = (k: string, v: string) => setForm(p => ({ ...p, [k]: v }));
 
   const handleSave = async () => {
-    if (!form.vehicle_id || !form.issue_type) {
-      setFormError("Vehicle and issue type are required."); return;
+    if (!form.vehicle_id || !form.driver_id || !form.issue_type || !form.description.trim()) {
+      setFormError("Vehicle, driver, issue type and description are required."); return;
     }
     setSaving(true); setFormError("");
-    const payload = {
-      vehicle_id:  form.vehicle_id,
-      driver_id:   form.driver_id   || undefined,
-      issue_type:  form.issue_type,
-      severity:    form.severity,
-      description: form.description.trim() || undefined,
-      status:      form.status,
-    };
     let result;
     if (editing) {
-      result = await teamService.updateIssue(editing.id, payload);
+      result = await teamService.updateIssue(editing.id, {
+        vehicle_id:  form.vehicle_id,
+        driver_id:   form.driver_id,
+        issue_type:  form.issue_type,
+        severity:    form.severity,
+        description: form.description.trim() || undefined,
+        status:      form.status,
+      });
     } else {
-      result = await teamService.addIssue({ ...payload, owner_id: member!.owner_id });
+      result = await teamService.addIssue({
+        owner_id:    member!.owner_id,
+        vehicle_id:  form.vehicle_id,
+        driver_id:   form.driver_id,
+        issue_type:  form.issue_type,
+        severity:    form.severity,
+        description: form.description.trim(),
+      });
     }
     setSaving(false);
     if (result.success) { setShowModal(false); load(); }
@@ -269,9 +275,9 @@ export default function ManagerIssues() {
                   </select>
                 </div>
                 <div>
-                  <label style={labelStyle}>Driver (optional)</label>
+                  <label style={labelStyle}>Driver *</label>
                   <select style={inputStyle} value={form.driver_id} onChange={e => set("driver_id", e.target.value)}>
-                    <option value="">No driver</option>
+                    <option value="">Select driver</option>
                     {drivers.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
                   </select>
                 </div>

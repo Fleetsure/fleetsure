@@ -1,19 +1,23 @@
 import { supabase } from "@/lib/supabase";
 import { query, ok, fail, getUid } from "./_base";
-import type { ServiceResponse } from "@/lib/types";
+import type { ServiceResponse, TeamMember } from "@/lib/types";
+import type { Database } from "@/lib/database.types";
 
-export interface TeamMember {
-  id: string;
-  owner_id: string;
-  email: string;
-  name: string;
-  role: "manager" | "accountant";
-  firebase_uid?: string | null;
-  is_active: boolean;
-  job_title?: string | null;
-  phone?: string | null;
-  created_at?: string;
-}
+export type { TeamMember };
+
+type TripInsert = Database["public"]["Tables"]["trips"]["Insert"];
+type TripUpdate = Database["public"]["Tables"]["trips"]["Update"];
+type TripStatus = Database["public"]["Enums"]["tripstatus"];
+type VehicleIssueInsert = Database["public"]["Tables"]["vehicle_issues"]["Insert"];
+type VehicleIssueUpdate = Database["public"]["Tables"]["vehicle_issues"]["Update"];
+type DriverInsert = Database["public"]["Tables"]["drivers"]["Insert"];
+type DriverUpdate = Database["public"]["Tables"]["drivers"]["Update"];
+type VehicleInsert = Database["public"]["Tables"]["vehicles"]["Insert"];
+type VehicleUpdate = Database["public"]["Tables"]["vehicles"]["Update"];
+type FuelLogInsert = Database["public"]["Tables"]["fuel_logs"]["Insert"];
+type TollLogInsert = Database["public"]["Tables"]["toll_logs"]["Insert"];
+type MiscExpenseInsert = Database["public"]["Tables"]["misc_expenses"]["Insert"];
+type DriverPaymentInsert = Database["public"]["Tables"]["driver_payments"]["Insert"];
 
 // ── Owner operations (called from Settings page) ──────────────────────────────
 
@@ -60,7 +64,7 @@ export const teamService = {
 
   // ── Data queries (shared by manager + accountant) ───────────────────────────
 
-  async getTrips(filters: { status?: string; from?: string; to?: string } = {}): Promise<ServiceResponse<any[]>> {
+  async getTrips(filters: { status?: TripStatus; from?: string; to?: string } = {}): Promise<ServiceResponse<any[]>> {
     let q = supabase
       .from("trips")
       .select("*, vehicles(registration_number, make, model), drivers(name, phone)")
@@ -72,22 +76,15 @@ export const teamService = {
     return query(q);
   },
 
-  async addTrip(data: {
-    owner_id: string; origin: string; destination: string; start_date: string;
-    end_date?: string; vehicle_id?: string; driver_id?: string;
-    freight_amount?: number; status?: string; notes?: string;
-  }): Promise<ServiceResponse<any>> {
+  async addTrip(data: TripInsert): Promise<ServiceResponse<any>> {
     return query(supabase.from("trips").insert(data).select().single());
   },
 
-  async updateTrip(id: string, data: {
-    origin?: string; destination?: string; start_date?: string; end_date?: string;
-    vehicle_id?: string; driver_id?: string; freight_amount?: number; status?: string; notes?: string;
-  }): Promise<ServiceResponse<null>> {
+  async updateTrip(id: string, data: TripUpdate): Promise<ServiceResponse<null>> {
     return query(supabase.from("trips").update(data).eq("id", id));
   },
 
-  async updateTripStatus(id: string, status: string): Promise<ServiceResponse<null>> {
+  async updateTripStatus(id: string, status: TripStatus): Promise<ServiceResponse<null>> {
     return query(supabase.from("trips").update({ status }).eq("id", id));
   },
 
@@ -127,67 +124,39 @@ export const teamService = {
     return query(supabase.from("vehicle_issues").update({ status }).eq("id", id));
   },
 
-  async addIssue(data: {
-    owner_id: string; vehicle_id: string; driver_id?: string;
-    issue_type: string; severity: string; description?: string;
-  }): Promise<ServiceResponse<any>> {
+  async addIssue(data: Omit<VehicleIssueInsert, "status">): Promise<ServiceResponse<any>> {
     return query(supabase.from("vehicle_issues").insert({ ...data, status: "open" }).select().single());
   },
 
-  async updateIssue(id: string, data: {
-    issue_type?: string; severity?: string; description?: string; status?: string;
-  }): Promise<ServiceResponse<null>> {
+  async updateIssue(id: string, data: VehicleIssueUpdate): Promise<ServiceResponse<null>> {
     return query(supabase.from("vehicle_issues").update(data).eq("id", id));
   },
 
-  async addDriver(data: {
-    owner_id: string; name: string; phone?: string; license_number?: string;
-    license_class?: string; address?: string; blood_group?: string;
-    dob?: string; license_expiry?: string;
-  }): Promise<ServiceResponse<any>> {
+  async addDriver(data: DriverInsert): Promise<ServiceResponse<any>> {
     return query(supabase.from("drivers").insert(data).select().single());
   },
 
-  async updateDriver(id: string, data: {
-    name?: string; phone?: string; license_number?: string;
-    license_class?: string; address?: string; blood_group?: string;
-    dob?: string; license_expiry?: string; is_active?: boolean;
-  }): Promise<ServiceResponse<null>> {
+  async updateDriver(id: string, data: DriverUpdate): Promise<ServiceResponse<null>> {
     return query(supabase.from("drivers").update(data).eq("id", id));
   },
 
-  async addVehicle(data: {
-    owner_id: string; registration_number: string; make?: string; model?: string;
-    year?: number; fuel_type?: string; vehicle_type?: string; status?: string;
-  }): Promise<ServiceResponse<any>> {
+  async addVehicle(data: VehicleInsert): Promise<ServiceResponse<any>> {
     return query(supabase.from("vehicles").insert(data).select().single());
   },
 
-  async updateVehicle(id: string, data: {
-    registration_number?: string; make?: string; model?: string;
-    year?: number; fuel_type?: string; vehicle_type?: string; status?: string;
-  }): Promise<ServiceResponse<null>> {
+  async updateVehicle(id: string, data: VehicleUpdate): Promise<ServiceResponse<null>> {
     return query(supabase.from("vehicles").update(data).eq("id", id));
   },
 
-  async addFuelLog(data: {
-    owner_id: string; vehicle_id: string; date: string; amount: number;
-    litres?: number; odometer_km?: number; trip_id?: string; fuel_station?: string; notes?: string;
-  }): Promise<ServiceResponse<any>> {
+  async addFuelLog(data: FuelLogInsert): Promise<ServiceResponse<any>> {
     return query(supabase.from("fuel_logs").insert(data).select().single());
   },
 
-  async addTollLog(data: {
-    owner_id: string; vehicle_id: string; date: string; amount: number;
-    trip_id?: string; toll_plaza?: string; notes?: string;
-  }): Promise<ServiceResponse<any>> {
+  async addTollLog(data: TollLogInsert): Promise<ServiceResponse<any>> {
     return query(supabase.from("toll_logs").insert(data).select().single());
   },
 
-  async addMiscExpense(data: {
-    owner_id: string; vehicle_id?: string; date: string; amount: number;
-    category: string; description?: string; trip_id?: string;
-  }): Promise<ServiceResponse<any>> {
+  async addMiscExpense(data: MiscExpenseInsert): Promise<ServiceResponse<any>> {
     return query(supabase.from("misc_expenses").insert(data).select().single());
   },
 
@@ -201,10 +170,7 @@ export const teamService = {
     return query(q);
   },
 
-  async addDriverPayment(data: {
-    owner_id: string; driver_id: string; date: string;
-    type: string; amount: number; notes?: string; trip_id?: string;
-  }): Promise<ServiceResponse<any>> {
+  async addDriverPayment(data: DriverPaymentInsert): Promise<ServiceResponse<any>> {
     return query(supabase.from("driver_payments").insert(data).select().single());
   },
 

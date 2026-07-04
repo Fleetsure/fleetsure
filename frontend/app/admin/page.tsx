@@ -53,7 +53,7 @@ export default function AdminPage() {
       const { data } = await supabase
         .from("admin_users")
         .select("id")
-        .eq("email", user.email)
+        .eq("email", user.email || "")
         .maybeSingle();
 
       if (data) {

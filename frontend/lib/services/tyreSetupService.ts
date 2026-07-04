@@ -1,7 +1,11 @@
 import { supabase } from "@/lib/supabase";
 import { getUid } from "./_base";
-import type { VehicleTyreSetup } from "@/lib/tyreCalc";
+import type { VehicleTyreSetup, TyreUnit } from "@/lib/tyreCalc";
+import type { Json } from "@/lib/database.types";
 
+// tyres/synced_trip_ids are stored as JSONB — Supabase's generated type can't
+// know their structured shape, so they come back as the generic `Json` type
+// and need an explicit cast at this one boundary.
 export async function getTyreSetup(vehicleId: string): Promise<VehicleTyreSetup | null> {
   const { data } = await supabase
     .from("tyre_setups")
@@ -12,8 +16,8 @@ export async function getTyreSetup(vehicleId: string): Promise<VehicleTyreSetup 
   return {
     tyre_count: data.tyre_count,
     has_spare: data.has_spare,
-    tyres: data.tyres,
-    synced_trip_ids: data.synced_trip_ids,
+    tyres: data.tyres as unknown as TyreUnit[],
+    synced_trip_ids: data.synced_trip_ids as unknown as string[],
   };
 }
 
@@ -24,8 +28,8 @@ export async function saveTyreSetup(vehicleId: string, setup: VehicleTyreSetup):
       vehicle_id: vehicleId,
       tyre_count: setup.tyre_count,
       has_spare: setup.has_spare,
-      tyres: setup.tyres,
-      synced_trip_ids: setup.synced_trip_ids,
+      tyres: setup.tyres as unknown as Json,
+      synced_trip_ids: setup.synced_trip_ids as unknown as Json,
       updated_at: new Date().toISOString(),
     },
     { onConflict: "vehicle_id" }

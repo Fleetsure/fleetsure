@@ -71,15 +71,15 @@ export default function ManagerExpenses() {
     let result: any;
 
     if (expType === "fuel") {
-      if (!fuelForm.vehicle_id || !fuelForm.date || !fuelForm.amount) {
-        setFormError("Vehicle, date and amount are required."); setSaving(false); return;
+      if (!fuelForm.vehicle_id || !fuelForm.date || !fuelForm.amount || !fuelForm.litres) {
+        setFormError("Vehicle, date, amount and litres are required."); setSaving(false); return;
       }
       result = await teamService.addFuelLog({
         owner_id,
         vehicle_id:  fuelForm.vehicle_id,
         date:        fuelForm.date,
         amount:      Number(fuelForm.amount),
-        litres:      fuelForm.litres      ? Number(fuelForm.litres)      : undefined,
+        litres:      Number(fuelForm.litres),
         odometer_km: fuelForm.odometer_km ? Number(fuelForm.odometer_km) : undefined,
         trip_id:     fuelForm.trip_id     || undefined,
         fuel_station: fuelForm.fuel_station.trim() || undefined,
