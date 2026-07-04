@@ -5,7 +5,7 @@ const EXP_LABELS: Record<string, string> = {
   driver_payment: "Driver Payment", telephone: "Telephone", other: "Other",
 };
 
-export interface TripPdfData {
+interface TripPdfData {
   orgName:    string;
   orgLogo?:   string; // base64 data URL or regular URL from localStorage "orgLogo"
   trip:       any;

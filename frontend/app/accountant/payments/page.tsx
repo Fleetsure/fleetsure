@@ -2,14 +2,7 @@
 import { useEffect, useState } from "react";
 import { teamService } from "@/lib/services/teamService";
 import { Download, Users } from "lucide-react";
-
-const TYPE_COLOR: Record<string, string> = {
-  salary:    "#1565c0",
-  advance:   "#e65100",
-  trip:      "#2e7d32",
-  bonus:     "#7b1fa2",
-  deduction: "#c62828",
-};
+import { PAYMENT_TYPE_COLOR } from "@/lib/constants/paymentType";
 
 export default function AccountantPayments() {
   const [payments, setPayments] = useState<any[]>([]);
@@ -53,7 +46,7 @@ export default function AccountantPayments() {
       Driver: p.drivers?.name  || "",
       Phone:  p.drivers?.phone || "",
       "Amount (₹)": Number(p.amount || 0),
-      Type:   p.payment_type || "",
+      Type:   p.type || "",
       Notes:  p.notes || "",
     }));
     const wb = XLSX.utils.book_new();
@@ -154,7 +147,7 @@ export default function AccountantPayments() {
             </thead>
             <tbody>
               {filtered.map((p, i) => {
-                const typeColor = TYPE_COLOR[p.payment_type] || "#555";
+                const typeColor = PAYMENT_TYPE_COLOR[p.type] || "#555";
                 return (
                   <tr key={p.id} style={{ borderTop: i > 0 ? "1px solid #f0f0f8" : "none" }}>
                     <td style={{ padding: "12px 16px", fontSize: 12, color: "#555" }}>
@@ -169,12 +162,12 @@ export default function AccountantPayments() {
                       )}
                     </td>
                     <td style={{ padding: "12px 16px" }}>
-                      {p.payment_type ? (
+                      {p.type ? (
                         <span style={{
                           fontSize: 11, fontWeight: 700, padding: "3px 9px", borderRadius: 8,
                           background: `${typeColor}18`, color: typeColor, textTransform: "capitalize",
                         }}>
-                          {p.payment_type}
+                          {p.type}
                         </span>
                       ) : "—"}
                     </td>

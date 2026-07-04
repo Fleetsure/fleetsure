@@ -5,7 +5,7 @@ import { GoogleSignin, isSuccessResponse } from "@react-native-google-signin/goo
 import { auth } from "../config/firebase";
 import { supabase } from "../config/supabase";
 
-export interface OwnerProfile {
+interface OwnerProfile {
   id: string;
   email: string;
   name: string;

@@ -97,8 +97,13 @@ export async function buildWorkbook(selected: string[], _orgName: string): Promi
     })));
   }
   if (selected.includes("profit_loss")) {
+    // Matches every on-screen P&L view: sum all 4 expense sources per trip,
+    // not just the legacy `expenses` table (which alone undercounts).
     const expByTrip: Record<string, number> = {};
-    for (const e of allExpenses) expByTrip[e.trip_id] = (expByTrip[e.trip_id] || 0) + n(e.amount);
+    for (const e of [...allExpenses, ...fuels, ...tolls, ...misc]) {
+      if (!e.trip_id) continue;
+      expByTrip[e.trip_id] = (expByTrip[e.trip_id] || 0) + n(e.amount);
+    }
     add("Profit & Loss", trips.filter(t => t.status === "completed").map(t => {
       const freight = n(t.freight_amount);
       const expenses = expByTrip[t.id] || 0;

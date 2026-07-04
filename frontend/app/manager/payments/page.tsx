@@ -3,17 +3,7 @@ import { useEffect, useState } from "react";
 import { teamService } from "@/lib/services/teamService";
 import { useTeamAuth } from "@/lib/teamAuth";
 import { Wallet, Plus, X } from "lucide-react";
-
-const TYPE_COLOR: Record<string, string> = {
-  advance:    "#1565c0",
-  salary:     "#2e7d32",
-  settlement: "#7b1fa2",
-  deduction:  "#c62828",
-  bonus:      "#e65100",
-  other:      "#555",
-};
-
-const PAYMENT_TYPES = ["advance", "salary", "settlement", "deduction", "bonus", "other"];
+import { PAYMENT_TYPES, PAYMENT_TYPE_COLOR } from "@/lib/constants/paymentType";
 
 const EMPTY_FORM = { driver_id: "", trip_id: "", date: "", type: "advance", amount: "", notes: "" };
 
@@ -138,7 +128,7 @@ export default function ManagerPayments() {
             </thead>
             <tbody>
               {filtered.map((p, i) => {
-                const color = TYPE_COLOR[p.type] || "#555";
+                const color = PAYMENT_TYPE_COLOR[p.type] || "#555";
                 return (
                   <tr key={p.id} style={{ borderTop: i > 0 ? "1px solid #f0f0f8" : "none" }}>
                     <td style={{ padding: "11px 16px", fontSize: 12, color: "#555" }}>

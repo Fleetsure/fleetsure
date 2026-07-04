@@ -6,7 +6,7 @@ import { insightService } from "@/lib/services/insightService";
 import { Plus, Truck, X, Search, AlertCircle, CheckCircle, ChevronDown, ChevronUp, Wrench, Navigation, AlertTriangle } from "lucide-react";
 import { parseLocalDate, fmtDate } from "@/lib/date";
 import { useLanguage } from "@/lib/LanguageContext";
-import { mergeMileage, saveMileage } from "@/lib/mileageStore";
+import { useIsMobile } from "@/hooks/useIsMobile";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -63,20 +63,14 @@ export default function VehiclesPage() {
   const [saving, setSaving]         = useState(false);
   const [error, setError]           = useState("");
   const [search, setSearch]         = useState("");
-  const [isMobile, setIsMobile]     = useState(false);
+  const isMobile = useIsMobile();
   const [cpkMap, setCpkMap]         = useState<Record<string, number>>({});  // vehicle_id → cost/km
 
-  useEffect(() => {
-    const check = () => setIsMobile(window.innerWidth < 768);
-    check();
-    window.addEventListener("resize", check);
-    return () => window.removeEventListener("resize", check);
-  }, []);
 
   // Expanded compliance row
   const [expandedRow, setExpandedRow] = useState<string | null>(null);
 
-  const load = () => vehicleService.getAll().then(r => setVehicles(mergeMileage(r.data || []))).finally(() => setLoading(false));
+  const load = () => vehicleService.getAll().then(r => setVehicles(r.data || [])).finally(() => setLoading(false));
   useEffect(() => {
     load();
     // Pull cost-per-km from insights (non-blocking)
@@ -134,10 +128,8 @@ export default function VehiclesPage() {
       };
       if (editVehicle) {
         await vehicleService.update(editVehicle.id, payload);
-        saveMileage(editVehicle.id, payload.avg_mileage_kmpl ?? null);
       } else {
-        const res = await vehicleService.create(payload);
-        if (res.data?.id) saveMileage(res.data.id, payload.avg_mileage_kmpl ?? null);
+        await vehicleService.create(payload);
       }
       setShowForm(false);
       setForm({ ...EMPTY_FORM });
