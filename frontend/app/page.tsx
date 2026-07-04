@@ -54,6 +54,7 @@ export default function Dashboard() {
   const [drivers, setDrivers]   = useState<any[]>([]);
   const [pnlData, setPnlData]   = useState<any[]>([]);
   const [loading, setLoading]   = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [userName, setUserName]       = useState("Fleet Owner");
   const [emoji, setEmoji]             = useState("🚀");
   const isMobile = useIsMobile();
@@ -81,13 +82,16 @@ export default function Dashboard() {
         setTrips(t.data || []);
         setDrivers(d.data || []);
       })
-      .catch(() => {})
+      .catch(err => {
+        console.error("[Dashboard] failed to load vehicles/trips/drivers:", err);
+        setLoadError(true);
+      })
       .finally(() => setLoading(false));
 
     // P&L loads separately — if it fails, rest of dashboard still works
     analyticsService.getVehiclePnL()
       .then(p => setPnlData(p.data || []))
-      .catch(() => {});
+      .catch(err => console.error("[Dashboard] failed to load P&L data:", err));
   }, []);
 
   const activeVehicles = vehicles.filter(v => v.status === "active").length;
@@ -264,6 +268,12 @@ export default function Dashboard() {
     <div>
       <Header title={`${getGreeting()}, ${userName} ${emoji}`} subtitle={t("analytics.subtitle")} />
       <div style={{ padding: isMobile ? "14px" : "24px 28px" }}>
+
+        {loadError && (
+          <div style={{ background: "#fce4ec", border: "1px solid #f8bbd0", borderRadius: 10, padding: "12px 16px", marginBottom: 20, fontSize: 13, color: "#b71c1c" }}>
+            Couldn't load your fleet data. Check your connection and refresh the page.
+          </div>
+        )}
 
         {/* Setup Guide */}
         {!setupSteps.every(s => s.done) && (

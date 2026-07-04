@@ -88,7 +88,7 @@ export default function BillingSettings() {
   useEffect(() => {
     authService.getBillingStatus()
       .then(r => { if (r.success && r.data) setBillingStatus(r.data); })
-      .catch(() => {});
+      .catch(err => console.error("[Billing] failed to load billing status:", err));
   }, []);
 
   const handleUpgrade = (_planId: string) => {

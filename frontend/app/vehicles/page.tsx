@@ -82,7 +82,7 @@ export default function VehiclesPage() {
         }
       });
       setCpkMap(map);
-    }).catch(() => {});
+    }).catch(err => console.error("[Vehicles] failed to load cost-per-km insights:", err));
   }, []);
 
   const openAdd = () => {

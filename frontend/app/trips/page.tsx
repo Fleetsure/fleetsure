@@ -168,7 +168,9 @@ export default function TripsPage() {
     try {
       const r = await tripService.getById(selTrip.id);
       setDetail(r.data);
-    } catch {}
+    } catch (err) {
+      console.error("[Trips] failed to refresh trip detail:", err);
+    }
   };
 
   // ── Status transitions ──────────────────────────────────────────────────────
@@ -178,27 +180,33 @@ export default function TripsPage() {
     const next = trip.status === "planned" ? "in_progress" : "completed";
     setStatusBusy(true);
     try {
-      await tripService.update(trip.id, { status: next });
+      const res = await tripService.update(trip.id, { status: next });
+      if (!res.success) throw new Error(res.error || "Failed to update trip status");
       const updated = { ...trip, status: next };
       setTrips(prev => prev.map(t => t.id === trip.id ? updated : t));
       setSelTrip((p: any) => p?.id === trip.id ? updated : p);
       setDetail((p: any) => p ? { ...p, status: next } : p);
       if (next === "completed") autoSyncTripToTyres(trip);
-    } catch {}
-    finally { setStatusBusy(false); }
+    } catch (err: any) {
+      console.error("[Trips] failed to advance status:", err);
+      alert(err?.message || "Failed to update trip status. Please try again.");
+    } finally { setStatusBusy(false); }
   };
 
   const cancelTripFn = async (trip: any) => {
     if (!confirm("Cancel this trip? The vehicle will be released.")) return;
     setStatusBusy(true);
     try {
-      await tripService.update(trip.id, { status: "cancelled" });
+      const res = await tripService.update(trip.id, { status: "cancelled" });
+      if (!res.success) throw new Error(res.error || "Failed to cancel trip");
       const updated = { ...trip, status: "cancelled" };
       setTrips(prev => prev.map(t => t.id === trip.id ? updated : t));
       setSelTrip((p: any) => p?.id === trip.id ? updated : p);
       setDetail((p: any) => p ? { ...p, status: "cancelled" } : p);
-    } catch {}
-    finally { setStatusBusy(false); }
+    } catch (err: any) {
+      console.error("[Trips] failed to cancel trip:", err);
+      alert(err?.message || "Failed to cancel trip. Please try again.");
+    } finally { setStatusBusy(false); }
   };
 
   // ── Add expense ─────────────────────────────────────────────────────────────

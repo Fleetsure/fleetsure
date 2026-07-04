@@ -24,8 +24,10 @@ export default function NotificationSettings() {
         const { getUid } = await import("@/lib/services/_base");
         const owner_id = getUid();
         const { data } = await supabase.from("notification_settings").select("*").eq("owner_id", owner_id).maybeSingle();
-        if (data) setS(prev => ({ ...prev, ...data }));
-      } catch {}
+        if (data) setS(prev => ({ ...prev, ...data, phone: data.phone ?? "" }));
+      } catch (err) {
+        console.error("[NotificationSettings] failed to load settings:", err);
+      }
       setLoading(false);
     })();
   }, []);
