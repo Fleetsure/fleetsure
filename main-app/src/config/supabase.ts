@@ -5,6 +5,8 @@ import { auth } from "./firebase";
 const SUPABASE_URL = "https://hjtamxpydneuykkcwpfn.supabase.co";
 const SUPABASE_ANON_KEY =
   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhqdGFteHB5ZG5ldXlra2N3cGZuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkyNTg1NDksImV4cCI6MjA5NDgzNDU0OX0.iCOE8H4sTkqkyRW1UdKDVwwL7tj_PNjKjeA5ab6-SrI";
+const EXCHANGE_PATH = "/functions/v1/exchange-token";
+const TOKEN_EXPIRY_BUFFER = 60;
 
 // Resolves once Firebase restores auth state from storage
 const authReady: Promise<void> = new Promise((resolve) => {
@@ -14,6 +16,74 @@ const authReady: Promise<void> = new Promise((resolve) => {
   });
 });
 
+let cachedSupabaseToken: string | null = null;
+let cachedSupabaseTokenExpiry = 0;
+let currentFirebaseIdToken: string | null = null;
+
+function parseJwtPayload(token: string): Record<string, any> {
+  const parts = token.split(".");
+  if (parts.length !== 3) throw new Error("Invalid JWT format");
+  const decoded = atob(parts[1].replace(/-/g, "+").replace(/_/g, "/"));
+  try {
+    return JSON.parse(decoded);
+  } catch {
+    throw new Error("Invalid JWT payload");
+  }
+}
+
+async function exchangeFirebaseToken(firebaseToken: string): Promise<string> {
+  const response = await fetch(`${SUPABASE_URL}${EXCHANGE_PATH}`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      apikey: SUPABASE_ANON_KEY,
+    },
+    body: JSON.stringify({ firebase_token: firebaseToken }),
+  });
+
+  const payload = await response.json().catch(() => null);
+  if (!response.ok || !payload || typeof payload.token !== "string") {
+    const error = payload?.error ?? "Failed to exchange Firebase token";
+    throw new Error(error);
+  }
+  return payload.token;
+}
+
+async function getSupabaseToken(): Promise<string | null> {
+  await authReady;
+  const user = auth.currentUser;
+  if (!user) {
+    cachedSupabaseToken = null;
+    cachedSupabaseTokenExpiry = 0;
+    currentFirebaseIdToken = null;
+    return null;
+  }
+
+  const firebaseToken = await user.getIdToken();
+  const now = Math.floor(Date.now() / 1000);
+
+  if (
+    cachedSupabaseToken &&
+    cachedSupabaseTokenExpiry - TOKEN_EXPIRY_BUFFER > now &&
+    currentFirebaseIdToken === firebaseToken
+  ) {
+    return cachedSupabaseToken;
+  }
+
+  const supabaseToken = await exchangeFirebaseToken(firebaseToken);
+  const supabasePayload = parseJwtPayload(supabaseToken);
+  const exp = Number(supabasePayload.exp ?? 0);
+  if (!exp || exp <= now) {
+    throw new Error("Received invalid Supabase token");
+  }
+
+  cachedSupabaseToken = supabaseToken;
+  cachedSupabaseTokenExpiry = exp;
+  currentFirebaseIdToken = firebaseToken;
+
+  return supabaseToken;
+}
+
 async function authFetch(
   input: RequestInfo | URL,
   init: RequestInit = {}
@@ -21,10 +91,10 @@ async function authFetch(
   await authReady;
   const headers = new Headers((init.headers as HeadersInit) ?? {});
   try {
-    const token = await auth.currentUser?.getIdToken();
+    const token = await getSupabaseToken();
     if (token) headers.set("Authorization", `Bearer ${token}`);
   } catch {
-    // not signed in yet
+    // not signed in yet, or exchange failed — request proceeds unauthenticated
   }
   return fetch(input as RequestInfo, { ...init, headers });
 }
