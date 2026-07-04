@@ -1,6 +1,6 @@
 "use client";
-import React, { useEffect, useState } from "react";
-import { getTyreSetup as _getTyreSetup, saveTyreSetup } from "@/lib/tyreStore";
+import { useEffect, useState } from "react";
+import { getTyreSetup, saveTyreSetup } from "@/lib/services/tyreSetupService";
 import Header from "@/components/Header";
 import { tyreService } from "@/lib/services/tyreService";
 import { vehicleService } from "@/lib/services/vehicleService";
@@ -8,46 +8,15 @@ import { tripService } from "@/lib/services/tripService";
 import { fmtDate, todayISO } from "@/lib/date";
 import { Plus, X, Trash2, Circle, AlertTriangle, Info, RotateCcw, Settings } from "lucide-react";
 import { useLanguage } from "@/lib/LanguageContext";
+import { useIsMobile } from "@/hooks/useIsMobile";
+import {
+  VehicleTyreSetup, TyreUnit, TYRE_BRANDS, calcHealth, healthColor, getInsights, predictReplacement,
+} from "@/lib/tyreCalc";
+import { lbl, inp } from "./styles";
+import TruckDiagram from "./TruckDiagram";
+import SetupModal from "./SetupModal";
+import EditTyreModal from "./EditTyreModal";
 
-// ── Types ─────────────────────────────────────────────────────────────────────
-
-interface PressureLog { date: string; psi: number; }
-
-interface IssueLog {
-  date: string;
-  type: string;
-  label: string;
-  health_impact: number;
-  description: string;
-}
-
-interface TyreUnit {
-  position: string;
-  is_spare: boolean;
-  brand: string;
-  max_lifespan_km: number;
-  install_date: string;
-  install_odometer: number;
-  kms_run: number;
-  retread_count: number;
-  last_rotation_date: string;
-  last_rotation_odometer: number;
-  cost: number;
-  pressure_logs: PressureLog[];
-  issue_logs: IssueLog[];
-}
-
-interface VehicleTyreSetup {
-  tyre_count: number;
-  has_spare: boolean;
-  tyres: TyreUnit[];
-  synced_trip_ids: string[];
-}
-
-// ── Constants ─────────────────────────────────────────────────────────────────
-
-const TYRE_COUNTS = [4, 6, 8, 10, 12, 14, 16, 18];
-const TYRE_BRANDS = ["MRF", "Apollo", "Bridgestone", "CEAT", "JK Tyre", "Goodyear", "Michelin", "Other"];
 const TYRE_TYPES = [
   { value: "new",       label: "New Tyre" },
   { value: "recap",     label: "Recap / Retread" },
@@ -68,587 +37,6 @@ const EMPTY_LOG = {
   tyre_position: "", odometer_km: "", notes: "",
 };
 
-const ISSUE_TYPES = [
-  { value: "puncture_minor",  label: "Puncture (minor)",          impact: 5  },
-  { value: "puncture_major",  label: "Puncture (major/sidewall)", impact: 15 },
-  { value: "blowout",         label: "Blowout",                   impact: 35 },
-  { value: "cut_bulge",       label: "Cut / Bulge",               impact: 20 },
-  { value: "crack",           label: "Crack / Splitting",         impact: 15 },
-  { value: "excessive_wear",  label: "Excessive wear",            impact: 10 },
-  { value: "other",           label: "Other damage",              impact: 5  },
-];
-
-// ── LocalStorage ──────────────────────────────────────────────────────────────
-
-function getTyreSetup(vid: string): VehicleTyreSetup | null {
-  return _getTyreSetup(vid) as VehicleTyreSetup | null;
-}
-
-// ── Helpers ───────────────────────────────────────────────────────────────────
-
-function calcHealth(t: TyreUnit): number {
-  return Math.max(0, Math.round(100 - (t.kms_run / Math.max(1, t.max_lifespan_km)) * 100));
-}
-
-function healthColor(pct: number) {
-  if (pct >= 60) return { color: "#2e7d32", bg: "#e8f5e9", label: "Good" };
-  if (pct >= 30) return { color: "#f57f17", bg: "#fffde7", label: "Fair" };
-  return { color: "#c62828", bg: "#fce4ec", label: "Critical" };
-}
-
-function genPositions(count: number): string[] {
-  const rows = count / 2;
-  const out: string[] = [];
-  for (let r = 0; r < rows; r++) {
-    const name = r === 0 ? "Front" : r === rows - 1 ? "Rear" : `Mid ${r}`;
-    out.push(`${name} L`, `${name} R`);
-  }
-  return out;
-}
-
-function makeDefault(position: string, is_spare: boolean, maxKm: number): TyreUnit {
-  return {
-    position, is_spare, brand: "MRF", max_lifespan_km: maxKm,
-    install_date: todayISO(), install_odometer: 0, kms_run: 0,
-    retread_count: 0, last_rotation_date: "", last_rotation_odometer: 0,
-    cost: 0, pressure_logs: [], issue_logs: [],
-  };
-}
-
-function buildSetup(count: number, hasSpare: boolean, maxKm: number): VehicleTyreSetup {
-  const tyres = genPositions(count).map(p => makeDefault(p, false, maxKm));
-  if (hasSpare) tyres.push(makeDefault("Spare", true, maxKm));
-  return { tyre_count: count, has_spare: hasSpare, tyres, synced_trip_ids: [] };
-}
-
-function predictReplacement(t: TyreUnit): { days: number; date: string } | null {
-  if (t.kms_run < 50) return null;
-  const daysSince = Math.max(1, Math.floor((Date.now() - new Date(t.install_date).getTime()) / 86400000));
-  const avgPerDay = t.kms_run / daysSince;
-  const remaining = t.max_lifespan_km - t.kms_run;
-  if (remaining <= 0) return { days: 0, date: todayISO() };
-  const days = Math.ceil(remaining / avgPerDay);
-  const d = new Date(); d.setDate(d.getDate() + days);
-  return { days, date: d.toISOString().slice(0, 10) };
-}
-
-type InsightSeverity = "critical" | "warning" | "info";
-
-function getInsights(tyres: TyreUnit[]): { type: InsightSeverity; msg: string }[] {
-  const out: { type: InsightSeverity; msg: string }[] = [];
-  const main = tyres.filter(t => !t.is_spare);
-
-  main.forEach(t => {
-    const h = calcHealth(t);
-    if (h < 15) out.push({ type: "critical", msg: `${t.position}: Replace immediately — only ${h}% life left` });
-    else if (h < 30) out.push({ type: "warning", msg: `${t.position}: Low health (${h}%) — plan replacement soon` });
-
-    const kmSinceRot = t.last_rotation_date
-      ? t.kms_run - (t.last_rotation_odometer || 0)
-      : t.kms_run;
-    if (kmSinceRot >= 25000)
-      out.push({ type: "info", msg: `${t.position}: Rotation due — ${kmSinceRot.toLocaleString("en-IN")} km since last rotation` });
-
-    const lastPressure = t.pressure_logs[t.pressure_logs.length - 1];
-    if (lastPressure) {
-      const days = Math.floor((Date.now() - new Date(lastPressure.date).getTime()) / 86400000);
-      if (days > 30) out.push({ type: "info", msg: `${t.position}: Pressure check overdue (${days} days ago)` });
-    }
-  });
-
-  // Uneven wear detection
-  if (main.length >= 2) {
-    const vals = main.map(calcHealth);
-    const avg = vals.reduce((a, b) => a + b, 0) / vals.length;
-    main.forEach(t => {
-      if (Math.abs(calcHealth(t) - avg) > 20)
-        out.push({ type: "warning", msg: `${t.position}: Uneven wear — ${calcHealth(t)}% vs fleet avg ${Math.round(avg)}%` });
-    });
-  }
-
-  const spareTyre = tyres.find(t => t.is_spare);
-  if (spareTyre && spareTyre.kms_run > 0)
-    out.push({ type: "info", msg: `Spare has been used (${spareTyre.kms_run.toLocaleString("en-IN")} km) — consider replacing` });
-
-  return out;
-}
-
-// ── TruckDiagram ──────────────────────────────────────────────────────────────
-
-function TruckDiagram({ tyres, selectedPos, onSelect }: {
-  tyres: TyreUnit[];
-  selectedPos: string | null;
-  onSelect: (t: TyreUnit) => void;
-}) {
-  const main = tyres.filter(t => !t.is_spare);
-  const spare = tyres.find(t => t.is_spare);
-  const rows = Math.max(1, main.length / 2);
-
-  const W = 300; const CX = W / 2;
-
-  // Wide cabin — fills the full vehicle width
-  const CAB_W = 152; const CAB_X = CX - CAB_W / 2;  // 74..226
-  const CAB_TOP = 16; const CAB_H = 62;
-
-  // Body slightly narrower
-  const BODY_W = 122; const BODY_X = CX - BODY_W / 2; // 89..211
-  const BODY_TOP = CAB_TOP + CAB_H + 4;                // 82
-
-  const TW = 22; const TH = 42;
-  const TL_X = BODY_X - TW - 5;    // 62
-  const TR_X = BODY_X + BODY_W + 5; // 216
-
-  const FIRST_AXY = BODY_TOP + 28;
-  const ROW_H = 62;
-
-  const BODY_BOT = FIRST_AXY + (rows - 1) * ROW_H + 28;
-  const svgH = BODY_BOT + (spare ? 90 : 22);
-
-  return (
-    <svg viewBox={`0 0 ${W} ${svgH}`} style={{ width: "100%", maxWidth: 280, display: "block", margin: "0 auto" }}>
-
-      {/* ── CABIN ── */}
-      {/* Cabin roof */}
-      <rect x={CAB_X} y={CAB_TOP} width={CAB_W} height={CAB_H} rx={10}
-        fill="#1e3a5f" stroke="#152b47" strokeWidth={2} />
-      {/* Front bumper / valance */}
-      <rect x={CAB_X + 4} y={CAB_TOP} width={CAB_W - 8} height={10} rx={5}
-        fill="#2d5282" />
-      {/* Headlights — wide amber strips at front corners */}
-      <rect x={CAB_X + 4} y={CAB_TOP + 1} width={26} height={9} rx={4}
-        fill="#fde68a" stroke="#f6ad55" strokeWidth={1} />
-      <rect x={CAB_X + CAB_W - 30} y={CAB_TOP + 1} width={26} height={9} rx={4}
-        fill="#fde68a" stroke="#f6ad55" strokeWidth={1} />
-      {/* Grille (horizontal bar + vertical slats) */}
-      <rect x={CAB_X + 34} y={CAB_TOP + 2} width={CAB_W - 68} height={8} rx={2}
-        fill="#0f1f35" />
-      {[0, 1, 2].map(i => (
-        <line key={i}
-          x1={CAB_X + 40 + i * 22} y1={CAB_TOP + 2}
-          x2={CAB_X + 40 + i * 22} y2={CAB_TOP + 10}
-          stroke="#2d5282" strokeWidth={2} />
-      ))}
-      {/* Windshield */}
-      <rect x={CAB_X + 12} y={CAB_TOP + 14} width={CAB_W - 24} height={CAB_H - 26} rx={6}
-        fill="#7ec8e3" opacity={0.5} stroke="#56adc7" strokeWidth={0.8} />
-      {/* Windshield glare */}
-      <ellipse cx={CX - 8} cy={CAB_TOP + 21} rx={24} ry={3.5}
-        fill="white" opacity={0.35} />
-      {/* Dashboard strip */}
-      <rect x={CAB_X + 12} y={CAB_TOP + CAB_H - 14} width={CAB_W - 24} height={5} rx={2}
-        fill="#0f1f35" opacity={0.45} />
-      {/* Side mirrors — small stubby rectangles, NOT tapered paths */}
-      <rect x={CAB_X - 15} y={CAB_TOP + 20} width={14} height={22} rx={3}
-        fill="#2d5282" stroke="#152b47" strokeWidth={1} />
-      <rect x={CAB_X - 14} y={CAB_TOP + 22} width={12} height={10} rx={2}
-        fill="#90cdf4" opacity={0.55} />
-      <rect x={CAB_X + CAB_W + 1} y={CAB_TOP + 20} width={14} height={22} rx={3}
-        fill="#2d5282" stroke="#152b47" strokeWidth={1} />
-      <rect x={CAB_X + CAB_W + 2} y={CAB_TOP + 22} width={12} height={10} rx={2}
-        fill="#90cdf4" opacity={0.55} />
-
-      {/* ── TRUCK BODY ── */}
-      <rect x={BODY_X} y={BODY_TOP} width={BODY_W} height={BODY_BOT - BODY_TOP} rx={4}
-        fill="#dde5f8" stroke="#9daae8" strokeWidth={1.5} />
-      {/* Chassis side rails */}
-      <rect x={BODY_X} y={BODY_TOP} width={9} height={BODY_BOT - BODY_TOP} fill="#b8c4e4" />
-      <rect x={BODY_X + BODY_W - 9} y={BODY_TOP} width={9} height={BODY_BOT - BODY_TOP} fill="#b8c4e4" />
-      {/* Cross-member panel dividers */}
-      {Array.from({ length: rows - 1 }).map((_, ri) => {
-        const y = FIRST_AXY + ri * ROW_H + ROW_H / 2;
-        return (
-          <line key={ri}
-            x1={BODY_X + 9} y1={y} x2={BODY_X + BODY_W - 9} y2={y}
-            stroke="#9daae8" strokeWidth={1} strokeDasharray="7,5" />
-        );
-      })}
-
-      {/* ── AXLES ── */}
-      {Array.from({ length: rows }).map((_, r) => {
-        const y = FIRST_AXY + r * ROW_H;
-        return (
-          <g key={r}>
-            <line x1={TL_X + TW} y1={y} x2={TR_X} y2={y}
-              stroke="#4a5568" strokeWidth={3.5} strokeLinecap="round" />
-            <circle cx={TL_X + TW} cy={y} r={4} fill="#4a5568" />
-            <circle cx={TR_X} cy={y} r={4} fill="#4a5568" />
-          </g>
-        );
-      })}
-
-      {/* ── TYRES ── */}
-      {main.map((tyre, i) => {
-        const r = Math.floor(i / 2);
-        const isL = i % 2 === 0;
-        const yC = FIRST_AXY + r * ROW_H;
-        const x = isL ? TL_X : TR_X;
-        const h = calcHealth(tyre);
-        const { color, bg } = healthColor(h);
-        const sel = selectedPos === tyre.position;
-        const barH = Math.max(0, (TH - 14) * h / 100);
-        return (
-          <g key={tyre.position} onClick={() => onSelect(tyre)} style={{ cursor: "pointer" }}>
-            {/* Shadow */}
-            <rect x={x + 2} y={yC - TH / 2 + 2} width={TW} height={TH} rx={5}
-              fill="rgba(0,0,0,0.16)" />
-            {/* Outer tyre (dark rubber) */}
-            <rect x={x} y={yC - TH / 2} width={TW} height={TH} rx={5}
-              fill="#1a202c" stroke={sel ? "#3182ce" : "#0d1117"} strokeWidth={sel ? 2.5 : 1.5} />
-            {/* Tread grooves */}
-            <line x1={x + 2} y1={yC - 13} x2={x + TW - 2} y2={yC - 13}
-              stroke="#2d3748" strokeWidth={1.5} />
-            <line x1={x + 2} y1={yC + 13} x2={x + TW - 2} y2={yC + 13}
-              stroke="#2d3748" strokeWidth={1.5} />
-            {/* Rim */}
-            <rect x={x + 4} y={yC - TH / 2 + 6} width={TW - 8} height={TH - 12} rx={3}
-              fill={bg} />
-            {/* Health fill bar */}
-            <rect x={x + 6} y={yC + TH / 2 - 8 - barH} width={TW - 12} height={barH} rx={2}
-              fill={color} opacity={0.8} />
-            {/* Hub bolt */}
-            <circle cx={x + TW / 2} cy={yC} r={3} fill={color} />
-            {/* Selection ring */}
-            {sel && (
-              <rect x={x - 3} y={yC - TH / 2 - 3} width={TW + 6} height={TH + 6} rx={8}
-                fill="none" stroke="#3182ce" strokeWidth={2} strokeDasharray="4,3" />
-            )}
-            {/* Labels */}
-            {isL ? (
-              <>
-                <text x={TL_X - 5} y={yC - 7} textAnchor="end" fontSize={8.5} fontWeight="600" fill="#4a5568">{tyre.position}</text>
-                <text x={TL_X - 5} y={yC + 6} textAnchor="end" fontSize={10} fontWeight="700" fill={color}>{h}%</text>
-              </>
-            ) : (
-              <>
-                <text x={TR_X + TW + 5} y={yC - 7} textAnchor="start" fontSize={8.5} fontWeight="600" fill="#4a5568">{tyre.position}</text>
-                <text x={TR_X + TW + 5} y={yC + 6} textAnchor="start" fontSize={10} fontWeight="700" fill={color}>{h}%</text>
-              </>
-            )}
-          </g>
-        );
-      })}
-
-      {/* ── SPARE ── */}
-      {spare && (() => {
-        const cy = BODY_BOT + 46;
-        const h = calcHealth(spare);
-        const { color, bg } = healthColor(h);
-        const sel = selectedPos === "Spare";
-        return (
-          <g onClick={() => onSelect(spare)} style={{ cursor: "pointer" }}>
-            <circle cx={CX + 2} cy={cy + 2} r={22} fill="rgba(0,0,0,0.12)" />
-            <circle cx={CX} cy={cy} r={21} fill="#1a202c"
-              stroke={sel ? "#3182ce" : "#0d1117"} strokeWidth={sel ? 2.5 : 1.8} />
-            <circle cx={CX} cy={cy} r={13} fill={bg} />
-            <circle cx={CX} cy={cy} r={5} fill={color} />
-            {sel && <circle cx={CX} cy={cy} r={24} fill="none" stroke="#3182ce" strokeWidth={2} strokeDasharray="4,3" />}
-            <text x={CX} y={cy + 35} textAnchor="middle" fontSize={9} fontWeight="600" fill="#4a5568">Spare</text>
-            <text x={CX} y={cy + 48} textAnchor="middle" fontSize={11} fontWeight="700" fill={color}>{h}%</text>
-          </g>
-        );
-      })()}
-    </svg>
-  );
-}
-
-// ── SetupModal ────────────────────────────────────────────────────────────────
-
-function SetupModal({ existing, onSave, onClose }: {
-  existing: VehicleTyreSetup | null;
-  onSave: (s: VehicleTyreSetup) => void;
-  onClose: () => void;
-}) {
-  const [count, setCount] = useState(existing?.tyre_count ?? 10);
-  const [hasSpare, setHasSpare] = useState(existing?.has_spare ?? true);
-  const [maxKm, setMaxKm] = useState(String(existing?.tyres[0]?.max_lifespan_km ?? 80000));
-
-  const save = () => {
-    const setup = buildSetup(count, hasSpare, parseInt(maxKm) || 80000);
-    if (existing) {
-      const map: Record<string, TyreUnit> = {};
-      existing.tyres.forEach(t => { map[t.position] = t; });
-      setup.tyres = setup.tyres.map(t => map[t.position] ? { ...map[t.position], position: t.position, is_spare: t.is_spare } : t);
-      setup.synced_trip_ids = existing.synced_trip_ids;
-    }
-    onSave(setup);
-  };
-
-  const preview = [...genPositions(count), ...(hasSpare ? ["Spare"] : [])];
-
-  return (
-    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1100, padding: 20 }}>
-      <div className="card" style={{ width: "100%", maxWidth: 440, position: "relative" }}>
-        <button onClick={onClose} style={{ position: "absolute", top: 16, right: 16, background: "none", border: "none", cursor: "pointer", color: "#888" }}><X size={18} /></button>
-        <h2 style={{ margin: "0 0 4px", fontSize: 16, fontWeight: 700 }}>Configure Tyre Layout</h2>
-        <p style={{ margin: "0 0 20px", fontSize: 12.5, color: "#888" }}>Set up tyre positions for this vehicle</p>
-
-        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-          <div>
-            <label style={lbl}>Number of Tyres (even numbers only)</label>
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-              {TYRE_COUNTS.map(n => (
-                <button key={n} type="button" onClick={() => setCount(n)}
-                  style={{ width: 48, height: 40, borderRadius: 8, border: "2px solid", cursor: "pointer", fontWeight: 700, fontSize: 14,
-                    borderColor: count === n ? "#1E2D8E" : "#e0e0f0",
-                    background: count === n ? "#1E2D8E" : "white",
-                    color: count === n ? "white" : "#555" }}>
-                  {n}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <label style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer" }}>
-            <input type="checkbox" checked={hasSpare} onChange={e => setHasSpare(e.target.checked)}
-              style={{ width: 18, height: 18, accentColor: "#1E2D8E", cursor: "pointer" }} />
-            <span style={{ fontSize: 14, fontWeight: 600, color: "#333" }}>Include spare tyre</span>
-          </label>
-
-          <div>
-            <label style={lbl}>Default Max Lifespan per Tyre (km)</label>
-            <input type="number" value={maxKm} min={10000} max={300000} step={5000}
-              onChange={e => setMaxKm(e.target.value)} style={inp} />
-            <div style={{ fontSize: 11, color: "#aaa", marginTop: 3 }}>Typical: 60,000–100,000 km. Adjustable per tyre.</div>
-          </div>
-
-          <div style={{ background: "#f0f4ff", borderRadius: 8, padding: "10px 14px", fontSize: 12, color: "#1E2D8E", fontWeight: 500, lineHeight: 1.6 }}>
-            <strong>{count + (hasSpare ? 1 : 0)} positions:</strong> {preview.join(" · ")}
-          </div>
-
-          <div style={{ display: "flex", gap: 10 }}>
-            <button type="button" className="btn-outline" style={{ flex: 1 }} onClick={onClose}>Cancel</button>
-            <button type="button" className="btn-primary" style={{ flex: 1, justifyContent: "center" }} onClick={save}>
-              {existing ? "Update Layout" : "Setup Tyres"}
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ── EditTyreModal ─────────────────────────────────────────────────────────────
-
-function EditTyreModal({ tyre, onSave, onClose }: {
-  tyre: TyreUnit;
-  onSave: (t: TyreUnit) => void;
-  onClose: () => void;
-}) {
-  const [t, setT] = useState<TyreUnit>({ ...tyre, pressure_logs: [...(tyre.pressure_logs || [])], issue_logs: [...(tyre.issue_logs || [])] });
-  const [newP, setNewP] = useState({ date: todayISO(), psi: "" });
-  const [newIssue, setNewIssue] = useState({ date: todayISO(), type: "puncture_minor", health_impact: "5", description: "" });
-  const set = (k: keyof TyreUnit, v: any) => setT(p => ({ ...p, [k]: v }));
-
-  const addIssue = () => {
-    const impact = parseFloat(newIssue.health_impact) || 0;
-    if (impact <= 0) return;
-    const kmsToAdd = Math.round((impact / 100) * t.max_lifespan_km);
-    const found = ISSUE_TYPES.find(i => i.value === newIssue.type);
-    const entry: IssueLog = { date: newIssue.date, type: newIssue.type, label: found?.label ?? newIssue.type, health_impact: impact, description: newIssue.description };
-    setT(p => ({
-      ...p,
-      kms_run: Math.min(p.kms_run + kmsToAdd, p.max_lifespan_km),
-      issue_logs: [...(p.issue_logs || []), entry],
-    }));
-    setNewIssue({ date: todayISO(), type: "puncture_minor", health_impact: "5", description: "" });
-  };
-  const h = calcHealth(t);
-  const { color, bg, label: hlabel } = healthColor(h);
-  const pred = predictReplacement(t);
-
-  const addPressure = () => {
-    if (!newP.psi) return;
-    set("pressure_logs", [...t.pressure_logs, { date: newP.date, psi: parseFloat(newP.psi) }]);
-    setNewP({ date: todayISO(), psi: "" });
-  };
-
-  return (
-    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1200, padding: 20 }}>
-      <div className="card" style={{ width: "100%", maxWidth: 500, maxHeight: "90vh", overflowY: "auto", position: "relative" }}>
-        <button onClick={onClose} style={{ position: "absolute", top: 16, right: 16, background: "none", border: "none", cursor: "pointer", color: "#888" }}><X size={18} /></button>
-
-        <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 18 }}>
-          <div style={{ padding: "5px 14px", borderRadius: 20, background: bg, color, fontWeight: 800, fontSize: 18 }}>{h}%</div>
-          <div>
-            <div style={{ fontSize: 16, fontWeight: 700 }}>{t.position}</div>
-            <div style={{ fontSize: 12, color: "#888" }}>{hlabel} · {t.is_spare ? "Spare" : "Active"}</div>
-          </div>
-        </div>
-
-        {pred && (
-          <div style={{ padding: "7px 12px", background: pred.days < 30 ? "#fce4ec" : "#f0f4ff", borderRadius: 8, fontSize: 12.5, marginBottom: 14, color: pred.days < 30 ? "#c62828" : "#1E2D8E" }}>
-            Predicted replacement: ~{pred.days} days ({fmtDate(pred.date)})
-          </div>
-        )}
-
-        <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-            <div>
-              <label style={lbl}>Brand</label>
-              <select value={t.brand} onChange={e => set("brand", e.target.value)} style={inp}>
-                {TYRE_BRANDS.map(b => <option key={b} value={b}>{b}</option>)}
-              </select>
-            </div>
-            <div>
-              <label style={lbl}>Purchase Cost (₹)</label>
-              <input type="number" min={0} value={t.cost} onChange={e => set("cost", parseFloat(e.target.value) || 0)} style={inp} />
-            </div>
-          </div>
-
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-            <div>
-              <label style={lbl}>Max Lifespan (km)</label>
-              <input type="number" min={10000} step={5000} value={t.max_lifespan_km} onChange={e => set("max_lifespan_km", parseInt(e.target.value) || 80000)} style={inp} />
-            </div>
-            <div>
-              <label style={lbl}>Retread Count</label>
-              <input type="number" min={0} max={5} value={t.retread_count} onChange={e => set("retread_count", parseInt(e.target.value) || 0)} style={inp} />
-            </div>
-          </div>
-
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-            <div>
-              <label style={lbl}>Install Date</label>
-              <input type="date" value={t.install_date} onChange={e => set("install_date", e.target.value)} style={inp} />
-            </div>
-            <div>
-              <label style={lbl}>Install Odometer (km)</label>
-              <input type="number" min={0} value={t.install_odometer} onChange={e => set("install_odometer", parseFloat(e.target.value) || 0)} style={inp} />
-            </div>
-          </div>
-
-          <div>
-            <label style={lbl}>Total KMs Run on this Tyre</label>
-            <input type="number" min={0} value={t.kms_run} onChange={e => set("kms_run", parseFloat(e.target.value) || 0)} style={inp} />
-            <div style={{ fontSize: 11, color: "#aaa", marginTop: 3 }}>Auto-updated from trip sync. Adjust manually if needed.</div>
-          </div>
-
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-            <div>
-              <label style={lbl}>Last Rotation Date</label>
-              <input type="date" value={t.last_rotation_date} onChange={e => set("last_rotation_date", e.target.value)} style={inp} />
-            </div>
-            <div>
-              <label style={lbl}>Rotation Odometer (km)</label>
-              <input type="number" min={0} value={t.last_rotation_odometer} onChange={e => set("last_rotation_odometer", parseFloat(e.target.value) || 0)} style={inp} />
-            </div>
-          </div>
-
-          {/* Pressure logs */}
-          <div style={{ borderTop: "1px solid #f0f0f8", paddingTop: 14 }}>
-            <div style={{ fontSize: 12, fontWeight: 700, color: "#555", marginBottom: 8 }}>Air Pressure Logs (PSI)</div>
-            {t.pressure_logs.length > 0 ? (
-              <div style={{ display: "flex", flexDirection: "column", gap: 4, marginBottom: 10 }}>
-                {[...t.pressure_logs].reverse().slice(0, 6).map((p, ri) => {
-                  const origIdx = t.pressure_logs.length - 1 - ri;
-                  return (
-                    <div key={origIdx} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "5px 10px", background: "#f8f9ff", borderRadius: 6, fontSize: 12.5 }}>
-                      <span style={{ color: "#888" }}>{fmtDate(p.date)}</span>
-                      <span style={{ fontWeight: 700, color: "#1E2D8E" }}>{p.psi} PSI</span>
-                      <button onClick={() => set("pressure_logs", t.pressure_logs.filter((_, i) => i !== origIdx))}
-                        style={{ background: "none", border: "none", cursor: "pointer", color: "#ccc", padding: 2 }}>
-                        <Trash2 size={11} />
-                      </button>
-                    </div>
-                  );
-                })}
-              </div>
-            ) : (
-              <div style={{ fontSize: 12, color: "#ccc", marginBottom: 8 }}>No pressure logs yet.</div>
-            )}
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr auto", gap: 8, alignItems: "end" }}>
-              <div>
-                <label style={lbl}>Date</label>
-                <input type="date" value={newP.date} onChange={e => setNewP(p => ({ ...p, date: e.target.value }))} style={inp} />
-              </div>
-              <div>
-                <label style={lbl}>PSI</label>
-                <input type="number" min={0} max={250} placeholder="90" value={newP.psi}
-                  onChange={e => setNewP(p => ({ ...p, psi: e.target.value }))} style={inp} />
-              </div>
-              <button type="button" onClick={addPressure}
-                style={{ padding: "8px 14px", background: "#1E2D8E", color: "white", border: "none", borderRadius: 8, cursor: "pointer", fontSize: 13, fontWeight: 600 }}>
-                Add
-              </button>
-            </div>
-          </div>
-
-          {/* Issue logs */}
-          <div style={{ borderTop: "1px solid #f0f0f8", paddingTop: 14 }}>
-            <div style={{ fontSize: 12, fontWeight: 700, color: "#555", marginBottom: 8 }}>Issue / Damage Log</div>
-
-            {(t.issue_logs || []).length > 0 ? (
-              <div style={{ display: "flex", flexDirection: "column", gap: 4, marginBottom: 10 }}>
-                {[...(t.issue_logs || [])].reverse().map((issue, i) => (
-                  <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "6px 10px", background: "#fff3e0", borderRadius: 6, fontSize: 12.5 }}>
-                    <div>
-                      <span style={{ fontWeight: 700, color: "#e65100" }}>{issue.label}</span>
-                      {issue.description && <span style={{ color: "#888", marginLeft: 6 }}>· {issue.description}</span>}
-                    </div>
-                    <div style={{ textAlign: "right", flexShrink: 0, marginLeft: 12 }}>
-                      <div style={{ fontSize: 11.5, color: "#c62828", fontWeight: 700 }}>−{issue.health_impact}% health</div>
-                      <div style={{ fontSize: 10.5, color: "#aaa" }}>{fmtDate(issue.date)}</div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div style={{ fontSize: 12, color: "#ccc", marginBottom: 8 }}>No issues logged yet.</div>
-            )}
-
-            {/* Log new issue form */}
-            <div style={{ background: "#fff8f0", borderRadius: 8, padding: "12px", border: "1px solid #ffe0b2" }}>
-              <div style={{ fontSize: 11.5, fontWeight: 700, color: "#e65100", marginBottom: 10 }}>Log New Issue</div>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 8 }}>
-                <div>
-                  <label style={lbl}>Issue Type</label>
-                  <select value={newIssue.type}
-                    onChange={e => {
-                      const found = ISSUE_TYPES.find(i => i.value === e.target.value);
-                      setNewIssue(p => ({ ...p, type: e.target.value, health_impact: String(found?.impact ?? 5) }));
-                    }} style={inp}>
-                    {ISSUE_TYPES.map(i => <option key={i.value} value={i.value}>{i.label}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <label style={lbl}>Date</label>
-                  <input type="date" value={newIssue.date} onChange={e => setNewIssue(p => ({ ...p, date: e.target.value }))} style={inp} />
-                </div>
-              </div>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr auto", gap: 8, alignItems: "end" }}>
-                <div>
-                  <label style={lbl}>Health Impact (%)</label>
-                  <input type="number" min={1} max={100} value={newIssue.health_impact}
-                    onChange={e => setNewIssue(p => ({ ...p, health_impact: e.target.value }))} style={inp} />
-                </div>
-                <div>
-                  <label style={lbl}>Description (optional)</label>
-                  <input type="text" placeholder="e.g. NH-48 pothole" value={newIssue.description}
-                    onChange={e => setNewIssue(p => ({ ...p, description: e.target.value }))} style={inp} />
-                </div>
-                <button type="button" onClick={addIssue}
-                  style={{ padding: "8px 14px", background: "#e65100", color: "white", border: "none", borderRadius: 8, cursor: "pointer", fontSize: 13, fontWeight: 700 }}>
-                  Log
-                </button>
-              </div>
-              <div style={{ fontSize: 11, color: "#e65100", marginTop: 7 }}>
-                Reduces health by {newIssue.health_impact}% — equivalent to {Math.round(parseFloat(newIssue.health_impact || "0") / 100 * t.max_lifespan_km).toLocaleString("en-IN")} km of wear
-              </div>
-            </div>
-          </div>
-
-          <div style={{ display: "flex", gap: 10, marginTop: 4 }}>
-            <button type="button" className="btn-outline" style={{ flex: 1 }} onClick={onClose}>Cancel</button>
-            <button type="button" className="btn-primary" style={{ flex: 1, justifyContent: "center" }} onClick={() => onSave(t)}>
-              Save Changes
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 // ── Main Page ─────────────────────────────────────────────────────────────────
 
 export default function TyresPage() {
@@ -657,7 +45,7 @@ export default function TyresPage() {
   const [vehicles, setVehicles] = useState<any[]>([]);
   const [logs, setLogs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [isMobile, setIsMobile] = useState(false);
+  const isMobile = useIsMobile();
 
   // Health tab state
   const [selVehicleId, setSelVehicleId] = useState("");
@@ -676,12 +64,6 @@ export default function TyresPage() {
   const [filterVehicle, setFilterVehicle] = useState("");
   const [filterType, setFilterType] = useState("");
 
-  useEffect(() => {
-    const check = () => setIsMobile(window.innerWidth < 768);
-    check();
-    window.addEventListener("resize", check);
-    return () => window.removeEventListener("resize", check);
-  }, []);
 
   const load = async () => {
     const [l, v] = await Promise.all([tyreService.getAll(), vehicleService.getAll()]);
@@ -691,7 +73,7 @@ export default function TyresPage() {
 
   useEffect(() => {
     if (!selVehicleId) { setSetup(null); return; }
-    setSetup(getTyreSetup(selVehicleId));
+    getTyreSetup(selVehicleId).then(setSetup);
     setSelectedPos(null);
   }, [selVehicleId]);
 
@@ -717,7 +99,7 @@ export default function TyresPage() {
           tyres: setup.tyres.map(ty => ty.is_spare ? ty : { ...ty, kms_run: ty.kms_run + addedKm }),
           synced_trip_ids: [...setup.synced_trip_ids, ...newTrips.map((trip: any) => trip.id)],
         };
-        saveTyreSetup(selVehicleId, updated);
+        await saveTyreSetup(selVehicleId, updated);
         setSetup(updated);
         setSyncMsg(`Synced ${newTrips.length} trip(s) — +${Math.round(addedKm).toLocaleString("en-IN")} km added to ${updated.tyres.filter(ty => !ty.is_spare).length} tyres.`);
       }
@@ -729,16 +111,16 @@ export default function TyresPage() {
 
   // ── Tyre edit ───────────────────────────────────────────────────────────────
 
-  const saveTyreEdit = (updated: TyreUnit) => {
+  const saveTyreEdit = async (updated: TyreUnit) => {
     if (!setup || !selVehicleId) return;
     const newSetup = { ...setup, tyres: setup.tyres.map(ty => ty.position === updated.position ? updated : ty) };
-    saveTyreSetup(selVehicleId, newSetup);
+    await saveTyreSetup(selVehicleId, newSetup);
     setSetup(newSetup);
     setEditingTyre(null);
   };
 
-  const saveSetup = (s: VehicleTyreSetup) => {
-    saveTyreSetup(selVehicleId, s);
+  const saveSetup = async (s: VehicleTyreSetup) => {
+    await saveTyreSetup(selVehicleId, s);
     setSetup(s);
     setShowSetup(false);
   };
@@ -1151,13 +533,3 @@ export default function TyresPage() {
     </div>
   );
 }
-
-// ── Style constants ───────────────────────────────────────────────────────────
-const lbl: React.CSSProperties = {
-  fontSize: 12, fontWeight: 600, color: "var(--text-muted)", display: "block", marginBottom: 4,
-};
-const inp: React.CSSProperties = {
-  width: "100%", padding: "8px 12px", border: "1.5px solid var(--border-input)",
-  borderRadius: 8, fontSize: 13.5, background: "var(--bg-card)", color: "var(--text-main)",
-  boxSizing: "border-box",
-};

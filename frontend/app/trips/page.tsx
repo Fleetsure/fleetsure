@@ -7,76 +7,20 @@ import { tollService } from "@/lib/services/tollService";
 import { miscExpenseService } from "@/lib/services/miscExpenseService";
 import { vehicleService } from "@/lib/services/vehicleService";
 import { driverService } from "@/lib/services/driverService";
-import { downloadTripPdf } from "@/lib/tripPdf";
-import { Plus, X, Route, MessageCircle, FileDown, Zap, AlertTriangle, CheckCircle, Clock, Trash2 } from "lucide-react";
+import { Plus, X, Route, MessageCircle, FileDown, Trash2 } from "lucide-react";
 import LocationInput from "@/components/LocationInput";
 import { useLanguage } from "@/lib/LanguageContext";
 import { fmtDate, todayISO } from "@/lib/date";
-import { mergeMileage } from "@/lib/mileageStore";
-import { autoSyncTripToTyres } from "@/lib/tyreStore";
-
-// ── WhatsApp trip sheet generator ─────────────────────────────────────────────
-function shareOnWhatsApp(trip: any, detail: any, vehicleReg: string) {
-  const fmtDateLocal = (d: string | null) => d ? fmtDate(d) : "—";
-  const fmtMoney = (n: number) => "₹" + n.toLocaleString("en-IN");
-
-  const expenses = detail?.expenses || [];
-  const totalExp = expenses.reduce((s: number, e: any) => s + parseFloat(e.amount || 0), 0);
-  const freight  = parseFloat(trip.freight_amount || 0);
-  const profit   = freight - totalExp;
-
-  const statusLabel: Record<string, string> = {
-    planned: "Planned", in_progress: "In Progress",
-    completed: "Completed", cancelled: "Cancelled",
-  };
-
-  const lines: string[] = [
-    `*Trip Sheet*`,
-    `*${trip.origin} → ${trip.destination}*`,
-    ``,
-    `*Vehicle:* ${vehicleReg}`,
-    `*Driver:* ${trip.driver_name}${trip.driver_phone ? `  |  ${trip.driver_phone}` : ""}`,
-    `*Dates:* ${fmtDateLocal(trip.start_date)} → ${fmtDateLocal(trip.end_date)}`,
-  ];
-
-  if (detail?.doc_number)    lines.push(`*LR No:* ${detail.doc_number}`);
-  if (detail?.material)      lines.push(`*Material:* ${detail.material}${detail.weight_tonnes ? `  |  ${detail.weight_tonnes} T` : ""}`);
-
-  lines.push(``);
-  lines.push(`*Freight:* ${fmtMoney(freight)}`);
-  if (totalExp > 0) lines.push(`*Expenses:* ${fmtMoney(totalExp)}`);
-  if (totalExp > 0) lines.push(`*Net:* ${profit >= 0 ? "" : "-"}${fmtMoney(Math.abs(profit))}`);
-  lines.push(`*Status:* ${statusLabel[trip.status] || trip.status}`);
-  lines.push(``);
-  lines.push(`_FleetSure_`);
-
-  const url = `https://wa.me/?text=${encodeURIComponent(lines.join("\n"))}`;
-  window.open(url, "_blank");
-}
-
-
-// ── Constants ─────────────────────────────────────────────────────────────────
-
-const EXPENSE_TYPES = [
-  { value: "fuel",              label: "Fuel (HSD)" },
-  { value: "toll",              label: "Toll / Bridge" },
-  { value: "rto",               label: "RTO" },
-  { value: "police_challan",    label: "Police / Naka" },
-  { value: "maintenance",       label: "Parts & Repairs" },
-  { value: "tyre",              label: "Tyre Repair" },
-  { value: "oil",               label: "Oil" },
-  { value: "loading_unloading", label: "Loading / Unloading" },
-  { value: "driver_payment",    label: "Driver Payment" },
-  { value: "telephone",         label: "Telephone" },
-  { value: "other",             label: "Other" },
-];
-
-const STATUS_CONFIG: Record<string, { label: string; color: string; bg: string; step: number }> = {
-  planned:     { label: "Planned",     color: "#1565c0", bg: "#e3f2fd", step: 0 },
-  in_progress: { label: "In Progress", color: "#e65100", bg: "#fff3e0", step: 1 },
-  completed:   { label: "Completed",   color: "#2e7d32", bg: "#e8f5e9", step: 2 },
-  cancelled:   { label: "Cancelled",   color: "#c62828", bg: "#fce4ec", step: -1 },
-};
+import { autoSyncTripToTyres } from "@/lib/services/tyreSetupService";
+import { EXPENSE_TYPES } from "@/lib/constants/expenseType";
+import { TRIP_STATUS_CONFIG as STATUS_CONFIG } from "@/lib/constants/tripStatus";
+import { useIsMobile } from "@/hooks/useIsMobile";
+import { geocode, haversineKm } from "@/lib/geo";
+import { shareOnWhatsApp } from "@/lib/tripShare";
+import TripStatusBadge from "@/components/TripStatusBadge";
+import TripStatusStepper from "@/components/TripStatusStepper";
+import LogTripModal from "./LogTripModal";
+import PdfOptionsModal from "./PdfOptionsModal";
 
 const EMPTY_FORM = {
   vehicle_id: "", driver_id: "", driver_name: "", driver_phone: "",
@@ -114,77 +58,6 @@ const fmt = (n: number) =>
 const expLabel = (t: string) =>
   EXPENSE_TYPES.find(e => e.value === t)?.label ?? t;
 
-async function geocode(place: string): Promise<{ lat: number; lon: number } | null> {
-  try {
-    const res = await fetch(
-      `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(place)}&format=json&limit=1`,
-      { headers: { "Accept-Language": "en" } }
-    );
-    const data = await res.json();
-    if (!data.length) return null;
-    return { lat: parseFloat(data[0].lat), lon: parseFloat(data[0].lon) };
-  } catch { return null; }
-}
-
-function haversineKm(lat1: number, lon1: number, lat2: number, lon2: number) {
-  const R = 6371;
-  const dLat = (lat2 - lat1) * Math.PI / 180;
-  const dLon = (lon2 - lon1) * Math.PI / 180;
-  const a = Math.sin(dLat / 2) ** 2 +
-    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLon / 2) ** 2;
-  return Math.round(R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)) * 1.3);
-}
-
-// ── Sub-components ────────────────────────────────────────────────────────────
-
-function StatusBadge({ status }: { status: string }) {
-  const c = STATUS_CONFIG[status] ?? STATUS_CONFIG.planned;
-  return (
-    <span style={{ background: c.bg, color: c.color, padding: "3px 10px", borderRadius: 12, fontSize: 11.5, fontWeight: 700 }}>
-      {c.label}
-    </span>
-  );
-}
-
-function StatusStepper({ status }: { status: string }) {
-  const STEPS = ["planned", "in_progress", "completed"];
-  const cur = STATUS_CONFIG[status]?.step ?? 0;
-  const cancelled = status === "cancelled";
-
-  // Build alternating step-circle and connector array
-  const items: React.ReactNode[] = [];
-  STEPS.forEach((s, i) => {
-    const cfg   = STATUS_CONFIG[s];
-    const past   = !cancelled && cur > i;
-    const active = !cancelled && cur === i;
-    items.push(
-      <div key={s} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4, minWidth: 60 }}>
-        <div style={{
-          width: 28, height: 28, borderRadius: "50%",
-          background: past || active ? cfg.color : "#e8e8f0",
-          color: past || active ? "#fff" : "#bbb",
-          display: "flex", alignItems: "center", justifyContent: "center",
-          fontSize: 12, fontWeight: 700,
-          outline: active ? `3px solid ${cfg.color}44` : "none",
-          outlineOffset: 2,
-        }}>
-          {past ? "✓" : i + 1}
-        </div>
-        <div style={{ fontSize: 10.5, fontWeight: active ? 700 : 500, color: active ? cfg.color : past ? "#555" : "#bbb", textAlign: "center" }}>
-          {cfg.label}
-        </div>
-      </div>
-    );
-    if (i < STEPS.length - 1) {
-      items.push(
-        <div key={`c${i}`} style={{ flex: 1, height: 2, background: past ? "#2e7d32" : "#e8e8f0", margin: "13px 4px 0", minWidth: 20 }} />
-      );
-    }
-  });
-
-  return <div style={{ display: "flex", alignItems: "flex-start", padding: "12px 0 8px" }}>{items}</div>;
-}
-
 // ── Main page ─────────────────────────────────────────────────────────────────
 
 export default function TripsPage() {
@@ -194,19 +67,13 @@ export default function TripsPage() {
   const [drivers, setDrivers]   = useState<any[]>([]);
   const [loading, setLoading]   = useState(true);
   const [filter, setFilter]     = useState("all");
-  const [isMobile, setIsMobile] = useState(false);
+  const isMobile = useIsMobile();
 
   // Phase 2 — smart suggestions
   const [vehicleSuggestions, setVehicleSuggestions] = useState<any[]>([]);
   const [fatigueStatus, setFatigueStatus]           = useState<any>(null);
   const [fatigueLoading, setFatigueLoading]         = useState(false);
 
-  useEffect(() => {
-    const check = () => setIsMobile(window.innerWidth < 768);
-    check();
-    window.addEventListener("resize", check);
-    return () => window.removeEventListener("resize", check);
-  }, []);
 
   // Log trip form
   const [showForm, setShowForm]   = useState(false);
@@ -229,10 +96,6 @@ export default function TripsPage() {
   const [showSettleForm, setShowSettleForm] = useState(false);
   const [settleAmount, setSettleAmount]     = useState("");
   const [pdfModal, setPdfModal]   = useState(false);
-  const [pdfOpts, setPdfOpts]     = useState({
-    showProfit: false,
-    expTypes: { all: true, fuel: false, toll: false, maintenance: false, driver_payment: false, loading: false, other: false }
-  });
   const [addingExp, setAddingExp]   = useState(false);
   const [expErr, setExpErr]         = useState("");
 
@@ -240,7 +103,7 @@ export default function TripsPage() {
 
   const load = () =>
     Promise.all([tripService.getAll(), vehicleService.getAll(), driverService.getAll()])
-      .then(([t, v, d]) => { setTrips(t.data || []); setVehicles(mergeMileage(v.data || [])); setDrivers(d.data || []); })
+      .then(([t, v, d]) => { setTrips(t.data || []); setVehicles(v.data || []); setDrivers(d.data || []); })
       .finally(() => setLoading(false));
 
   const handleOriginChange = (value: string) => {
@@ -629,7 +492,7 @@ export default function TripsPage() {
                         <span style={{ color: "#bbb", margin: "0 5px" }}>→</span>
                         <span>{t.destination}</span>
                       </div>
-                      <StatusBadge status={t.status} />
+                      <TripStatusBadge status={t.status} />
                     </div>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                       <div style={{ fontSize: 12, color: "var(--text-muted)" }}>
@@ -687,7 +550,7 @@ export default function TripsPage() {
                       <td style={{ fontWeight: 700, color: "#1E2D8E" }}>
                         {fmt(Number(t.freight_amount))}
                       </td>
-                      <td><StatusBadge status={t.status} /></td>
+                      <td><TripStatusBadge status={t.status} /></td>
                       <td onClick={e => e.stopPropagation()}>
                         {nextLabel ? (
                           <button
@@ -787,7 +650,7 @@ export default function TripsPage() {
             <div style={{ flex: 1, overflowY: "auto", padding: "0 20px 32px" }}>
 
               {/* Status stepper */}
-              {selTrip.status !== "cancelled" && <StatusStepper status={selTrip.status} />}
+              {selTrip.status !== "cancelled" && <TripStatusStepper status={selTrip.status} />}
 
               {/* Trip details grid */}
               <div style={{ background: "#f9f9fb", borderRadius: 10, padding: "12px 14px", marginBottom: 14, fontSize: 12.5 }}>
@@ -1034,295 +897,37 @@ export default function TripsPage() {
         </>
       )}
 
-      {/* ── Log Trip Modal ─────────────────────────────────────────────────────── */}
       {showForm && (
-        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, padding: isMobile ? "12px" : "20px" }}>
-          <div className="card" style={{ width: "100%", maxWidth: 540, position: "relative", maxHeight: "92vh", overflowY: "auto" }}>
-            <button onClick={() => { setShowForm(false); setEditingTrip(null); setVehicleSuggestions([]); setFatigueStatus(null); }}
-              style={{ position: "absolute", top: 16, right: 16, background: "none", border: "none", cursor: "pointer", color: "#aaa" }}>
-              <X size={18} />
-            </button>
-            <h2 style={{ margin: "0 0 4px", fontSize: 16, fontWeight: 700 }}>{editingTrip ? "Edit Trip" : t("trip.new")}</h2>
-            <p style={{ margin: "0 0 18px", fontSize: 12.5, color: "#888" }}>{editingTrip ? "Update trip details below." : t("vehicle.fill_manually")}</p>
-
-            {formErr && (
-              <div style={{ background: "#fce4ec", color: "#b71c1c", padding: "8px 12px", borderRadius: 6, marginBottom: 14, fontSize: 13 }}>
-                {formErr}
-              </div>
-            )}
-
-            <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-
-              {/* Vehicle */}
-              <div>
-                <label style={{ fontSize: 12, fontWeight: 600, color: "#555", display: "block", marginBottom: 4 }}>{t("trip.vehicle")} *</label>
-                <select required value={form.vehicle_id}
-                  onChange={e => setForm(p => ({ ...p, vehicle_id: e.target.value }))}
-                  style={{ width: "100%", padding: "8px 12px", border: "1.5px solid #e8e8f0", borderRadius: 8, fontSize: 13.5, boxSizing: "border-box" }}>
-                  <option value="">{t("form.select_vehicle")}</option>
-                  {vehicles.filter(v => v.status === "active").map((v: any) => (
-                    <option key={v.id} value={v.id}>{v.registration_number} — {v.make} {v.model}</option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Driver */}
-              <div>
-                <label style={{ fontSize: 12, fontWeight: 600, color: "#555", display: "block", marginBottom: 4 }}>Driver</label>
-                <div style={{ position: "relative" }}>
-                  <select value={form.driver_id} onChange={e => handleDriverChange(e.target.value)}
-                    style={{ width: "100%", padding: "8px 12px", border: "1.5px solid #e8e8f0", borderRadius: 8, fontSize: 13.5, boxSizing: "border-box", appearance: "auto" }}>
-                    <option value="">— Select driver (or type name below) —</option>
-                    {drivers.map((d: any) => (
-                      <option key={d.id} value={d.id}>{d.name}{d.phone ? ` · ${d.phone}` : ""}</option>
-                    ))}
-                  </select>
-                </div>
-
-                {/* Fatigue badge */}
-                {fatigueLoading && (
-                  <div style={{ marginTop: 6, fontSize: 12, color: "#888" }}>Checking driver status…</div>
-                )}
-                {!fatigueLoading && fatigueStatus && (() => {
-                  const cfg: Record<string, { bg: string; color: string; icon: React.ReactNode }> = {
-                    available: { bg: "#e8f5e9", color: "#2e7d32", icon: <CheckCircle size={12} /> },
-                    caution:   { bg: "#fff8e1", color: "#f57f17", icon: <AlertTriangle size={12} /> },
-                    blocked:   { bg: "#fce4ec", color: "#b71c1c", icon: <AlertTriangle size={12} /> },
-                    on_trip:   { bg: "#e3f2fd", color: "#1565c0", icon: <Clock size={12} /> },
-                  };
-                  const c = cfg[fatigueStatus.status] ?? cfg.available;
-                  return (
-                    <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 6, padding: "5px 10px", background: c.bg, borderRadius: 6, width: "fit-content" }}>
-                      <span style={{ color: c.color, display: "flex" }}>{c.icon}</span>
-                      <span style={{ fontSize: 11.5, fontWeight: 600, color: c.color, textTransform: "capitalize" }}>
-                        {fatigueStatus.status.replace("_", " ")} — {fatigueStatus.reason}
-                      </span>
-                    </div>
-                  );
-                })()}
-
-                {/* Manual name/phone fallback if no driver selected from list */}
-                {!form.driver_id && (
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginTop: 8 }}>
-                    {[
-                      { label: "Driver Name *", key: "driver_name", placeholder: "Ramesh Kumar", required: true },
-                      { label: "Driver Phone",  key: "driver_phone", placeholder: "9876543210",  required: false },
-                    ].map(f => (
-                      <div key={f.key}>
-                        <label style={{ fontSize: 11, fontWeight: 600, color: "#888", display: "block", marginBottom: 3 }}>{f.label}</label>
-                        <input required={f.required} value={(form as any)[f.key]} placeholder={f.placeholder}
-                          onChange={e => setForm(p => ({ ...p, [f.key]: e.target.value }))}
-                          style={{ width: "100%", padding: "7px 10px", border: "1.5px solid #e8e8f0", borderRadius: 8, fontSize: 13, boxSizing: "border-box" }} />
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              {/* Route */}
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-                <LocationInput
-                  label="From *"
-                  value={form.origin}
-                  onChange={v => handleOriginChange(v)}
-                  placeholder="e.g. Mumbai, Andheri"
-                  required
-                />
-                <LocationInput
-                  label="To *"
-                  value={form.destination}
-                  onChange={v => setForm(p => ({ ...p, destination: v }))}
-                  placeholder="e.g. Delhi, Gurgaon"
-                  required
-                />
-              </div>
-
-              {/* Smart vehicle suggestions */}
-              {vehicleSuggestions.length > 0 && (
-                <div style={{ background: "#f0f4ff", border: "1.5px solid #c5cef9", borderRadius: 10, padding: "10px 12px" }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8 }}>
-                    <Zap size={13} color="#1E2D8E" />
-                    <span style={{ fontSize: 11.5, fontWeight: 700, color: "#1E2D8E" }}>
-                      Vehicles near {form.origin} — reduce empty run
-                    </span>
-                  </div>
-                  <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                    {vehicleSuggestions.map((s: any) => (
-                      <div key={s.vehicle_id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: "white", borderRadius: 8, padding: "8px 10px", border: "1px solid #dde3fa" }}>
-                        <div>
-                          <div style={{ fontSize: 13, fontWeight: 700, color: "#1a1a2e" }}>{s.registration_number}</div>
-                          <div style={{ fontSize: 11, color: "#777", marginTop: 2 }}>
-                            Last trip: {s.last_trip_from} → {s.last_trip_to} · {s.idle_days}d ago
-                            {s.last_driver_name ? ` · ${s.last_driver_name}` : ""}
-                          </div>
-                        </div>
-                        <button type="button" onClick={() => applySuggestion(s)}
-                          style={{ fontSize: 12, fontWeight: 700, color: "#1E2D8E", background: "#eef0fb", border: "none", borderRadius: 6, padding: "5px 12px", cursor: "pointer", whiteSpace: "nowrap" }}>
-                          Use this
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* LR / Material */}
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-                {[
-                  { label: "LR No. / Doc No.", key: "doc_number", placeholder: "LR/2024/001" },
-                  { label: "Material / Goods", key: "material",   placeholder: "Steel Coils" },
-                ].map(f => (
-                  <div key={f.key}>
-                    <label style={{ fontSize: 12, fontWeight: 600, color: "#555", display: "block", marginBottom: 4 }}>{f.label}</label>
-                    <input value={(form as any)[f.key]} placeholder={f.placeholder}
-                      onChange={e => setForm(p => ({ ...p, [f.key]: e.target.value }))}
-                      style={{ width: "100%", padding: "8px 12px", border: "1.5px solid #e8e8f0", borderRadius: 8, fontSize: 13.5, boxSizing: "border-box" }} />
-                  </div>
-                ))}
-              </div>
-
-              {/* Freight / Advance / Weight */}
-              <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr 1fr" : "repeat(3, 1fr)", gap: 10 }}>
-                {[
-                  { label: "Freight (₹)", key: "freight_amount", placeholder: "85000", required: false, type: "number" },
-                  { label: "Driver Advance (₹)", key: "driver_advance", placeholder: "5000", required: false, type: "number" },
-                  { label: "Weight (Tonnes)", key: "weight_tonnes", placeholder: "25",    required: false, type: "number" },
-                ].map(f => (
-                  <div key={f.key}>
-                    <label style={{ fontSize: 12, fontWeight: 600, color: "#555", display: "block", marginBottom: 4 }}>{f.label}</label>
-                    <input type={f.type} required={f.required} value={(form as any)[f.key]} placeholder={f.placeholder}
-                      onChange={e => setForm(p => ({ ...p, [f.key]: e.target.value }))}
-                      style={{ width: "100%", padding: "8px 12px", border: "1.5px solid #e8e8f0", borderRadius: 8, fontSize: 13.5, boxSizing: "border-box" }} />
-                  </div>
-                ))}
-              </div>
-
-              {/* Dates / Distance */}
-              <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr 1fr" : "repeat(3, 1fr)", gap: 10 }}>
-                {[
-                  { label: "Start Date *", key: "start_date",  type: "date",   required: true },
-                  { label: "End Date",     key: "end_date",    type: "date",   required: false },
-                  { label: distCalc === "loading" ? "Distance (km) — calculating…" : distCalc === "done" ? "Distance (km) — estimated ✓" : distCalc === "error" ? "Distance (km) — enter manually" : "Distance (km)", key: "distance_km", type: "number", required: false, placeholder: "1200" },
-                ].map(f => (
-                  <div key={f.key}>
-                    <label style={{ fontSize: 12, fontWeight: 600, color: "#555", display: "block", marginBottom: 4 }}>{f.label}</label>
-                    <input type={f.type} required={f.required} value={(form as any)[f.key]}
-                      placeholder={(f as any).placeholder || ""}
-                      onChange={e => setForm(p => ({ ...p, [f.key]: e.target.value }))}
-                      style={{ width: "100%", padding: "8px 12px", border: "1.5px solid #e8e8f0", borderRadius: 8, fontSize: 13.5, boxSizing: "border-box" }} />
-                  </div>
-                ))}
-              </div>
-
-              {/* Projected fuel banner */}
-              {(() => {
-                const veh = vehicles.find(v => v.id === form.vehicle_id);
-                const dist = parseFloat(form.distance_km);
-                if (!veh?.avg_mileage_kmpl || !dist || isNaN(dist)) return null;
-                const litres = (dist / veh.avg_mileage_kmpl).toFixed(1);
-                return (
-                  <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 14px", background: "#e8f5e9", borderRadius: 8, border: "1px solid #a5d6a7", fontSize: 13 }}>
-                    <span style={{ fontSize: 18 }}>⛽</span>
-                    <div>
-                      <span style={{ fontWeight: 700, color: "#2e7d32" }}>Projected Fuel: ~{litres} litres</span>
-                      <span style={{ color: "#555", marginLeft: 8 }}>({dist} km ÷ {veh.avg_mileage_kmpl} km/l)</span>
-                    </div>
-                  </div>
-                );
-              })()}
-
-              {/* Notes */}
-              <div>
-                <label style={{ fontSize: 12, fontWeight: 600, color: "#555", display: "block", marginBottom: 4 }}>Notes</label>
-                <textarea value={form.notes} rows={2} placeholder="Optional..."
-                  onChange={e => setForm(p => ({ ...p, notes: e.target.value }))}
-                  style={{ width: "100%", padding: "8px 12px", border: "1.5px solid #e8e8f0", borderRadius: 8, fontSize: 13.5, resize: "vertical", boxSizing: "border-box" }} />
-              </div>
-
-              <div style={{ display: "flex", gap: 10, marginTop: 4 }}>
-                <button type="button" className="btn-outline" style={{ flex: 1 }} onClick={() => { setShowForm(false); setEditingTrip(null); setVehicleSuggestions([]); setFatigueStatus(null); }}>{t("common.cancel")}</button>
-                <button type="submit" className="btn-primary" style={{ flex: 1, justifyContent: "center" }} disabled={saving}>
-                  {saving ? t("common.loading") : t("trip.new")}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
+        <LogTripModal
+          editingTrip={editingTrip}
+          form={form}
+          setForm={setForm}
+          formErr={formErr}
+          vehicles={vehicles}
+          drivers={drivers}
+          distCalc={distCalc}
+          vehicleSuggestions={vehicleSuggestions}
+          fatigueLoading={fatigueLoading}
+          fatigueStatus={fatigueStatus}
+          isMobile={isMobile}
+          saving={saving}
+          t={t}
+          onDriverChange={handleDriverChange}
+          onOriginChange={handleOriginChange}
+          onApplySuggestion={applySuggestion}
+          onSubmit={handleSubmit}
+          onClose={() => { setShowForm(false); setEditingTrip(null); setVehicleSuggestions([]); setFatigueStatus(null); }}
+        />
       )}
 
-      {/* ── PDF Options Modal ─────────────────────────────────────────────── */}
       {pdfModal && selTrip && (
-        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center", padding: isMobile ? 12 : 20 }}
-          onClick={() => setPdfModal(false)}>
-          <div onClick={e => e.stopPropagation()}
-            style={{ background: "white", borderRadius: 16, padding: isMobile ? "20px 16px" : 28, width: "100%", maxWidth: 420, boxShadow: "0 20px 60px rgba(0,0,0,0.25)" }}>
-            <div style={{ fontWeight: 800, fontSize: 16, color: "#1a1a2e", marginBottom: 4 }}>Download Trip Sheet PDF</div>
-            <div style={{ fontSize: 12.5, color: "#888", marginBottom: 20 }}>{selTrip.origin} → {selTrip.destination}</div>
-
-            {/* Expense types */}
-            <div style={{ fontWeight: 700, fontSize: 12, color: "#555", marginBottom: 10 }}>Include in PDF</div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 20 }}>
-              {[
-                { key: "all",            label: "All expenses" },
-                { key: "fuel",           label: "Fuel expenses only" },
-                { key: "toll",           label: "Toll / FASTag charges" },
-                { key: "maintenance",    label: "Maintenance / Repairs" },
-                { key: "driver_payment", label: "Driver payments" },
-                { key: "loading",        label: "Loading / Unloading" },
-                { key: "other",          label: "Other expenses" },
-              ].map(opt => (
-                <label key={opt.key} style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer", fontSize: 13 }}>
-                  <input type="checkbox"
-                    checked={!!(pdfOpts.expTypes as any)[opt.key]}
-                    onChange={e => setPdfOpts(p => ({ ...p, expTypes: { ...p.expTypes, [opt.key]: e.target.checked } }))}
-                    style={{ width: 16, height: 16, accentColor: "#1E2D8E" }} />
-                  {opt.label}
-                </label>
-              ))}
-            </div>
-
-            {/* Show profit toggle */}
-            <div style={{ borderTop: "1px solid #f0f0f5", paddingTop: 14, marginBottom: 20 }}>
-              <label style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer", fontSize: 13 }}>
-                <input type="checkbox"
-                  checked={pdfOpts.showProfit}
-                  onChange={e => setPdfOpts(p => ({ ...p, showProfit: e.target.checked }))}
-                  style={{ width: 16, height: 16, accentColor: "#1E2D8E" }} />
-                <div>
-                  <div style={{ fontWeight: 600 }}>Include net profit section</div>
-                  <div style={{ fontSize: 11, color: "#aaa" }}>Internal use only — don&apos;t share with customers</div>
-                </div>
-              </label>
-            </div>
-
-            {/* Actions */}
-            <div style={{ display: "flex", gap: 10 }}>
-              <button onClick={() => setPdfModal(false)}
-                style={{ flex: 1, padding: "10px 0", border: "1px solid #e0e0e0", borderRadius: 8, background: "white", fontSize: 13, fontWeight: 600, cursor: "pointer", color: "#555" }}>
-                Cancel
-              </button>
-              <button onClick={async () => {
-                const selected = Object.entries(pdfOpts.expTypes).filter(([,v]) => v).map(([k]) => k);
-                const vehicleReg = vehicles.find((v: any) => v.id === selTrip.vehicle_id)?.registration_number || selTrip.vehicle_id;
-                const orgName = (typeof window !== "undefined" && localStorage.getItem("orgName")) || "FleetSure";
-                const orgLogo = (typeof window !== "undefined" && localStorage.getItem("orgLogo")) || "";
-                try {
-                  await downloadTripPdf({
-                    orgName, orgLogo, trip: selTrip, detail,
-                    vehicleReg, showProfit: pdfOpts.showProfit,
-                    expTypes: selected.length > 0 ? selected : ["all"],
-                  });
-                  setPdfModal(false);
-                } catch (err) {
-                  alert("Failed to generate PDF. Please try again.");
-                }
-              }}
-                style={{ flex: 2, padding: "10px 0", border: "none", borderRadius: 8, background: "#1E2D8E", color: "white", fontSize: 13, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
-                <FileDown size={14} /> Generate & Download
-              </button>
-            </div>
-          </div>
-        </div>
+        <PdfOptionsModal
+          trip={selTrip}
+          detail={detail}
+          vehicles={vehicles}
+          isMobile={isMobile}
+          onClose={() => setPdfModal(false)}
+        />
       )}
     </div>
   );
