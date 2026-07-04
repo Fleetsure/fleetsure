@@ -15,13 +15,7 @@ import { Users, Droplets, BarChart2, Settings, ChevronRight, type LucideIcon } f
 import { useAuth } from "../context/AuthContext";
 import type { MoreStackParamList } from "../navigation";
 
-const PRIMARY = "#1E2D8E";
-const BG = "#F0F4FF";
-const CARD = "#ffffff";
-const TEXT = "#1A1A2E";
-const TEXT_MUTED = "#6B7280";
-const BORDER = "#E5E7EB";
-const DANGER = "#DC2626";
+import { PRIMARY, BG, CARD, TEXT, TEXT_MUTED, BORDER, DANGER } from "../theme";
 
 type Nav = NativeStackNavigationProp<MoreStackParamList>;
 

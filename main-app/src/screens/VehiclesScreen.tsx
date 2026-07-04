@@ -10,15 +10,7 @@ import { ChevronDown, Check, Bell, Search, AlertCircle, Plus, Truck, Pencil, Tra
 import { vehicleService } from "../services/vehicleService";
 import type { Vehicle } from "../types";
 
-const PRIMARY  = "#1E2D8E";
-const BG       = "#F5F6FA";
-const CARD     = "#ffffff";
-const TEXT     = "#1A1A2E";
-const MUTED    = "#6B7280";
-const BORDER   = "#E9EBF0";
-const DANGER   = "#DC2626";
-const SUCCESS  = "#15803D";
-const WARNING  = "#D97706";
+import { PRIMARY, BG, CARD, TEXT, MUTED, BORDER, DANGER, SUCCESS, WARNING } from "../theme";
 
 const STATUS_STYLE: Record<string, { bg: string; color: string; label: string }> = {
   active:      { bg: "#F0FDF4", color: SUCCESS, label: "Active" },

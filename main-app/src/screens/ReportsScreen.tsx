@@ -16,15 +16,8 @@ import { Share2, TrendingUp, TrendingDown, Wallet, BarChart2, Map, Truck, type L
 
 import { analyticsService } from "../services/analyticsService";
 
-const PRIMARY = "#1E2D8E";
-const BG = "#F0F4FF";
-const CARD = "#ffffff";
-const TEXT = "#1A1A2E";
-const TEXT_MUTED = "#6B7280";
-const BORDER = "#E5E7EB";
-const DANGER = "#DC2626";
-const SUCCESS = "#15803D";
-const WARNING = "#D97706";
+import { PRIMARY, BG, CARD, TEXT, TEXT_MUTED, BORDER, DANGER, SUCCESS, WARNING } from "../theme";
+import { fmt } from "../utils/format";
 
 const PERIODS = [
   { label: "30d", days: 30 },
@@ -32,12 +25,6 @@ const PERIODS = [
   { label: "90d", days: 90 },
   { label: "1yr", days: 365 },
 ];
-
-function fmt(n: number) {
-  if (n >= 100000) return `₹${(n / 100000).toFixed(1)}L`;
-  if (n >= 1000) return `₹${(n / 1000).toFixed(1)}K`;
-  return `₹${Math.round(n).toLocaleString("en-IN")}`;
-}
 
 export default function ReportsScreen() {
   const [period, setPeriod] = useState(30);

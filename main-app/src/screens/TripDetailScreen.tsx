@@ -21,15 +21,9 @@ import { vehicleService } from "../services/vehicleService";
 import type { Trip, Vehicle, Expense } from "../types";
 import type { TripsStackParamList } from "../navigation";
 
-const PRIMARY = "#1E2D8E";
-const BG = "#F0F4FF";
-const CARD = "#ffffff";
-const TEXT = "#1A1A2E";
-const TEXT_MUTED = "#6B7280";
-const BORDER = "#E5E7EB";
-const DANGER = "#DC2626";
-const SUCCESS = "#15803D";
-const WARNING = "#D97706";
+import { PRIMARY, BG, CARD, TEXT, TEXT_MUTED, BORDER, DANGER, SUCCESS, WARNING } from "../theme";
+import { fmtDate } from "../utils/format";
+import { TRIP_STATUS_STYLE as STATUS_CONFIG, NEXT_STATUS, NEXT_STATUS_LABEL } from "../constants/tripStatus";
 
 const EXPENSE_TYPES = [
   { value: "fuel", label: "Fuel (HSD)" },
@@ -45,31 +39,7 @@ const EXPENSE_TYPES = [
   { value: "other", label: "Other" },
 ];
 
-const STATUS_CONFIG: Record<string, { label: string; color: string; bg: string }> = {
-  planned: { label: "Planned", color: PRIMARY, bg: "#EEF2FF" },
-  in_progress: { label: "In Progress", color: WARNING, bg: "#FFF7ED" },
-  completed: { label: "Completed", color: SUCCESS, bg: "#F0FDF4" },
-  cancelled: { label: "Cancelled", color: DANGER, bg: "#FEF2F2" },
-};
-
-const NEXT_STATUS: Record<string, string | null> = {
-  planned: "in_progress",
-  in_progress: "completed",
-  completed: null,
-  cancelled: null,
-};
-
-const NEXT_STATUS_LABEL: Record<string, string> = {
-  planned: "Start Trip",
-  in_progress: "Mark Delivered",
-};
-
 type RouteType = RouteProp<TripsStackParamList, "TripDetail">;
-
-function fmtDate(d: string | null | undefined) {
-  if (!d) return "—";
-  return new Date(d).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
-}
 
 export default function TripDetailScreen() {
   const route = useRoute<RouteType>();
@@ -174,18 +144,36 @@ export default function TripDetailScreen() {
     ]);
   };
 
+  const allExpenses: (Expense & { _source?: string })[] = trip ? [
+    ...(trip.expenses ?? []),
+    ...(trip.fuel_logs ?? []).map((f) => ({
+      id: f.id, trip_id: tripId, expense_type: "fuel",
+      amount: f.amount, date: f.date,
+      description: f.fuel_station ? `${f.litres}L — ${f.fuel_station}` : `${f.litres}L`,
+      _source: "fuel_logs",
+    })),
+    ...(trip.toll_logs ?? []).map((t) => ({
+      id: t.id, trip_id: tripId, expense_type: "toll",
+      amount: t.amount, date: t.date,
+      description: t.toll_plaza ?? undefined,
+      _source: "toll_logs",
+    })),
+    ...(trip.misc_expenses ?? []).map((m) => ({
+      id: m.id, trip_id: tripId, expense_type: m.category,
+      amount: m.amount, date: m.date,
+      description: m.description ?? undefined,
+      _source: "misc_expenses",
+    })),
+  ] : [];
+
+  const totalExp = allExpenses.reduce((s, e) => s + parseFloat(String(e.amount)), 0);
+  const freight = trip ? parseFloat(String(trip.freight_amount)) || 0 : 0;
+  const advance = trip ? parseFloat(String(trip.driver_advance ?? 0)) || 0 : 0;
+  const profit = freight - totalExp;
+  const margin = freight > 0 ? ((profit / freight) * 100).toFixed(1) : "0.0";
+
   const shareOnWhatsApp = async () => {
     if (!trip) return;
-    const allExpenses = [
-      ...(trip.expenses ?? []),
-      ...(trip.fuel_logs ?? []).map((f) => ({ ...f, expense_type: "Fuel", description: f.fuel_station })),
-      ...(trip.toll_logs ?? []).map((t) => ({ ...t, expense_type: "Toll", description: t.toll_plaza })),
-      ...(trip.misc_expenses ?? []).map((m) => ({ ...m, expense_type: m.category })),
-    ];
-    const totalExp = allExpenses.reduce((s, e) => s + parseFloat((e as any).amount || 0), 0);
-    const freight = parseFloat(String(trip.freight_amount)) || 0;
-    const profit = freight - totalExp;
-
     const lines = [
       `*Trip Sheet*`,
       `*${trip.origin} → ${trip.destination}*`,
@@ -224,34 +212,6 @@ export default function TripDetailScreen() {
 
   const sc = STATUS_CONFIG[trip.status] ?? STATUS_CONFIG.planned;
   const nextStatus = NEXT_STATUS[trip.status];
-
-  const allExpenses: (Expense & { _source?: string })[] = [
-    ...(trip.expenses ?? []),
-    ...(trip.fuel_logs ?? []).map((f) => ({
-      id: f.id, trip_id: tripId, expense_type: "fuel",
-      amount: f.amount, date: f.date,
-      description: f.fuel_station ? `${f.litres}L — ${f.fuel_station}` : `${f.litres}L`,
-      _source: "fuel_logs",
-    })),
-    ...(trip.toll_logs ?? []).map((t) => ({
-      id: t.id, trip_id: tripId, expense_type: "toll",
-      amount: t.amount, date: t.date,
-      description: t.toll_plaza ?? undefined,
-      _source: "toll_logs",
-    })),
-    ...(trip.misc_expenses ?? []).map((m) => ({
-      id: m.id, trip_id: tripId, expense_type: m.category,
-      amount: m.amount, date: m.date,
-      description: m.description ?? undefined,
-      _source: "misc_expenses",
-    })),
-  ];
-
-  const totalExp = allExpenses.reduce((s, e) => s + parseFloat(String(e.amount)), 0);
-  const freight = parseFloat(String(trip.freight_amount)) || 0;
-  const advance = parseFloat(String(trip.driver_advance ?? 0)) || 0;
-  const profit = freight - totalExp;
-  const margin = freight > 0 ? ((profit / freight) * 100).toFixed(1) : "0.0";
 
   return (
     <SafeAreaView style={styles.safe} edges={["top"]}>

@@ -17,36 +17,14 @@ import { tripService } from "../services/tripService";
 import { analyticsService } from "../services/analyticsService";
 import type { Vehicle, Driver, Trip } from "../types";
 
-const PRIMARY   = "#1E2D8E";
-const BG        = "#F5F6FA";
-const CARD      = "#ffffff";
-const TEXT      = "#1A1A2E";
-const MUTED     = "#6B7280";
-const BORDER    = "#E9EBF0";
-const SUCCESS   = "#15803D";
-const DANGER    = "#DC2626";
-const WARNING   = "#D97706";
+import { PRIMARY, BG, CARD, TEXT, MUTED, BORDER, SUCCESS, DANGER, WARNING } from "../theme";
+import { fmt, fmtDate } from "../utils/format";
+import { TRIP_STATUS_STYLE as STATUS_STYLE } from "../constants/tripStatus";
 
 function getGreeting() {
   const h = new Date().getHours();
   return h < 12 ? "Good morning" : h < 17 ? "Good afternoon" : "Good evening";
 }
-function fmt(n: number) {
-  if (n >= 100000) return `₹${(n / 100000).toFixed(1)}L`;
-  if (n >= 1000)   return `₹${(n / 1000).toFixed(1)}K`;
-  return `₹${Math.round(n).toLocaleString("en-IN")}`;
-}
-function fmtDate(d: string | null | undefined) {
-  if (!d) return "—";
-  return new Date(d).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
-}
-
-const STATUS_STYLE: Record<string, { bg: string; color: string }> = {
-  planned:     { bg: "#EEF2FF", color: PRIMARY },
-  in_progress: { bg: "#FFF7ED", color: WARNING },
-  completed:   { bg: "#F0FDF4", color: SUCCESS },
-  cancelled:   { bg: "#FEF2F2", color: DANGER },
-};
 
 export default function DashboardScreen() {
   const { user } = useAuth();

@@ -8,22 +8,9 @@ const cutoff = (days: number) => {
   return d.toISOString().slice(0, 10);
 };
 
-async function sumExpenses(
-  tripIds: string[],
-  uid: string
-): Promise<number> {
-  if (!tripIds.length) return 0;
-  const [exps, fuels, tolls, misc] = await Promise.all([
-    supabase.from("expenses").select("amount").in("trip_id", tripIds),
-    supabase.from("fuel_logs").select("amount").eq("owner_id", uid).in("trip_id", tripIds),
-    supabase.from("toll_logs").select("amount").eq("owner_id", uid).in("trip_id", tripIds),
-    supabase.from("misc_expenses").select("amount").eq("owner_id", uid).in("trip_id", tripIds),
-  ]);
-  let total = 0;
-  for (const rows of [exps.data, fuels.data, tolls.data, misc.data]) {
-    for (const r of rows ?? []) total += parseFloat((r as any).amount || 0);
-  }
-  return total;
+async function sumExpenses(tripIds: string[], uid: string): Promise<number> {
+  const perTrip = await expensesByTrip(tripIds, uid);
+  return Object.values(perTrip).reduce((s, v) => s + v, 0);
 }
 
 async function expensesByTrip(

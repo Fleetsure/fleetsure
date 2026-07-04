@@ -15,22 +15,8 @@ import { driverService } from "../services/driverService";
 import type { Trip, Vehicle, Driver } from "../types";
 import type { TripsStackParamList } from "../navigation";
 
-const PRIMARY  = "#1E2D8E";
-const BG       = "#F5F6FA";
-const CARD     = "#ffffff";
-const TEXT     = "#1A1A2E";
-const MUTED    = "#6B7280";
-const BORDER   = "#E9EBF0";
-const DANGER   = "#DC2626";
-const SUCCESS  = "#15803D";
-const WARNING  = "#D97706";
-
-const STATUS_STYLE: Record<string, { bg: string; color: string; label: string }> = {
-  planned:     { bg: "#EEF2FF", color: PRIMARY,  label: "Planned" },
-  in_progress: { bg: "#FFF7ED", color: WARNING,  label: "In Progress" },
-  completed:   { bg: "#F0FDF4", color: SUCCESS,  label: "Completed" },
-  cancelled:   { bg: "#FEF2F2", color: DANGER,   label: "Cancelled" },
-};
+import { PRIMARY, BG, CARD, TEXT, MUTED, BORDER, DANGER, SUCCESS, WARNING } from "../theme";
+import { TRIP_STATUS_STYLE as STATUS_STYLE } from "../constants/tripStatus";
 
 type Nav = NativeStackNavigationProp<TripsStackParamList>;
 

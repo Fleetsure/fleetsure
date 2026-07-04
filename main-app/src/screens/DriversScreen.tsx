@@ -21,15 +21,7 @@ import { ChevronDown, ChevronUp, Check, Search, User, CreditCard, Wallet, Pencil
 import { driverService } from "../services/driverService";
 import type { Driver, DriverPayment } from "../types";
 
-const PRIMARY = "#1E2D8E";
-const BG = "#F0F4FF";
-const CARD = "#ffffff";
-const TEXT = "#1A1A2E";
-const TEXT_MUTED = "#6B7280";
-const BORDER = "#E5E7EB";
-const DANGER = "#DC2626";
-const SUCCESS = "#15803D";
-const WARNING = "#D97706";
+import { PRIMARY, BG, CARD, TEXT, TEXT_MUTED, BORDER, DANGER, SUCCESS, WARNING } from "../theme";
 
 const STATUS_COLORS: Record<string, { bg: string; text: string }> = {
   active: { bg: "#F0FDF4", text: SUCCESS },

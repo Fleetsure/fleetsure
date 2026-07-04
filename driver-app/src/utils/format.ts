@@ -23,13 +23,3 @@ export function getGreeting(): string {
   if (h < 17) return "Good afternoon";
   return "Good evening";
 }
-
-export function statusLabel(status: string): string {
-  switch (status) {
-    case "planned": return "Planned";
-    case "in_progress": return "In Progress";
-    case "completed": return "Completed";
-    case "cancelled": return "Cancelled";
-    default: return status;
-  }
-}

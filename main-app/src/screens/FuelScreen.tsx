@@ -22,14 +22,7 @@ import { fuelService } from "../services/fuelService";
 import { vehicleService } from "../services/vehicleService";
 import type { FuelLog, Vehicle } from "../types";
 
-const PRIMARY = "#1E2D8E";
-const BG = "#F0F4FF";
-const CARD = "#ffffff";
-const TEXT = "#1A1A2E";
-const TEXT_MUTED = "#6B7280";
-const BORDER = "#E5E7EB";
-const DANGER = "#DC2626";
-const SUCCESS = "#15803D";
+import { PRIMARY, BG, CARD, TEXT, TEXT_MUTED, BORDER, DANGER, SUCCESS } from "../theme";
 
 function EntityPicker({
   label,

@@ -10,24 +10,8 @@ import { Bell, Search, Info, ChevronDown, GitBranch, Check } from "lucide-react-
 import { tripService } from "../services/tripService";
 import type { Trip } from "../types";
 
-const PRIMARY = "#1E2D8E";
-const BG      = "#F5F6FA";
-const CARD    = "#ffffff";
-const TEXT    = "#1A1A2E";
-const MUTED   = "#6B7280";
-const BORDER  = "#E9EBF0";
-const DANGER  = "#DC2626";
-const SUCCESS = "#15803D";
-
-function fmt(n: number) {
-  if (n >= 100000) return `₹${(n / 100000).toFixed(1)}L`;
-  if (n >= 1000)   return `₹${(n / 1000).toFixed(1)}K`;
-  return `₹${Math.round(n).toLocaleString("en-IN")}`;
-}
-function fmtDate(d: string | null | undefined) {
-  if (!d) return "—";
-  return new Date(d).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
-}
+import { PRIMARY, BG, CARD, TEXT, MUTED, BORDER, DANGER, SUCCESS } from "../theme";
+import { fmt, fmtDate } from "../utils/format";
 
 const TYPE_LABEL: Record<string, string> = {
   fuel: "Fuel", toll: "Toll", rto: "RTO", police_challan: "Police / Naka",
