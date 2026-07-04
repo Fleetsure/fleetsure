@@ -5,33 +5,11 @@ import { tripService } from "@/lib/services/tripService";
 import { fmtDate } from "@/lib/date";
 import { Info, Route } from "lucide-react";
 import { useLanguage } from "@/lib/LanguageContext";
-
-const EXPENSE_TYPES = [
-  { value: "fuel",              label: "Fuel (HSD)" },
-  { value: "toll",              label: "Toll / Bridge" },
-  { value: "rto",               label: "RTO" },
-  { value: "police_challan",    label: "Police / Naka" },
-  { value: "maintenance",       label: "Parts & Repairs" },
-  { value: "tyre",              label: "Tyre Repair" },
-  { value: "oil",               label: "Oil" },
-  { value: "loading_unloading", label: "Loading / Unloading" },
-  { value: "driver_payment",    label: "Driver Payment" },
-  { value: "telephone",         label: "Telephone" },
-  { value: "fine",              label: "Fine" },
-  { value: "other",             label: "Other" },
-];
-
-const expLabel = (type: string) =>
-  EXPENSE_TYPES.find(e => e.value === type)?.label ?? type;
+import { EXPENSE_TYPES, expenseTypeLabel as expLabel, EXPENSE_TYPE_COLOR as TYPE_COLOR } from "@/lib/constants/expenseType";
+import { useIsMobile } from "@/hooks/useIsMobile";
 
 const fmt = (n: number) =>
   "₹" + Math.abs(n).toLocaleString("en-IN", { maximumFractionDigits: 0 });
-
-const TYPE_COLOR: Record<string, string> = {
-  fuel: "#1E2D8E", toll: "#283593", maintenance: "#e65100",
-  driver_payment: "#1a7a34", loading_unloading: "#6a1b9a",
-  police_challan: "#b71c1c", fine: "#b71c1c", other: "#666",
-};
 
 export default function TripExpensesPage() {
   const { t } = useLanguage();
@@ -40,14 +18,8 @@ export default function TripExpensesPage() {
   const [detail, setDetail]         = useState<any>(null);
   const [loading, setLoading]       = useState(false);
   const [fetchError, setFetchError] = useState<string | null>(null);
-  const [isMobile, setIsMobile]     = useState(false);
+  const isMobile = useIsMobile();
 
-  useEffect(() => {
-    const check = () => setIsMobile(window.innerWidth < 768);
-    check();
-    window.addEventListener("resize", check);
-    return () => window.removeEventListener("resize", check);
-  }, []);
 
   useEffect(() => { tripService.getAll().then(r => setTrips(r.data || [])); }, []);
 

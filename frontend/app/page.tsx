@@ -13,6 +13,7 @@ import Link from "next/link";
 import OnboardingChecklist from "@/components/OnboardingChecklist";
 import { useLanguage } from "@/lib/LanguageContext";
 import { todayISO, fmtDate as fmtDateStr } from "@/lib/date";
+import { useIsMobile } from "@/hooks/useIsMobile";
 
 const GREETING_EMOJIS = ["🚀", "💪", "🌟", "⚡", "🔥", "✨", "🎯", "💼", "🏆", "😎"];
 
@@ -55,16 +56,10 @@ export default function Dashboard() {
   const [loading, setLoading]   = useState(true);
   const [userName, setUserName]       = useState("Fleet Owner");
   const [emoji, setEmoji]             = useState("🚀");
-  const [isMobile, setIsMobile]       = useState(false);
+  const isMobile = useIsMobile();
   const [waLoading, setWaLoading]     = useState(false);
   const [insightIdx, setInsightIdx]   = useState(0);
 
-  useEffect(() => {
-    const check = () => setIsMobile(window.innerWidth < 768);
-    check();
-    window.addEventListener("resize", check);
-    return () => window.removeEventListener("resize", check);
-  }, []);
 
   useEffect(() => {
     const stored = localStorage.getItem("userName");

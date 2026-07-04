@@ -2,15 +2,10 @@
 import { useState, useEffect } from "react";
 import Header from "@/components/Header";
 import { CreditCard, Link2 } from "lucide-react";
+import { useIsMobile } from "@/hooks/useIsMobile";
 
 export default function FASTagPage() {
-  const [isMobile, setIsMobile] = useState(false);
-  useEffect(() => {
-    const check = () => setIsMobile(window.innerWidth < 768);
-    check();
-    window.addEventListener("resize", check);
-    return () => window.removeEventListener("resize", check);
-  }, []);
+  const isMobile = useIsMobile();
 
   return (
     <div>

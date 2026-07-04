@@ -4,6 +4,7 @@ import Header from "@/components/Header";
 import { documentService } from "@/lib/services/documentService";
 import { vehicleService } from "@/lib/services/vehicleService";
 import { FileText, Trash2, Download, File, Image, Search } from "lucide-react";
+import { useIsMobile } from "@/hooks/useIsMobile";
 
 const DOC_TYPES = ["RC Book", "Insurance", "Fitness", "Permit", "PUC", "Road Tax", "Invoice", "Other"];
 
@@ -30,14 +31,8 @@ export default function DocumentsPage() {
   const [loading, setLoading]   = useState(true);
   const [search, setSearch]     = useState("");
   const [filterVehicle, setFilterVehicle] = useState("");
-  const [isMobile, setIsMobile] = useState(false);
+  const isMobile = useIsMobile();
 
-  useEffect(() => {
-    const check = () => setIsMobile(window.innerWidth < 768);
-    check();
-    window.addEventListener("resize", check);
-    return () => window.removeEventListener("resize", check);
-  }, []);
 
   const load = () => {
     Promise.all([documentService.getAll(), vehicleService.getAll()])

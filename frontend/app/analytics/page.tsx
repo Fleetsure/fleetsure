@@ -4,6 +4,8 @@ import Header from "@/components/Header";
 import { useLanguage } from "@/lib/LanguageContext";
 import { analyticsService } from "@/lib/services/analyticsService";
 import { TrendingUp, TrendingDown, Truck, Route, BarChart2, PieChart } from "lucide-react";
+import { TRIP_STATUS_COLOR as STATUS_COLOR } from "@/lib/constants/tripStatus";
+import { useIsMobile } from "@/hooks/useIsMobile";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -176,15 +178,11 @@ const PERIOD_OPTIONS = [
   { label: "Last 6 months", value: 180 },
 ];
 
-const STATUS_COLOR: Record<string, string> = {
-  completed: "#2e7d32", in_progress: "#e65100", planned: "#1565c0", cancelled: "#c62828",
-};
-
 export default function AnalyticsPage() {
   const { t } = useLanguage();
   const [activeTab, setActiveTab] = useState<"overview" | "trips" | "drivers">("overview");
   const [period, setPeriod]       = useState(30);
-  const [isMobile, setIsMobile]   = useState(false);
+  const isMobile = useIsMobile();
   const [loading, setLoading]     = useState(true);
 
   const [overview, setOverview]   = useState<any>(null);
@@ -194,12 +192,6 @@ export default function AnalyticsPage() {
   const [tripPnl, setTripPnl]     = useState<any[]>([]);
   const [drivers, setDrivers]     = useState<any[]>([]);
 
-  useEffect(() => {
-    const check = () => setIsMobile(window.innerWidth < 768);
-    check();
-    window.addEventListener("resize", check);
-    return () => window.removeEventListener("resize", check);
-  }, []);
 
   const load = useCallback((days: number) => {
     setLoading(true);

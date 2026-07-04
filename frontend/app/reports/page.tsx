@@ -12,6 +12,7 @@ import { Download, FileSpreadsheet, FileText, CheckSquare, Square } from "lucide
 import { useLanguage } from "@/lib/LanguageContext";
 import * as XLSX from "xlsx";
 import { buildWorkbook } from "./exportHelper";
+import { useIsMobile } from "@/hooks/useIsMobile";
 
 const EXPORT_TYPES = [
   { key: "vehicles",    label: "Vehicles",          desc: "All vehicle details + compliance dates" },
@@ -29,15 +30,9 @@ export default function ReportsPage() {
   const [selected, setSelected] = useState<string[]>(EXPORT_TYPES.map(e => e.key));
   const [format, setFormat]     = useState<"xlsx" | "csv">("xlsx");
   const [downloading, setDownloading] = useState(false);
-  const [isMobile, setIsMobile] = useState(false);
+  const isMobile = useIsMobile();
   const [counts, setCounts]     = useState<Record<string, number>>({});
   const [loadingCounts, setLoadingCounts] = useState(true);
-
-  useEffect(() => {
-    const check = () => setIsMobile(window.innerWidth < 768);
-    check(); window.addEventListener("resize", check);
-    return () => window.removeEventListener("resize", check);
-  }, []);
 
   useEffect(() => {
     Promise.all([

@@ -5,6 +5,7 @@ import { driverService } from "@/lib/services/driverService";
 import { fmtDate, daysUntil, todayISO } from "@/lib/date";
 import { Plus, Users, X, Phone, ChevronDown, ChevronRight, Edit2, Wallet, Trash2 } from "lucide-react";
 import { useLanguage } from "@/lib/LanguageContext";
+import { useIsMobile } from "@/hooks/useIsMobile";
 
 // ── Driver Payment Ledger Modal ───────────────────────────────────────────────
 const PAYMENT_TYPES = ["advance", "salary", "bonus", "deduction", "settlement"];
@@ -171,14 +172,8 @@ export default function DriversPage() {
   const [error, setError] = useState("");
   const [expandedRow, setExpandedRow] = useState<string | null>(null);
   const [ledgerDriver, setLedgerDriver] = useState<any>(null);
-  const [isMobile, setIsMobile] = useState(false);
+  const isMobile = useIsMobile();
 
-  useEffect(() => {
-    const check = () => setIsMobile(window.innerWidth < 768);
-    check();
-    window.addEventListener("resize", check);
-    return () => window.removeEventListener("resize", check);
-  }, []);
 
 
   const load = () => driverService.getAll().then(r => setDrivers(r.data || [])).finally(() => setLoading(false));

@@ -7,6 +7,7 @@ import {
   Plus, X, Users, Truck, Wrench, Phone, Building2,
   Search, Edit2, Trash2, IndianRupee, ChevronDown, ChevronUp
 } from "lucide-react";
+import { useIsMobile } from "@/hooks/useIsMobile";
 
 const PARTY_TYPES = ["customer", "transporter", "vendor"] as const;
 type PartyType = typeof PARTY_TYPES[number];
@@ -33,14 +34,8 @@ export default function PartiesPage() {
   const [form, setForm]           = useState<any>(EMPTY);
   const [saving, setSaving]       = useState(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
-  const [isMobile, setIsMobile] = useState(false);
+  const isMobile = useIsMobile();
 
-  useEffect(() => {
-    const check = () => setIsMobile(window.innerWidth < 768);
-    check();
-    window.addEventListener("resize", check);
-    return () => window.removeEventListener("resize", check);
-  }, []);
 
   const load = () => {
     setLoading(true);

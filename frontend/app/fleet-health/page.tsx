@@ -6,6 +6,7 @@ import { driverService } from "@/lib/services/driverService";
 import { useLanguage } from "@/lib/LanguageContext";
 import { HeartPulse, AlertTriangle, CheckCircle, Clock, Truck, Users, ChevronUp, ChevronDown } from "lucide-react";
 import { parseLocalDate, fmtDate } from "@/lib/date";
+import { useIsMobile } from "@/hooks/useIsMobile";
 
 type Vehicle = {
   id: string;
@@ -93,14 +94,8 @@ export default function FleetHealthPage() {
   const [loading, setLoading]   = useState(true);
   const [sortField, setSortField] = useState<string | null>(null);
   const [sortAsc, setSortAsc]     = useState(true);
-  const [isMobile, setIsMobile] = useState(false);
+  const isMobile = useIsMobile();
 
-  useEffect(() => {
-    const check = () => setIsMobile(window.innerWidth < 768);
-    check();
-    window.addEventListener("resize", check);
-    return () => window.removeEventListener("resize", check);
-  }, []);
 
   useEffect(() => {
     Promise.all([vehicleService.getAll(), driverService.getAll()])

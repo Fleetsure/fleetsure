@@ -7,6 +7,7 @@ import { tripService } from "@/lib/services/tripService";
 import { fmtDate, todayISO } from "@/lib/date";
 import { Fuel, Plus, X, AlertTriangle, TrendingDown, TrendingUp, Truck, Trash2 } from "lucide-react";
 import { useLanguage } from "@/lib/LanguageContext";
+import { useIsMobile } from "@/hooks/useIsMobile";
 
 const EMPTY = { vehicle_id: "", trip_id: "", date: todayISO(), odometer_km: "", litres: "", rate: "", amount: "", fuel_station: "", notes: "" };
 
@@ -24,14 +25,8 @@ export default function FuelPage() {
   const [saving, setSaving]       = useState(false);
   const [error, setError]         = useState("");
   const [tab, setTab]             = useState<"log" | "analytics">("log");
-  const [isMobile, setIsMobile]   = useState(false);
+  const isMobile = useIsMobile();
 
-  useEffect(() => {
-    const check = () => setIsMobile(window.innerWidth < 768);
-    check();
-    window.addEventListener("resize", check);
-    return () => window.removeEventListener("resize", check);
-  }, []);
 
   const load = async () => {
     try {

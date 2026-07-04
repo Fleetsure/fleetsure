@@ -3,20 +3,9 @@ import { useEffect, useState } from "react";
 import { teamService } from "@/lib/services/teamService";
 import { useTeamAuth } from "@/lib/teamAuth";
 import { Plus, Pencil, Filter, X } from "lucide-react";
+import { TRIP_STATUS_COLOR as STATUS_COLOR, TRIP_STATUS_BG as STATUS_BG } from "@/lib/constants/tripStatus";
 
 const STATUSES = ["all", "planned", "in_progress", "completed", "cancelled"];
-const STATUS_COLOR: Record<string, string> = {
-  planned:     "#1565c0",
-  in_progress: "#2e7d32",
-  completed:   "#555",
-  cancelled:   "#c62828",
-};
-const STATUS_BG: Record<string, string> = {
-  planned:     "#e3f2fd",
-  in_progress: "#e8f5e9",
-  completed:   "#f5f5f5",
-  cancelled:   "#ffebee",
-};
 
 const EMPTY_FORM = {
   origin: "", destination: "", start_date: "", end_date: "",

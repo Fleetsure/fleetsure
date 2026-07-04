@@ -5,6 +5,7 @@ import { insuranceService } from "@/lib/services/insuranceService";
 import { vehicleService } from "@/lib/services/vehicleService";
 import { fmtDate } from "@/lib/date";
 import { ShieldCheck, Plus, X, AlertTriangle, CheckCircle, Clock, Trash2 } from "lucide-react";
+import { useIsMobile } from "@/hooks/useIsMobile";
 
 const POLICY_TYPES = [
   { value: "insurance",  label: "Insurance" },
@@ -48,14 +49,8 @@ export default function InsurancePage() {
   const [form, setForm]           = useState<any>(EMPTY);
   const [saving, setSaving]       = useState(false);
   const [filterType, setFilterType] = useState("all");
-  const [isMobile, setIsMobile] = useState(false);
+  const isMobile = useIsMobile();
 
-  useEffect(() => {
-    const check = () => setIsMobile(window.innerWidth < 768);
-    check();
-    window.addEventListener("resize", check);
-    return () => window.removeEventListener("resize", check);
-  }, []);
 
   const load = () => {
     Promise.all([insuranceService.getAll(), vehicleService.getAll()])

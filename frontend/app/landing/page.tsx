@@ -9,6 +9,7 @@ import {
   Truck, Smartphone, HelpCircle, Bell, MessageSquare, MapPin,
   CheckCircle2, X,
 } from "lucide-react";
+import { useIsMobile } from "@/hooks/useIsMobile";
 
 // ── WhatsApp ──────────────────────────────────────────────────────────────────
 const WA_NUMBER = "919606462535";
@@ -272,7 +273,7 @@ export default function LandingPage() {
   const [openFaq, setOpenFaq] = useState<number | null>(null);
   const [scrolled, setScrolled] = useState(false);
   const [showLangMenu, setShowLangMenu] = useState(false);
-  const [isMobile, setIsMobile] = useState(false);
+  const isMobile = useIsMobile();
   const [menuOpen, setMenuOpen] = useState(false);
 
   useEffect(() => {
@@ -281,12 +282,6 @@ export default function LandingPage() {
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
-  useEffect(() => {
-    const check = () => setIsMobile(window.innerWidth < 768);
-    check();
-    window.addEventListener("resize", check);
-    return () => window.removeEventListener("resize", check);
-  }, []);
 
   useEffect(() => {
     const link = document.createElement("link");
