@@ -11,7 +11,7 @@ import {
   ActivityIndicator,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Ionicons } from "@expo/vector-icons";
+import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useAuth } from "../context/AuthContext";
 
 const PRIMARY = "#1E2D8E";
@@ -83,7 +83,7 @@ export default function LoginScreen() {
           {/* Logo */}
           <View style={styles.logoSection}>
             <View style={styles.logoBox}>
-              <Ionicons name="car" size={36} color="white" />
+              <MaterialCommunityIcons name="truck-outline" size={36} color="white" />
             </View>
             <Text style={styles.logoTitle}>FleetSure</Text>
             <Text style={styles.logoSub}>Driver Portal</Text>

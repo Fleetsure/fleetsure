@@ -11,7 +11,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
-import { Ionicons } from "@expo/vector-icons";
+import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import type { BottomTabNavigationProp } from "@react-navigation/bottom-tabs";
 
 import { useAuth } from "../context/AuthContext";
@@ -127,7 +127,7 @@ export default function DashboardScreen() {
             <View style={styles.currentCard}>
               <View style={styles.currentTop}>
                 <View style={styles.currentRegBox}>
-                  <Ionicons name="car" size={18} color="#15803D" />
+                  <MaterialCommunityIcons name="truck-outline" size={18} color="#15803D" />
                   <Text style={styles.currentReg}>
                     {currentTrip.vehicles?.registration_number ?? "—"}
                   </Text>
@@ -216,7 +216,7 @@ export default function DashboardScreen() {
         {/* Empty state */}
         {trips.length === 0 ? (
           <View style={styles.emptyState}>
-            <Ionicons name="car-outline" size={56} color="#CBD5E1" />
+            <MaterialCommunityIcons name="truck-outline" size={56} color="#CBD5E1" />
             <Text style={styles.emptyTitle}>No trips assigned yet</Text>
             <Text style={styles.emptySub}>
               Your fleet manager will assign trips to you here.
@@ -289,12 +289,11 @@ const styles = StyleSheet.create({
     letterSpacing: -0.2,
   },
   currentCard: {
-    backgroundColor: "white",
+    backgroundColor: "#F0FFF4",
     borderRadius: 14,
     padding: 16,
     borderWidth: 1.5,
     borderColor: "#86EFAC",
-    backgroundColor: "#F0FFF4",
   },
   currentTop: {
     flexDirection: "row",
