@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
-import { signInWithEmailAndPassword, signInWithPopup, GoogleAuthProvider } from "firebase/auth";
-import { auth } from "@/lib/firebase";
+import { signInWithEmailAndPassword, signInWithPopup } from "firebase/auth";
+import { auth, googleProvider } from "@/lib/firebase";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 
@@ -70,7 +70,7 @@ export default function RoleLoginPage({ role }: { role: Role }) {
   const handleGoogle = async () => {
     setLoading(true); setError("");
     try {
-      await signInWithPopup(auth, new GoogleAuthProvider());
+      await signInWithPopup(auth, googleProvider);
       await redirectIfTeamMember();
     } catch (err: any) {
       setError(err.message?.replace("Firebase: ", "") || "Google sign in failed.");
