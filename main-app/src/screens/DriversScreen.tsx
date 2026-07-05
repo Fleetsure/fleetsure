@@ -515,7 +515,14 @@ function SectionHeader({ title }: { title: string }) {
   return <Text style={formStyles.sectionHeader}>{title}</Text>;
 }
 
-function Field({ label, value, onChangeText, placeholder, keyboardType, autoCapitalize }: any) {
+function Field({ label, value, onChangeText, placeholder, keyboardType, autoCapitalize }: {
+  label: string;
+  value: string;
+  onChangeText: (text: string) => void;
+  placeholder?: string;
+  keyboardType?: "default" | "phone-pad" | "numeric";
+  autoCapitalize?: "none" | "words" | "characters";
+}) {
   return (
     <View style={formStyles.fieldGroup}>
       <Text style={formStyles.label}>{label}</Text>

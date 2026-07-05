@@ -7,10 +7,6 @@
     "icon": "./assets/icon.png",
     "scheme": "fleetsuredriver",
     "userInterfaceStyle": "light",
-    "splash": {
-      "backgroundColor": "#1E2D8E",
-      "resizeMode": "contain"
-    },
     "android": {
       "adaptiveIcon": {
         "backgroundColor": "#1E2D8E"
@@ -32,6 +28,17 @@
         {
           "photosPermission": "Allow FleetSure Driver to access your photos.",
           "cameraPermission": "Allow FleetSure Driver to use your camera."
+        }
+      ],
+      "expo-asset",
+      "expo-font",
+      "expo-status-bar",
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#1E2D8E",
+          "image": "./assets/icon.png",
+          "imageWidth": 200
         }
       ]
     ],

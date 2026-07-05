@@ -13,7 +13,8 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useFocusEffect, useNavigation, useRoute } from "@react-navigation/native";
-import type { NativeStackNavigationProp, NativeStackRouteProp } from "@react-navigation/native-stack";
+import type { RouteProp } from "@react-navigation/native";
+import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 
@@ -25,7 +26,7 @@ import type { TripsStackParamList } from "../navigation";
 
 const PRIMARY = "#1E2D8E";
 
-type Route = NativeStackRouteProp<TripsStackParamList, "TripDetail">;
+type Route = RouteProp<TripsStackParamList, "TripDetail">;
 type Nav = NativeStackNavigationProp<TripsStackParamList, "TripDetail">;
 
 type ExpTab = "fuel" | "toll" | "misc" | "other";

@@ -7,10 +7,6 @@
     "icon": "./assets/icon.png",
     "scheme": "fleetsure",
     "userInterfaceStyle": "light",
-    "splash": {
-      "backgroundColor": "#1E2D8E",
-      "resizeMode": "contain"
-    },
     "android": {
       "adaptiveIcon": {
         "backgroundColor": "#1E2D8E"
@@ -52,7 +48,18 @@
           "iosUrlScheme": "com.googleusercontent.apps.874399364699-uokc8ai3davqm8a19udr85gpketvj3qn"
         }
       ],
-      "./plugins/withIonicons"
+      "./plugins/withIonicons",
+      "expo-asset",
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#1E2D8E",
+          "image": "./assets/logo.png",
+          "imageWidth": 200
+        }
+      ],
+      "expo-font",
+      "expo-status-bar"
     ],
     "extra": {
       "eas": {
