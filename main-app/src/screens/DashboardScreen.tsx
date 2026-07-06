@@ -1,13 +1,13 @@
 import React, { useCallback, useState } from "react";
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  RefreshControl, ActivityIndicator, Linking, Alert,
+  RefreshControl, ActivityIndicator, Linking, Alert, Modal, Pressable,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useFocusEffect } from "@react-navigation/native";
 import {
   Bell, Search, MessageCircle, ChevronLeft, ChevronRight,
-  Truck, Users, Map, TrendingUp, type LucideIcon,
+  Truck, Users, Map, TrendingUp, X, ShieldAlert, ShieldCheck, type LucideIcon,
 } from "lucide-react-native";
 
 import { useAuth } from "../context/AuthContext";
@@ -37,21 +37,25 @@ export default function DashboardScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [waLoading,  setWaLoading]  = useState(false);
   const [insightIdx, setInsightIdx] = useState(0);
+  const [alerts, setAlerts] = useState<{ severity: string; title: string }[]>([]);
+  const [notifOpen, setNotifOpen] = useState(false);
 
   const load = useCallback(async () => {
     try {
-      const [v, d, t, ov, p] = await Promise.all([
+      const [v, d, t, ov, p, ds] = await Promise.all([
         vehicleService.getAll(),
         driverService.getAll(),
         tripService.getAll(20),
         analyticsService.getOverview(30),
         analyticsService.getVehiclePnL(),
+        analyticsService.getDailySummary(),
       ]);
       if (v.success) setVehicles(v.data ?? []);
       if (d.success) setDrivers(d.data ?? []);
       if (t.success) setTrips(t.data ?? []);
       if (ov.success) setOverview(ov.data);
       if (p.success) setPnl(p.data ?? []);
+      if (ds.success) setAlerts(ds.data?.compliance_alerts ?? []);
     } catch {}
     setLoading(false);
   }, []);
@@ -135,8 +139,9 @@ export default function DashboardScreen() {
             <Text style={styles.orgName}>{user?.org_name || "Fleet performance overview"}</Text>
           </View>
           <View style={styles.headerActions}>
-            <TouchableOpacity style={styles.iconBtn}>
+            <TouchableOpacity style={styles.iconBtn} onPress={() => setNotifOpen(true)}>
               <Bell size={20} color={MUTED} />
+              {alerts.length > 0 && <View style={styles.notifDot} />}
             </TouchableOpacity>
             <TouchableOpacity style={styles.searchBtn}>
               <Search size={15} color={MUTED} />
@@ -176,7 +181,7 @@ export default function DashboardScreen() {
               <View style={styles.waIconBox}>
                 <MessageCircle size={20} color="#25D366" />
               </View>
-              <View>
+              <View style={{ flex: 1 }}>
                 <Text style={styles.waTitle}>WhatsApp Daily Report</Text>
                 <Text style={styles.waDesc}>Active trips · revenue · compliance alerts · idle vehicles — sent to your WhatsApp</Text>
               </View>
@@ -313,6 +318,39 @@ export default function DashboardScreen() {
 
         <View style={{ height: 20 }} />
       </ScrollView>
+
+      <Modal
+        visible={notifOpen}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setNotifOpen(false)}
+      >
+        <Pressable style={styles.notifOverlay} onPress={() => setNotifOpen(false)}>
+          <Pressable style={styles.notifPanel} onPress={(e) => e.stopPropagation()}>
+            <View style={styles.notifHeader}>
+              <Text style={styles.notifTitle}>Fleet Alerts</Text>
+              <TouchableOpacity onPress={() => setNotifOpen(false)} hitSlop={8}>
+                <X size={20} color={MUTED} />
+              </TouchableOpacity>
+            </View>
+            {alerts.length === 0 ? (
+              <View style={styles.notifEmpty}>
+                <ShieldCheck size={28} color={SUCCESS} />
+                <Text style={styles.notifEmptyText}>No alerts — your fleet is compliant.</Text>
+              </View>
+            ) : (
+              <ScrollView style={{ maxHeight: 320 }}>
+                {alerts.map((a, i) => (
+                  <View key={i} style={styles.notifRow}>
+                    <ShieldAlert size={18} color={a.severity === "critical" ? DANGER : WARNING} />
+                    <Text style={styles.notifRowText}>{a.title}</Text>
+                  </View>
+                ))}
+              </ScrollView>
+            )}
+          </Pressable>
+        </Pressable>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -390,7 +428,35 @@ const styles = StyleSheet.create({
     width: 36, height: 36, borderRadius: 18,
     backgroundColor: CARD, alignItems: "center", justifyContent: "center",
     borderWidth: 1, borderColor: BORDER,
+    position: "relative",
   },
+  notifDot: {
+    position: "absolute", top: 6, right: 7,
+    width: 8, height: 8, borderRadius: 4,
+    backgroundColor: DANGER, borderWidth: 1.5, borderColor: CARD,
+  },
+  notifOverlay: {
+    flex: 1, backgroundColor: "rgba(0,0,0,0.3)",
+    alignItems: "flex-end", padding: 16,
+  },
+  notifPanel: {
+    marginTop: 50, width: "88%", maxWidth: 340,
+    backgroundColor: CARD, borderRadius: 16, padding: 16,
+    shadowColor: "#000", shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.15, shadowRadius: 12,
+    elevation: 8,
+  },
+  notifHeader: {
+    flexDirection: "row", alignItems: "center", justifyContent: "space-between",
+    marginBottom: 12,
+  },
+  notifTitle: { fontSize: 15, fontWeight: "700", color: TEXT },
+  notifEmpty: { alignItems: "center", paddingVertical: 24, gap: 8 },
+  notifEmptyText: { fontSize: 13, color: MUTED, textAlign: "center" },
+  notifRow: {
+    flexDirection: "row", alignItems: "flex-start", gap: 10,
+    paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: BORDER,
+  },
+  notifRowText: { flex: 1, fontSize: 13, color: TEXT, lineHeight: 18 },
   searchBtn: {
     flexDirection: "row", alignItems: "center", gap: 5,
     backgroundColor: CARD, borderRadius: 20,

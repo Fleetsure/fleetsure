@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity,
   TextInput, Modal, ScrollView, RefreshControl,
@@ -17,6 +17,7 @@ import type { TripsStackParamList } from "../navigation";
 
 import { PRIMARY, BG, CARD, TEXT, MUTED, BORDER, DANGER, SUCCESS, WARNING } from "../theme";
 import { TRIP_STATUS_STYLE as STATUS_STYLE } from "../constants/tripStatus";
+import { searchPlaces, geocode, haversineKm, type PlaceSuggestion } from "../utils/geo";
 
 type Nav = NativeStackNavigationProp<TripsStackParamList>;
 
@@ -76,6 +77,64 @@ function Field({ label, value, onChangeText, placeholder, keyboardType, autoCapi
   );
 }
 
+function LocationField({ label, value, onChangeText, onSelectPlace, placeholder }: {
+  label: string; value: string;
+  onChangeText: (text: string) => void;
+  onSelectPlace: (name: string, lat: number, lon: number) => void;
+  placeholder?: string;
+}) {
+  const [suggestions, setSuggestions] = useState<PlaceSuggestion[]>([]);
+  const [searching, setSearching] = useState(false);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const handleChange = (text: string) => {
+    onChangeText(text);
+    setSuggestions([]);
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    if (text.trim().length < 3) return;
+    debounceRef.current = setTimeout(async () => {
+      setSearching(true);
+      const results = await searchPlaces(text);
+      setSearching(false);
+      setSuggestions(results);
+    }, 400);
+  };
+
+  const handleSelect = (s: PlaceSuggestion) => {
+    setSuggestions([]);
+    onSelectPlace(s.display_name, s.lat, s.lon);
+  };
+
+  return (
+    <View style={[f.fieldGroup, { zIndex: 10 }]}>
+      <Text style={f.label}>{label}</Text>
+      <View>
+        <TextInput
+          style={f.input} value={value} onChangeText={handleChange}
+          placeholder={placeholder} placeholderTextColor={MUTED} autoCapitalize="words"
+        />
+        {searching && (
+          <ActivityIndicator size="small" color={MUTED} style={f.locSpinner} />
+        )}
+      </View>
+      {suggestions.length > 0 && (
+        <View style={f.suggestBox}>
+          {suggestions.map((s, i) => (
+            <TouchableOpacity
+              key={i}
+              style={[f.suggestRow, i === suggestions.length - 1 && { borderBottomWidth: 0 }]}
+              onPress={() => handleSelect(s)}
+            >
+              <Map size={14} color={MUTED} />
+              <Text style={f.suggestText} numberOfLines={2}>{s.display_name}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      )}
+    </View>
+  );
+}
+
 const emptyForm = () => ({
   vehicle_id: "", driver_id: "", origin: "", destination: "",
   start_date: new Date().toISOString().slice(0, 10), end_date: "",
@@ -102,6 +161,9 @@ export default function TripsScreen() {
   const [modalVisible, setModalVisible] = useState(false);
   const [saving,  setSaving]  = useState(false);
   const [form,    setForm]    = useState(emptyForm());
+  const [originCoord, setOriginCoord] = useState<{ lat: number; lon: number } | null>(null);
+  const [destCoord,   setDestCoord]   = useState<{ lat: number; lon: number } | null>(null);
+  const [distCalc, setDistCalc] = useState<"idle" | "loading" | "done" | "error">("idle");
 
   const load = useCallback(async () => {
     const [t, v, d] = await Promise.all([
@@ -155,12 +217,46 @@ export default function TripsScreen() {
       notes:         form.notes.trim() || null,
       status: "planned",
     } as any);
-    if (res.success) { setModalVisible(false); setForm(emptyForm()); load(); }
+    if (res.success) {
+      setModalVisible(false); setForm(emptyForm());
+      setOriginCoord(null); setDestCoord(null); setDistCalc("idle");
+      load();
+    }
     else Alert.alert("Error", res.error ?? "Could not create trip.");
     setSaving(false);
   };
 
   const setF = (k: string, v: string) => setForm(f => ({ ...f, [k]: v }));
+
+  const handleSelectOrigin = (name: string, lat: number, lon: number) => {
+    setF("origin", name);
+    setOriginCoord({ lat, lon });
+  };
+  const handleSelectDestination = (name: string, lat: number, lon: number) => {
+    setF("destination", name);
+    setDestCoord({ lat, lon });
+  };
+
+  // Auto-calculate distance once both origin and destination resolve to coordinates.
+  // Prefers coords from a tapped suggestion; falls back to geocoding free-typed text.
+  useEffect(() => {
+    if (form.origin.trim().length < 3 || form.destination.trim().length < 3) { setDistCalc("idle"); return; }
+    setDistCalc("loading");
+    const timer = setTimeout(async () => {
+      const [from, to] = await Promise.all([
+        originCoord ?? geocode(form.origin),
+        destCoord ?? geocode(form.destination),
+      ]);
+      if (from && to) {
+        setF("distance_km", String(haversineKm(from.lat, from.lon, to.lat, to.lon)));
+        setDistCalc("done");
+      } else {
+        setDistCalc("error");
+      }
+    }, 500);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form.origin, form.destination, originCoord, destCoord]);
 
   const completeTrip = (tripId: string) => {
     Alert.alert("Complete Trip", "Mark this trip as completed?", [
@@ -300,16 +396,27 @@ export default function TripsScreen() {
               <EntityPicker label="Driver" value={form.driver_id} options={driverOptions} onSelect={id => setF("driver_id", id)} placeholder="Select driver (optional)" />
 
               <Text style={f.section}>Route</Text>
-              <Field label="Origin *" value={form.origin} onChangeText={(v: string) => setF("origin", v)} placeholder="Departure city" />
-              <Field label="Destination *" value={form.destination} onChangeText={(v: string) => setF("destination", v)} placeholder="Arrival city" />
+              <LocationField
+                label="Origin *" value={form.origin} placeholder="Departure city"
+                onChangeText={(v: string) => { setF("origin", v); setOriginCoord(null); }}
+                onSelectPlace={handleSelectOrigin}
+              />
+              <LocationField
+                label="Destination *" value={form.destination} placeholder="Arrival city"
+                onChangeText={(v: string) => { setF("destination", v); setDestCoord(null); }}
+                onSelectPlace={handleSelectDestination}
+              />
               <Field label="Distance (km)" value={form.distance_km} onChangeText={(v: string) => setF("distance_km", v)} placeholder="e.g. 450" keyboardType="numeric" />
+              {distCalc === "loading" && <Text style={f.distHint}>Calculating distance…</Text>}
+              {distCalc === "done" && <Text style={[f.distHint, { color: SUCCESS }]}>Estimated automatically — adjust if needed</Text>}
+              {distCalc === "error" && <Text style={[f.distHint, { color: MUTED }]}>Couldn't auto-estimate — enter manually</Text>}
 
               <Text style={f.section}>Schedule</Text>
               <Field label="Start Date" value={form.start_date} onChangeText={(v: string) => setF("start_date", v)} placeholder="YYYY-MM-DD" keyboardType="numeric" autoCapitalize="none" />
               <Field label="Expected End Date" value={form.end_date} onChangeText={(v: string) => setF("end_date", v)} placeholder="YYYY-MM-DD" keyboardType="numeric" autoCapitalize="none" />
 
               <Text style={f.section}>Freight & Payment</Text>
-              <Field label="Freight Amount (₹) *" value={form.freight_amount} onChangeText={(v: string) => setF("freight_amount", v)} placeholder="e.g. 45000" keyboardType="numeric" autoCapitalize="none" />
+              <Field label="Freight Amount (₹)" value={form.freight_amount} onChangeText={(v: string) => setF("freight_amount", v)} placeholder="e.g. 45000" keyboardType="numeric" autoCapitalize="none" />
               <Field label="Driver Advance (₹)" value={form.driver_advance} onChangeText={(v: string) => setF("driver_advance", v)} placeholder="e.g. 5000" keyboardType="numeric" autoCapitalize="none" />
 
               <Text style={f.section}>Cargo Details</Text>
@@ -369,6 +476,19 @@ const f = StyleSheet.create({
   saveBtn: { backgroundColor: PRIMARY, borderRadius: 12, padding: 16, alignItems: "center" },
   disabled: { opacity: 0.6 },
   saveBtnText: { color: "#fff", fontWeight: "700", fontSize: 16 },
+  locSpinner: { position: "absolute", right: 12, top: 14 },
+  suggestBox: {
+    backgroundColor: "#fff", borderWidth: 1, borderColor: BORDER, borderRadius: 10,
+    marginTop: 4, overflow: "hidden",
+    shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 6,
+    elevation: 4,
+  },
+  suggestRow: {
+    flexDirection: "row", alignItems: "flex-start", gap: 8,
+    padding: 12, borderBottomWidth: 1, borderBottomColor: "#F0F0F0",
+  },
+  suggestText: { flex: 1, fontSize: 13, color: TEXT, lineHeight: 17 },
+  distHint: { fontSize: 12, color: MUTED, marginTop: -6, marginBottom: 12 },
 });
 
 const s = StyleSheet.create({

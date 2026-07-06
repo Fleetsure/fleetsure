@@ -6,11 +6,12 @@ import {
   TouchableOpacity,
   ScrollView,
   Image,
+  Alert,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import { Users, Droplets, BarChart2, Settings, ChevronRight, type LucideIcon } from "lucide-react-native";
+import { Users, Droplets, BarChart2, Settings, LogOut, ChevronRight, type LucideIcon } from "lucide-react-native";
 
 import { useAuth } from "../context/AuthContext";
 import type { MoreStackParamList } from "../navigation";
@@ -19,23 +20,27 @@ import { PRIMARY, BG, CARD, TEXT, TEXT_MUTED, BORDER, DANGER } from "../theme";
 
 type Nav = NativeStackNavigationProp<MoreStackParamList>;
 
+// Grouping mirrors the web app's mobile "More" menu (Fleet items, then an
+// Expenses group, then a Compliance group). Web has several more entries
+// (Tolls, Tyres, Fleet Health, Insurance & Renewals, Marketplace, Parties,
+// Documents, Import Data) that don't have a mobile screen yet.
 const MENU_ITEMS: { group: string; items: { screen: keyof MoreStackParamList; label: string; desc: string; icon: LucideIcon; color: string }[] }[] = [
   {
     group: "Fleet",
     items: [
       { screen: "Drivers", label: "Drivers", desc: "Manage drivers assigned to your fleet", icon: Users, color: "#1E2D8E" },
+    ],
+  },
+  {
+    group: "Expenses",
+    items: [
       { screen: "Fuel", label: "Fuel Logs", desc: "Track fuel fill-ups per vehicle", icon: Droplets, color: "#0E7490" },
     ],
   },
   {
-    group: "Insights",
+    group: "Compliance",
     items: [
       { screen: "Reports", label: "Reports & Analytics", desc: "P&L summary and vehicle performance", icon: BarChart2, color: "#7C3AED" },
-    ],
-  },
-  {
-    group: "Account",
-    items: [
       { screen: "Settings", label: "Settings", desc: "Profile, organisation and preferences", icon: Settings, color: TEXT_MUTED },
     ],
   },
@@ -43,7 +48,14 @@ const MENU_ITEMS: { group: string; items: { screen: keyof MoreStackParamList; la
 
 export default function MoreScreen() {
   const navigation = useNavigation<Nav>();
-  const { user } = useAuth();
+  const { user, signOut } = useAuth();
+
+  const handleLogout = () => {
+    Alert.alert("Log Out", "Are you sure you want to log out?", [
+      { text: "Cancel", style: "cancel" },
+      { text: "Log Out", style: "destructive", onPress: signOut },
+    ]);
+  };
 
   return (
     <SafeAreaView style={styles.safe} edges={["top"]}>
@@ -92,6 +104,11 @@ export default function MoreScreen() {
             </View>
           </View>
         ))}
+
+        <TouchableOpacity style={styles.logoutRow} onPress={handleLogout} activeOpacity={0.7}>
+          <LogOut size={18} color={DANGER} />
+          <Text style={styles.logoutText}>Log Out</Text>
+        </TouchableOpacity>
 
         <Text style={styles.footer}>FleetSure v1.0.0 · Made with ❤️ in Bengaluru</Text>
       </ScrollView>
@@ -155,5 +172,20 @@ const styles = StyleSheet.create({
   menuText: { flex: 1 },
   menuLabel: { fontSize: 15, fontWeight: "700", color: TEXT },
   menuDesc: { fontSize: 12, color: TEXT_MUTED, marginTop: 2 },
+  logoutRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    backgroundColor: CARD,
+    borderRadius: 14,
+    padding: 16,
+    justifyContent: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  logoutText: { fontSize: 15, fontWeight: "700", color: DANGER },
   footer: { textAlign: "center", fontSize: 12, color: TEXT_MUTED },
 });
