@@ -2,9 +2,10 @@ import React, { useCallback, useState } from "react";
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   RefreshControl, ActivityIndicator, Linking, Alert, Modal, Pressable,
+  TextInput, FlatList,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useFocusEffect } from "@react-navigation/native";
+import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import {
   Bell, Search, MessageCircle, ChevronLeft, ChevronRight,
   Truck, Users, Map, TrendingUp, X, ShieldAlert, ShieldCheck, type LucideIcon,
@@ -26,8 +27,14 @@ function getGreeting() {
   return h < 12 ? "Good morning" : h < 17 ? "Good afternoon" : "Good evening";
 }
 
+type SearchResult = { id: string; type: "vehicle" | "driver" | "trip"; label: string; sub: string };
+
 export default function DashboardScreen() {
   const { user } = useAuth();
+  // Cross-tab navigation (Vehicles/Trips/More are sibling tabs, some with
+  // nested stacks) — typed navigation across the whole tree gets verbose,
+  // so this one is intentionally loose.
+  const navigation = useNavigation<any>();
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [drivers,  setDrivers]  = useState<Driver[]>([]);
   const [trips,    setTrips]    = useState<Trip[]>([]);
@@ -39,6 +46,8 @@ export default function DashboardScreen() {
   const [insightIdx, setInsightIdx] = useState(0);
   const [alerts, setAlerts] = useState<{ severity: string; title: string }[]>([]);
   const [notifOpen, setNotifOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
 
   const load = useCallback(async () => {
     try {
@@ -116,6 +125,31 @@ export default function DashboardScreen() {
   }
   const currentInsight = insights[insightIdx % Math.max(insights.length, 1)];
 
+  const searchResults: SearchResult[] = (() => {
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return [];
+    const vehicleResults: SearchResult[] = vehicles
+      .filter(v => v.registration_number?.toLowerCase().includes(q) || v.make?.toLowerCase().includes(q) || v.model?.toLowerCase().includes(q))
+      .slice(0, 4)
+      .map(v => ({ id: v.id, type: "vehicle", label: v.registration_number, sub: [v.make, v.model].filter(Boolean).join(" ") || "Vehicle" }));
+    const driverResults: SearchResult[] = drivers
+      .filter(d => d.name?.toLowerCase().includes(q) || d.phone?.toLowerCase().includes(q))
+      .slice(0, 4)
+      .map(d => ({ id: d.id, type: "driver", label: d.name, sub: d.phone || "Driver" }));
+    const tripResults: SearchResult[] = trips
+      .filter(t => t.origin?.toLowerCase().includes(q) || t.destination?.toLowerCase().includes(q) || t.driver_name?.toLowerCase().includes(q))
+      .slice(0, 4)
+      .map(t => ({ id: t.id, type: "trip", label: `${t.origin} → ${t.destination}`, sub: t.driver_name || "Trip" }));
+    return [...vehicleResults, ...driverResults, ...tripResults];
+  })();
+
+  const handleSelectResult = (r: SearchResult) => {
+    setSearchOpen(false); setSearchQuery("");
+    if (r.type === "vehicle") navigation.navigate("VehiclesTab");
+    else if (r.type === "driver") navigation.navigate("MoreTab", { screen: "Drivers" });
+    else navigation.navigate("TripsTab", { screen: "TripDetail", params: { tripId: r.id } });
+  };
+
   if (loading) {
     return (
       <View style={styles.center}>
@@ -143,7 +177,7 @@ export default function DashboardScreen() {
               <Bell size={20} color={MUTED} />
               {alerts.length > 0 && <View style={styles.notifDot} />}
             </TouchableOpacity>
-            <TouchableOpacity style={styles.searchBtn}>
+            <TouchableOpacity style={styles.searchBtn} onPress={() => setSearchOpen(true)}>
               <Search size={15} color={MUTED} />
               <Text style={styles.searchBtnText}>Search</Text>
             </TouchableOpacity>
@@ -351,6 +385,59 @@ export default function DashboardScreen() {
           </Pressable>
         </Pressable>
       </Modal>
+
+      <Modal
+        visible={searchOpen}
+        transparent
+        animationType="fade"
+        onRequestClose={() => { setSearchOpen(false); setSearchQuery(""); }}
+      >
+        <Pressable style={styles.notifOverlay} onPress={() => { setSearchOpen(false); setSearchQuery(""); }}>
+          <Pressable style={[styles.notifPanel, { marginTop: 50, width: "92%", maxWidth: 420 }]} onPress={(e) => e.stopPropagation()}>
+            <View style={styles.searchInputRow}>
+              <Search size={16} color={MUTED} />
+              <TextInput
+                style={styles.searchInput}
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+                placeholder="Search vehicles, drivers, trips…"
+                placeholderTextColor={MUTED}
+                autoFocus
+              />
+              <TouchableOpacity onPress={() => { setSearchOpen(false); setSearchQuery(""); }} hitSlop={8}>
+                <X size={20} color={MUTED} />
+              </TouchableOpacity>
+            </View>
+            {searchQuery.trim() === "" ? (
+              <View style={styles.notifEmpty}>
+                <Text style={styles.notifEmptyText}>Search vehicles, drivers, trips…</Text>
+              </View>
+            ) : searchResults.length === 0 ? (
+              <View style={styles.notifEmpty}>
+                <Text style={styles.notifEmptyText}>No results for "{searchQuery}"</Text>
+              </View>
+            ) : (
+              <FlatList
+                style={{ maxHeight: 320 }}
+                data={searchResults}
+                keyExtractor={r => `${r.type}-${r.id}`}
+                renderItem={({ item }) => {
+                  const Icon = item.type === "vehicle" ? Truck : item.type === "driver" ? Users : Map;
+                  return (
+                    <TouchableOpacity style={styles.notifRow} onPress={() => handleSelectResult(item)}>
+                      <Icon size={18} color={PRIMARY} />
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.notifRowText}>{item.label}</Text>
+                        <Text style={styles.searchResultSub}>{item.sub}</Text>
+                      </View>
+                    </TouchableOpacity>
+                  );
+                }}
+              />
+            )}
+          </Pressable>
+        </Pressable>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -457,6 +544,13 @@ const styles = StyleSheet.create({
     paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: BORDER,
   },
   notifRowText: { flex: 1, fontSize: 13, color: TEXT, lineHeight: 18 },
+  searchInputRow: {
+    flexDirection: "row", alignItems: "center", gap: 8,
+    backgroundColor: BG, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10,
+    marginBottom: 12,
+  },
+  searchInput: { flex: 1, fontSize: 14, color: TEXT },
+  searchResultSub: { fontSize: 12, color: MUTED, marginTop: 1 },
   searchBtn: {
     flexDirection: "row", alignItems: "center", gap: 5,
     backgroundColor: CARD, borderRadius: 20,
