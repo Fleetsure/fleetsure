@@ -11,7 +11,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import { Users, Droplets, BarChart2, Settings, LogOut, ChevronRight, type LucideIcon } from "lucide-react-native";
+import { Users, Droplets, CircleGauge, BarChart2, Settings, LogOut, ChevronRight, type LucideIcon } from "lucide-react-native";
 
 import { useAuth } from "../context/AuthContext";
 import type { MoreStackParamList } from "../navigation";
@@ -35,6 +35,7 @@ const MENU_ITEMS: { group: string; items: { screen: keyof MoreStackParamList; la
     group: "Expenses",
     items: [
       { screen: "Fuel", label: "Fuel Logs", desc: "Track fuel fill-ups per vehicle", icon: Droplets, color: "#0E7490" },
+      { screen: "Tyres", label: "Tyre Intelligence", desc: "Tyre health, replacement predictions and expense logs", icon: CircleGauge, color: "#7C2D12" },
     ],
   },
   {

@@ -14,6 +14,7 @@ import DriversScreen from "../screens/DriversScreen";
 import TripsScreen from "../screens/TripsScreen";
 import TripDetailScreen from "../screens/TripDetailScreen";
 import FuelScreen from "../screens/FuelScreen";
+import TyresScreen from "../screens/TyresScreen";
 import ExpensesScreen from "../screens/ExpensesScreen";
 import ReportsScreen from "../screens/ReportsScreen";
 import SettingsScreen from "../screens/SettingsScreen";
@@ -36,6 +37,7 @@ export type TripsStackParamList = {
 export type MoreStackParamList = {
   MoreMenu: undefined;
   Fuel: undefined;
+  Tyres: undefined;
   Drivers: undefined;
   Reports: undefined;
   Settings: undefined;
@@ -60,6 +62,7 @@ function MoreNavigator() {
     <MoreStack.Navigator screenOptions={{ headerShown: false }}>
       <MoreStack.Screen name="MoreMenu" component={MoreScreen} />
       <MoreStack.Screen name="Fuel" component={FuelScreen} />
+      <MoreStack.Screen name="Tyres" component={TyresScreen} />
       <MoreStack.Screen name="Drivers" component={DriversScreen} />
       <MoreStack.Screen name="Reports" component={ReportsScreen} />
       <MoreStack.Screen name="Settings" component={SettingsScreen} />

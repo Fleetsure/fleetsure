@@ -18,6 +18,8 @@ import type { TripsStackParamList } from "../navigation";
 import { PRIMARY, BG, CARD, TEXT, MUTED, BORDER, DANGER, SUCCESS, WARNING } from "../theme";
 import { TRIP_STATUS_STYLE as STATUS_STYLE } from "../constants/tripStatus";
 import { searchPlaces, geocode, haversineKm, type PlaceSuggestion } from "../utils/geo";
+import { DateField } from "../components/DateField";
+import { autoSyncTripToTyres } from "../services/tyreSetupService";
 
 type Nav = NativeStackNavigationProp<TripsStackParamList>;
 
@@ -264,6 +266,8 @@ export default function TripsScreen() {
       {
         text: "Complete", onPress: async () => {
           await tripService.update(tripId, { status: "completed" } as any);
+          const trip = trips.find(t => t.id === tripId);
+          if (trip) autoSyncTripToTyres(trip);
           load();
         },
       },
@@ -412,8 +416,8 @@ export default function TripsScreen() {
               {distCalc === "error" && <Text style={[f.distHint, { color: MUTED }]}>Couldn't auto-estimate — enter manually</Text>}
 
               <Text style={f.section}>Schedule</Text>
-              <Field label="Start Date" value={form.start_date} onChangeText={(v: string) => setF("start_date", v)} placeholder="YYYY-MM-DD" keyboardType="numeric" autoCapitalize="none" />
-              <Field label="Expected End Date" value={form.end_date} onChangeText={(v: string) => setF("end_date", v)} placeholder="YYYY-MM-DD" keyboardType="numeric" autoCapitalize="none" />
+              <DateField label="Start Date" value={form.start_date} onChangeIso={(v) => setF("start_date", v)} />
+              <DateField label="Expected End Date" value={form.end_date} onChangeIso={(v) => setF("end_date", v)} />
 
               <Text style={f.section}>Freight & Payment</Text>
               <Field label="Freight Amount (₹)" value={form.freight_amount} onChangeText={(v: string) => setF("freight_amount", v)} placeholder="e.g. 45000" keyboardType="numeric" autoCapitalize="none" />

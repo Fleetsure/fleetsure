@@ -139,3 +139,17 @@ export interface MiscExpense {
   description?: string | null;
   notes?: string | null;
 }
+
+export interface TyreLog {
+  id: string;
+  owner_id: string;
+  vehicle_id: string;
+  date: string;
+  amount: number;
+  tyre_brand?: string | null;
+  tyre_count?: number | null;
+  tyre_type?: string | null;
+  tyre_position?: string | null;
+  odometer_km?: number | null;
+  notes?: string | null;
+}

@@ -6,12 +6,12 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useFocusEffect } from "@react-navigation/native";
-import DateTimePicker from "@react-native-community/datetimepicker";
-import { ChevronDown, Check, Bell, Search, AlertCircle, Plus, Truck, Pencil, Trash2, ArrowLeft, Calendar, type LucideIcon } from "lucide-react-native";
+import { ChevronDown, Check, Bell, Search, AlertCircle, Plus, Truck, Pencil, Trash2, ArrowLeft, type LucideIcon } from "lucide-react-native";
 import { vehicleService } from "../services/vehicleService";
 import type { Vehicle } from "../types";
 
 import { PRIMARY, BG, CARD, TEXT, MUTED, BORDER, DANGER, SUCCESS, WARNING } from "../theme";
+import { DateField, isoToDisplay } from "../components/DateField";
 
 const STATUS_STYLE: Record<string, { bg: string; color: string; label: string }> = {
   active:      { bg: "#F0FDF4", color: SUCCESS, label: "Active" },
@@ -97,53 +97,6 @@ function Field({ label, value, onChangeText, placeholder, keyboardType, autoCapi
         placeholder={placeholder} placeholderTextColor={MUTED}
         keyboardType={keyboardType ?? "default"} autoCapitalize={autoCapitalize ?? "words"}
       />
-    </View>
-  );
-}
-
-// Stored/sent to Postgres as ISO "YYYY-MM-DD"; shown to the user as "DD/MM/YYYY".
-function isoToDisplay(iso?: string | null): string {
-  if (!iso) return "";
-  const [y, m, d] = iso.split("-");
-  if (!y || !m || !d) return "";
-  return `${d}/${m}/${y}`;
-}
-
-function isoToDate(iso?: string | null): Date {
-  if (iso) {
-    const [y, m, d] = iso.split("-").map(Number);
-    if (y && m && d) return new Date(y, m - 1, d);
-  }
-  return new Date();
-}
-
-function dateToIso(d: Date): string {
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${y}-${m}-${day}`;
-}
-
-function DateField({ label, value, onChangeIso }: { label: string; value?: string | null; onChangeIso: (iso: string) => void }) {
-  const [open, setOpen] = useState(false);
-  return (
-    <View style={f.fieldGroup}>
-      <Text style={f.label}>{label}</Text>
-      <TouchableOpacity style={f.pickerBtn} onPress={() => setOpen(true)}>
-        <Text style={[f.pickerText, !value && { color: MUTED }]}>{value ? isoToDisplay(value) : "DD/MM/YYYY"}</Text>
-        <Calendar size={16} color={MUTED} />
-      </TouchableOpacity>
-      {open && (
-        <DateTimePicker
-          value={isoToDate(value)}
-          mode="date"
-          display="calendar"
-          onChange={(event, selectedDate) => {
-            setOpen(false);
-            if (event.type === "set" && selectedDate) onChangeIso(dateToIso(selectedDate));
-          }}
-        />
-      )}
     </View>
   );
 }

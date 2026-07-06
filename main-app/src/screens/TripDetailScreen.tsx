@@ -23,6 +23,7 @@ import type { TripsStackParamList } from "../navigation";
 
 import { PRIMARY, BG, CARD, TEXT, TEXT_MUTED, BORDER, DANGER, SUCCESS, WARNING } from "../theme";
 import { fmtDate } from "../utils/format";
+import { autoSyncTripToTyres } from "../services/tyreSetupService";
 import { TRIP_STATUS_STYLE as STATUS_CONFIG, NEXT_STATUS, NEXT_STATUS_LABEL } from "../constants/tripStatus";
 
 const EXPENSE_TYPES = [
@@ -94,6 +95,7 @@ export default function TripDetailScreen() {
             const updates: Partial<Trip> = { status: next };
             if (next === "completed") updates.end_date = new Date().toISOString().slice(0, 10);
             await tripService.update(trip.id, updates);
+            if (next === "completed") autoSyncTripToTyres(trip);
             await load();
             setUpdatingStatus(false);
           },
