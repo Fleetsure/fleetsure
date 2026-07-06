@@ -119,6 +119,7 @@ export default function VehiclesScreen() {
   const [editId,     setEditId]     = useState<string | null>(null);
   const [form,       setForm]       = useState<Partial<Vehicle>>(emptyForm());
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [statusFilter, setStatusFilter] = useState<"all" | "maintenance" | "insurance_due">("all");
 
   const load = useCallback(async () => {
     const r = await vehicleService.getAll();
@@ -190,12 +191,36 @@ export default function VehiclesScreen() {
     return d !== null && d <= 30;
   }).length;
 
-  const filtered = vehicles.filter(v =>
-    !search ||
-    v.registration_number.toLowerCase().includes(search.toLowerCase()) ||
-    v.make.toLowerCase().includes(search.toLowerCase()) ||
-    v.model.toLowerCase().includes(search.toLowerCase())
-  );
+  const filtered = vehicles
+    .filter(v =>
+      !search ||
+      v.registration_number.toLowerCase().includes(search.toLowerCase()) ||
+      v.make.toLowerCase().includes(search.toLowerCase()) ||
+      v.model.toLowerCase().includes(search.toLowerCase())
+    )
+    .filter(v => {
+      if (statusFilter === "maintenance") return v.status === "maintenance";
+      if (statusFilter === "insurance_due") {
+        const d = daysUntil(v.insurance_expiry);
+        return d !== null && d <= 30;
+      }
+      return true;
+    });
+
+  // Tapping a stat card jumps straight to the matching vehicle(s); if there's
+  // exactly one match, expand it directly instead of leaving the user to find
+  // it in the filtered list.
+  const applyStatusFilter = (mode: "maintenance" | "insurance_due") => {
+    const next = statusFilter === mode ? "all" : mode;
+    setStatusFilter(next);
+    if (next === "all") { setExpandedId(null); return; }
+    const matches = vehicles.filter(v =>
+      next === "maintenance"
+        ? v.status === "maintenance"
+        : (d => d !== null && d <= 30)(daysUntil(v.insurance_expiry))
+    );
+    setExpandedId(matches.length === 1 ? matches[0].id : null);
+  };
 
   if (loading) return <View style={s.center}><ActivityIndicator color={PRIMARY} size="large" /></View>;
 
@@ -223,14 +248,29 @@ export default function VehiclesScreen() {
         <SCard value={vehicles.length} label="Total Vehicles" color={PRIMARY}  bg="#EEF2FF" icon={Truck} />
         <SCard value={available}       label="Available"       color={SUCCESS}  bg="#F0FDF4" icon={Check} />
         <SCard value={onTrip}          label="On Trip"         color={WARNING}  bg="#FFF7ED" icon={Bell} />
-        <SCard value={maintenance}     label="In Maintenance"  color={DANGER}   bg="#FEF2F2" icon={AlertCircle} />
-        <SCard value={insDue}          label="Insurance Due"   color={insDue > 0 ? DANGER : SUCCESS} bg={insDue > 0 ? "#FEF2F2" : "#F0FDF4"} icon={AlertCircle} />
+        <SCard
+          value={maintenance} label="In Maintenance" color={DANGER} bg="#FEF2F2" icon={AlertCircle}
+          active={statusFilter === "maintenance"}
+          onPress={maintenance > 0 ? () => applyStatusFilter("maintenance") : undefined}
+        />
+        <SCard
+          value={insDue} label="Insurance Due" color={insDue > 0 ? DANGER : SUCCESS} bg={insDue > 0 ? "#FEF2F2" : "#F0FDF4"} icon={AlertCircle}
+          active={statusFilter === "insurance_due"}
+          onPress={insDue > 0 ? () => applyStatusFilter("insurance_due") : undefined}
+        />
       </View>
       {insDue > 0 && (
-        <View style={s.alertBanner}>
+        <TouchableOpacity style={s.alertBanner} onPress={() => applyStatusFilter("insurance_due")} activeOpacity={0.7}>
           <AlertCircle size={16} color={WARNING} />
           <Text style={s.alertText}>{insDue} vehicle{insDue > 1 ? "s" : ""} with compliance expiring within 30 days</Text>
-        </View>
+        </TouchableOpacity>
+      )}
+      {statusFilter !== "all" && (
+        <TouchableOpacity style={s.clearFilterChip} onPress={() => { setStatusFilter("all"); setExpandedId(null); }}>
+          <Text style={s.clearFilterText}>
+            Showing {statusFilter === "maintenance" ? "vehicles in maintenance" : "vehicles with insurance due"} · Clear
+          </Text>
+        </TouchableOpacity>
       )}
 
       {/* Search + Add */}
@@ -259,7 +299,9 @@ export default function VehiclesScreen() {
         ListEmptyComponent={
           <View style={s.empty}>
             <Truck size={48} color={MUTED} />
-            <Text style={s.emptyText}>No vehicles yet. Add your first truck!</Text>
+            <Text style={s.emptyText}>
+              {statusFilter !== "all" ? "No vehicles match this filter." : "No vehicles yet. Add your first truck!"}
+            </Text>
           </View>
         }
         renderItem={({ item: v }) => {
@@ -372,18 +414,27 @@ export default function VehiclesScreen() {
   );
 }
 
-function SCard({ value, label, color, bg, icon: Icon }: { value: number; label: string; color: string; bg: string; icon: LucideIcon }) {
+function SCard({ value, label, color, bg, icon: Icon, onPress, active }: {
+  value: number; label: string; color: string; bg: string; icon: LucideIcon;
+  onPress?: () => void; active?: boolean;
+}) {
   return (
-    <View style={[sc.card, { backgroundColor: bg }]}>
+    <TouchableOpacity
+      style={[sc.card, { backgroundColor: bg }, active && sc.cardActive]}
+      onPress={onPress}
+      disabled={!onPress}
+      activeOpacity={0.7}
+    >
       <Icon size={20} color={color} />
       <Text style={[sc.value, { color }]}>{value}</Text>
       <Text style={sc.label}>{label}</Text>
-    </View>
+    </TouchableOpacity>
   );
 }
 
 const sc = StyleSheet.create({
   card: { width: "48%", borderRadius: 12, padding: 12, alignItems: "center", gap: 4 },
+  cardActive: { borderWidth: 2, borderColor: PRIMARY },
   value: { fontSize: 22, fontWeight: "800" },
   label: { fontSize: 10, color: MUTED, fontWeight: "500", textAlign: "center" },
 });
@@ -438,6 +489,12 @@ const s = StyleSheet.create({
     marginHorizontal: 16, marginBottom: 8, borderRadius: 10, padding: 10,
   },
   alertText: { fontSize: 12, color: WARNING, fontWeight: "600", flex: 1 },
+  clearFilterChip: {
+    flexDirection: "row", alignItems: "center",
+    backgroundColor: "#EEF2FF", marginHorizontal: 16, marginBottom: 8,
+    borderRadius: 10, paddingVertical: 8, paddingHorizontal: 12,
+  },
+  clearFilterText: { fontSize: 12, color: PRIMARY, fontWeight: "700" },
   searchRow: { flexDirection: "row", gap: 10, paddingHorizontal: 16, marginBottom: 8, alignItems: "center" },
   searchInput: {
     flex: 1, flexDirection: "row", alignItems: "center", gap: 8,
