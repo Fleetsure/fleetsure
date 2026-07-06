@@ -3,6 +3,7 @@ import { ActivityIndicator, View } from "react-native";
 import { NavigationContainer } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LayoutGrid, Map, Truck, Receipt, MoreHorizontal, type LucideIcon } from "lucide-react-native";
 
 import { useAuth } from "../context/AuthContext";
@@ -75,6 +76,11 @@ const TAB_CONFIG: Record<string, { label: string; icon: LucideIcon }> = {
 };
 
 function MainTabs() {
+  const insets = useSafeAreaInsets();
+  // 3-button-nav Android devices reserve a tall opaque system bar (large
+  // bottom inset); gesture-nav devices reserve almost nothing. Padding the
+  // tab bar with the real inset keeps labels clear of the system bar on both.
+  const tabBarBottomPadding = Math.max(10, insets.bottom);
   return (
     <Tab.Navigator
       screenOptions={({ route }) => {
@@ -86,8 +92,8 @@ function MainTabs() {
           tabBarStyle: {
             backgroundColor: PRIMARY,
             borderTopWidth: 0,
-            height: 64,
-            paddingBottom: 10,
+            height: 54 + tabBarBottomPadding,
+            paddingBottom: tabBarBottomPadding,
             paddingTop: 6,
             elevation: 20,
             shadowColor: PRIMARY,

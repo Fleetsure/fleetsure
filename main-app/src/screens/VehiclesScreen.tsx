@@ -6,7 +6,8 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useFocusEffect } from "@react-navigation/native";
-import { ChevronDown, Check, Bell, Search, AlertCircle, Plus, Truck, Pencil, Trash2, ArrowLeft, type LucideIcon } from "lucide-react-native";
+import DateTimePicker from "@react-native-community/datetimepicker";
+import { ChevronDown, Check, Bell, Search, AlertCircle, Plus, Truck, Pencil, Trash2, ArrowLeft, Calendar, type LucideIcon } from "lucide-react-native";
 import { vehicleService } from "../services/vehicleService";
 import type { Vehicle } from "../types";
 
@@ -19,7 +20,13 @@ const STATUS_STYLE: Record<string, { bg: string; color: string; label: string }>
   inactive:    { bg: "#F3F4F6", color: MUTED,   label: "Inactive" },
 };
 
-const VEHICLE_TYPES   = ["Truck", "Trailer", "Mini-Truck", "Tanker", "Container", "Other"];
+// Must match the `vehicletype` Postgres enum (lowercase/snake_case) — the
+// DB rejects anything else. Display labels are mapped separately below.
+const VEHICLE_TYPES = ["truck", "mini_truck", "trailer", "tanker", "container", "other"];
+const VEHICLE_TYPE_LABELS: Record<string, string> = {
+  truck: "Truck", mini_truck: "Mini-Truck", trailer: "Trailer",
+  tanker: "Tanker", container: "Container", other: "Other",
+};
 const FUEL_TYPES      = ["Diesel", "Petrol", "CNG", "Electric"];
 const STATUS_OPTIONS  = ["active", "in_trip", "maintenance", "inactive"];
 
@@ -46,15 +53,16 @@ function ComplianceBadge({ label, days }: { label: string; days: number | null }
   );
 }
 
-function PickerRow({ label, value, options, onSelect }: {
-  label: string; value: string; options: string[]; onSelect: (v: string) => void;
+function PickerRow({ label, value, options, onSelect, labels }: {
+  label: string; value: string; options: string[]; onSelect: (v: string) => void; labels?: Record<string, string>;
 }) {
   const [open, setOpen] = useState(false);
+  const displayFor = (opt: string) => labels?.[opt] ?? STATUS_STYLE[opt]?.label ?? opt;
   return (
     <View style={f.fieldGroup}>
       <Text style={f.label}>{label}</Text>
       <TouchableOpacity style={f.pickerBtn} onPress={() => setOpen(true)}>
-        <Text style={f.pickerText}>{value || "Select…"}</Text>
+        <Text style={f.pickerText}>{value ? displayFor(value) : "Select…"}</Text>
         <ChevronDown size={16} color={MUTED} />
       </TouchableOpacity>
       <Modal visible={open} transparent animationType="fade">
@@ -68,7 +76,7 @@ function PickerRow({ label, value, options, onSelect }: {
                 onPress={() => { onSelect(opt); setOpen(false); }}
               >
                 <Text style={[f.sheetOptionText, opt === value && { color: PRIMARY, fontWeight: "700" }]}>
-                  {STATUS_STYLE[opt]?.label ?? opt}
+                  {displayFor(opt)}
                 </Text>
                 {opt === value && <Check size={16} color={PRIMARY} />}
               </TouchableOpacity>
@@ -93,9 +101,56 @@ function Field({ label, value, onChangeText, placeholder, keyboardType, autoCapi
   );
 }
 
+// Stored/sent to Postgres as ISO "YYYY-MM-DD"; shown to the user as "DD/MM/YYYY".
+function isoToDisplay(iso?: string | null): string {
+  if (!iso) return "";
+  const [y, m, d] = iso.split("-");
+  if (!y || !m || !d) return "";
+  return `${d}/${m}/${y}`;
+}
+
+function isoToDate(iso?: string | null): Date {
+  if (iso) {
+    const [y, m, d] = iso.split("-").map(Number);
+    if (y && m && d) return new Date(y, m - 1, d);
+  }
+  return new Date();
+}
+
+function dateToIso(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
+function DateField({ label, value, onChangeIso }: { label: string; value?: string | null; onChangeIso: (iso: string) => void }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <View style={f.fieldGroup}>
+      <Text style={f.label}>{label}</Text>
+      <TouchableOpacity style={f.pickerBtn} onPress={() => setOpen(true)}>
+        <Text style={[f.pickerText, !value && { color: MUTED }]}>{value ? isoToDisplay(value) : "DD/MM/YYYY"}</Text>
+        <Calendar size={16} color={MUTED} />
+      </TouchableOpacity>
+      {open && (
+        <DateTimePicker
+          value={isoToDate(value)}
+          mode="date"
+          display="calendar"
+          onChange={(event, selectedDate) => {
+            setOpen(false);
+            if (event.type === "set" && selectedDate) onChangeIso(dateToIso(selectedDate));
+          }}
+        />
+      )}
+    </View>
+  );
+}
+
 const emptyForm = (): Partial<Vehicle> => ({
   registration_number: "", make: "", model: "", year: undefined,
-  vehicle_type: "Truck", fuel_type: "Diesel", status: "active",
+  vehicle_type: "truck", fuel_type: "Diesel", status: "active",
   color: "", chassis_number: "", engine_number: "", owner_name: "",
   insurance_expiry: "", fitness_expiry: "", permit_expiry: "",
   puc_expiry: "", avg_mileage_kmpl: undefined,
@@ -148,7 +203,7 @@ export default function VehiclesScreen() {
     const payload = {
       registration_number: form.registration_number.trim().toUpperCase(),
       make: form.make.trim(), model: form.model.trim(),
-      year: form.year || null, vehicle_type: form.vehicle_type || "Truck",
+      year: form.year || null, vehicle_type: form.vehicle_type || "truck",
       fuel_type: form.fuel_type || "Diesel", status: form.status || "active",
       color: form.color?.trim() || null, chassis_number: form.chassis_number?.trim() || null,
       engine_number: form.engine_number?.trim() || null, owner_name: form.owner_name?.trim() || null,
@@ -295,7 +350,7 @@ export default function VehiclesScreen() {
                     {v.engine_number  && <DItem label="Engine"   value={v.engine_number} />}
                     {v.owner_name     && <DItem label="Owner"    value={v.owner_name} />}
                     {v.color          && <DItem label="Color"    value={v.color} />}
-                    {v.permit_expiry  && <DItem label="Permit"   value={v.permit_expiry} />}
+                    {v.permit_expiry  && <DItem label="Permit"   value={isoToDisplay(v.permit_expiry)} />}
                   </View>
                   <View style={s.expandActions}>
                     <TouchableOpacity style={s.editBtn} onPress={() => openEdit(v)}>
@@ -332,7 +387,7 @@ export default function VehiclesScreen() {
               <Field label="Model *" value={form.model ?? ""} onChangeText={(v: string) => setF("model", v)} placeholder="e.g. Prima 2528" />
               <Field label="Year" value={form.year?.toString() ?? ""} onChangeText={(v: string) => setF("year", parseInt(v) || undefined)} placeholder="e.g. 2020" keyboardType="numeric" autoCapitalize="none" />
               <Field label="Color" value={form.color ?? ""} onChangeText={(v: string) => setF("color", v)} placeholder="e.g. White" />
-              <PickerRow label="Vehicle Type" value={form.vehicle_type ?? "Truck"} options={VEHICLE_TYPES} onSelect={v => setF("vehicle_type", v)} />
+              <PickerRow label="Vehicle Type" value={form.vehicle_type ?? "truck"} options={VEHICLE_TYPES} onSelect={v => setF("vehicle_type", v)} labels={VEHICLE_TYPE_LABELS} />
               <PickerRow label="Fuel Type"    value={form.fuel_type ?? "Diesel"}   options={FUEL_TYPES}    onSelect={v => setF("fuel_type", v)} />
               <PickerRow label="Status"       value={form.status ?? "active"}       options={STATUS_OPTIONS} onSelect={v => setF("status", v)} />
 
@@ -341,11 +396,11 @@ export default function VehiclesScreen() {
               <Field label="Engine Number"  value={form.engine_number ?? ""}  onChangeText={(v: string) => setF("engine_number", v)}  placeholder="Optional" autoCapitalize="characters" />
               <Field label="Owner Name"     value={form.owner_name ?? ""}     onChangeText={(v: string) => setF("owner_name", v)}     placeholder="Optional" />
 
-              <Text style={f.section}>Compliance Dates (YYYY-MM-DD)</Text>
-              <Field label="Insurance Expiry *" value={form.insurance_expiry ?? ""} onChangeText={(v: string) => setF("insurance_expiry", v)} placeholder="YYYY-MM-DD" keyboardType="numeric" autoCapitalize="none" />
-              <Field label="Fitness Expiry *"   value={form.fitness_expiry ?? ""}   onChangeText={(v: string) => setF("fitness_expiry", v)}   placeholder="YYYY-MM-DD" keyboardType="numeric" autoCapitalize="none" />
-              <Field label="Permit Expiry *"    value={form.permit_expiry ?? ""}    onChangeText={(v: string) => setF("permit_expiry", v)}    placeholder="YYYY-MM-DD" keyboardType="numeric" autoCapitalize="none" />
-              <Field label="PUC Expiry *"       value={form.puc_expiry ?? ""}       onChangeText={(v: string) => setF("puc_expiry", v)}       placeholder="YYYY-MM-DD" keyboardType="numeric" autoCapitalize="none" />
+              <Text style={f.section}>Compliance Dates</Text>
+              <DateField label="Insurance Expiry *" value={form.insurance_expiry} onChangeIso={(v) => setF("insurance_expiry", v)} />
+              <DateField label="Fitness Expiry *"   value={form.fitness_expiry}   onChangeIso={(v) => setF("fitness_expiry", v)} />
+              <DateField label="Permit Expiry *"    value={form.permit_expiry}    onChangeIso={(v) => setF("permit_expiry", v)} />
+              <DateField label="PUC Expiry *"       value={form.puc_expiry}       onChangeIso={(v) => setF("puc_expiry", v)} />
 
               <Text style={f.section}>Performance</Text>
               <Field label="Avg Mileage (km/L)" value={form.avg_mileage_kmpl?.toString() ?? ""} onChangeText={(v: string) => setF("avg_mileage_kmpl", parseFloat(v) || undefined)} placeholder="e.g. 4.5" keyboardType="decimal-pad" autoCapitalize="none" />
