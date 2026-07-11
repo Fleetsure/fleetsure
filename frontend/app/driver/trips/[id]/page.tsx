@@ -51,6 +51,7 @@ export default function TripDetailPage() {
   const [tollAmt,    setTollAmt]    = useState("");
   const [tollPlaza,  setTollPlaza]  = useState("");
   const [tollMode,   setTollMode]   = useState("cash");
+  const [tollImage,  setTollImage]  = useState<File | null>(null);
 
   // Misc/Other form
   const [expDate,  setExpDate]  = useState(today());
@@ -116,13 +117,16 @@ export default function TripDetailPage() {
         date: fuelDate, litres: Number(fuelLitres), amount: Number(fuelAmt),
         ...(fuelOdo     ? { odometer_km: Number(fuelOdo) } : {}),
         ...(fuelStation ? { fuel_station: fuelStation } : {}),
-        ...(imageUrl    ? { notes: `Receipt: ${imageUrl}` } : {}),
+        ...(imageUrl    ? { receipt_url: imageUrl } : {}),
       });
     } else if (tab === "toll") {
+      let tollImageUrl: string | null = null;
+      if (tollImage) tollImageUrl = await uploadImage(tollImage);
       r = await driverPortalService.addTollLog(trip.id, trip.owner_id, trip.vehicle_id, {
         date: tollDate, amount: Number(tollAmt),
         ...(tollPlaza ? { toll_plaza: tollPlaza } : {}),
         payment_mode: tollMode,
+        ...(tollImageUrl ? { receipt_url: tollImageUrl } : {}),
       });
     } else {
       let imageUrl: string | null = null;
@@ -156,7 +160,7 @@ export default function TripDetailPage() {
 
   function resetForms() {
     setFuelDate(today()); setFuelLitres(""); setFuelAmt(""); setFuelOdo(""); setFuelStation(""); setFuelImage(null);
-    setTollDate(today()); setTollAmt(""); setTollPlaza(""); setTollMode("cash");
+    setTollDate(today()); setTollAmt(""); setTollPlaza(""); setTollMode("cash"); setTollImage(null);
     setExpDate(today()); setExpAmt(""); setExpCat(""); setExpDesc(""); setExpImage(null);
   }
 
@@ -312,6 +316,7 @@ export default function TripDetailPage() {
                     ))}
                   </div>
                 </div>
+                <ImagePicker label="Attach receipt" file={tollImage} onChange={setTollImage} inputRef={imageRef} />
               </div>
             )}
 

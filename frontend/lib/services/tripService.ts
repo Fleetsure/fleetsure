@@ -1,5 +1,6 @@
 import { supabase } from "@/lib/supabase";
-import { query, ok, getUid } from "./_base";
+import { query, ok, fail, getUid } from "./_base";
+import { documentService } from "./documentService";
 import type { Trip, Expense, ServiceResponse } from "@/lib/types";
 import type { Database } from "@/lib/database.types";
 
@@ -62,5 +63,26 @@ export const tripService = {
     return query(
       supabase.from("expenses").delete().eq("id", id)
     );
+  },
+
+  // Weighbridge slip photos — uploaded to the shared fleet-documents bucket
+  // and logged into the Documents Portal under "Trip Documents", tagged
+  // with the trip's route/date so it's identifiable outside the trip page.
+  async uploadWeighbridgeSlip(
+    file: File, tripId: string, slot: 1 | 2 | 3, tripLabel?: { origin: string; destination: string; start_date: string }
+  ): Promise<ServiceResponse<string>> {
+    const uid = getUid();
+    const uploadRes = await documentService.upload(file, uid, `trips/${tripId}`);
+    if (!uploadRes.success || !uploadRes.data) return uploadRes;
+    const routeLabel = tripLabel ? ` — ${tripLabel.origin} → ${tripLabel.destination} (${tripLabel.start_date})` : "";
+    await documentService.logDocument({
+      ownerId: uid,
+      name: `Weighbridge Slip ${slot}${routeLabel}`,
+      category: "Trip Documents",
+      file_url: uploadRes.data,
+      linked_type: "trip",
+      linked_id: tripId,
+    });
+    return uploadRes;
   },
 };

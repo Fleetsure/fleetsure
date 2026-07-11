@@ -1,6 +1,17 @@
 import { supabase } from "@/lib/supabase";
 import { query, getUid } from "./_base";
+import { documentService } from "./documentService";
 import type { Vehicle, ServiceResponse } from "@/lib/types";
+
+export const VEHICLE_DOC_LABELS: Record<string, string> = {
+  rc: "RC Book",
+  insurance: "Insurance",
+  fitness: "Fitness Certificate",
+  puc: "Pollution Certificate",
+  national_permit: "National Permit",
+  state_permit: "State Permit",
+  road_tax: "Road Tax",
+};
 
 export const vehicleService = {
   async getAll(): Promise<ServiceResponse<Vehicle[]>> {
@@ -20,5 +31,25 @@ export const vehicleService = {
     return query(
       supabase.from("vehicles").update(data).eq("id", id).eq("owner_id", getUid()).select().single()
     );
+  },
+
+  // ── Compliance documents ─────────────────────────────────────────────────
+  // Uploads to the shared fleet-documents bucket and logs the upload into
+  // the Documents Portal tagged to this vehicle — there's no per-type URL
+  // column on `vehicles` itself, the `documents` table is the only record.
+  async uploadVehicleDocument(file: File, vehicleId: string, docType: string, expiryDate?: string | null): Promise<ServiceResponse<string>> {
+    const uid = getUid();
+    const uploadRes = await documentService.upload(file, uid, `vehicles/${vehicleId}`);
+    if (!uploadRes.success || !uploadRes.data) return uploadRes;
+    await documentService.logDocument({
+      ownerId: uid,
+      name: VEHICLE_DOC_LABELS[docType] || docType,
+      category: "Vehicle Documents",
+      file_url: uploadRes.data,
+      linked_type: "vehicle",
+      linked_id: vehicleId,
+      expiry_date: expiryDate ?? null,
+    });
+    return uploadRes;
   },
 };

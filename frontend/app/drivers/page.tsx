@@ -1,11 +1,13 @@
 "use client";
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import Header from "@/components/Header";
 import { driverService } from "@/lib/services/driverService";
 import { fmtDate, daysUntil, todayISO } from "@/lib/date";
-import { Plus, Users, X, Phone, ChevronDown, ChevronRight, Edit2, Wallet, Trash2 } from "lucide-react";
+import { Plus, Users, X, Phone, Edit2, Wallet, Trash2 } from "lucide-react";
 import { useLanguage } from "@/lib/LanguageContext";
 import { useIsMobile } from "@/hooks/useIsMobile";
+import DocumentUpload from "@/components/DocumentUpload";
+import DriverAccountModal from "./DriverAccountModal";
 
 // ── Driver Payment Ledger Modal ───────────────────────────────────────────────
 const PAYMENT_TYPES = ["advance", "salary", "bonus", "deduction", "settlement"];
@@ -144,6 +146,14 @@ const EMPTY_FORM = {
   license_number: "", license_class: "HGMV", license_expiry: "",
   dob: "", blood_group: "", father_name: "",
   transport_validity: "", issuing_rto: "", badge_issue_date: "",
+  // Extended profile
+  emergency_contact_name: "", emergency_contact_phone: "",
+  mother_name: "", permanent_address: "",
+  bank_account_number: "", bank_ifsc_code: "", bank_account_holder_name: "",
+  aadhaar_number: "", pan_number: "",
+  // Document paths (set via upload, not typed) — driver-docs bucket paths
+  license_image_url: "", aadhaar_front_url: "", aadhaar_back_url: "",
+  pan_image_url: "", profile_photo_url: "",
 };
 
 // ── Compliance badge ──────────────────────────────────────────────────────────
@@ -175,11 +185,13 @@ export default function DriversPage() {
   const [form, setForm] = useState({ ...EMPTY_FORM });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
-  const [expandedRow, setExpandedRow] = useState<string | null>(null);
   const [ledgerDriver, setLedgerDriver] = useState<any>(null);
+  const [viewDriver, setViewDriver] = useState<any>(null);
+  // Document uploads need somewhere to live in storage before a new driver
+  // has a real id — same draft-id pattern used for trip weighbridge slips.
+  const [draftDocId, setDraftDocId] = useState("");
+  const [docUploading, setDocUploading] = useState<Record<string, boolean>>({});
   const isMobile = useIsMobile();
-
-
 
   const load = () => driverService.getAll().then(r => setDrivers(r.data || [])).finally(() => setLoading(false));
   useEffect(() => { load(); }, []);
@@ -188,7 +200,16 @@ export default function DriversPage() {
     setEditingId(null);
     setForm({ ...EMPTY_FORM });
     setError("");
+    setDraftDocId(crypto.randomUUID());
     setShowForm(true);
+  };
+
+  const handleDocUpload = async (docField: keyof typeof EMPTY_FORM, docType: string, file: File) => {
+    setDocUploading(u => ({ ...u, [docType]: true }));
+    const expiryDate = docType === "license" ? (form.license_expiry || null) : null;
+    const res = await driverService.uploadDriverDocument(file, editingId || draftDocId, docType, expiryDate);
+    if (res.success) setForm(p => ({ ...p, [docField]: res.data as string }));
+    setDocUploading(u => ({ ...u, [docType]: false }));
   };
 
   const handleDelete = async (d: any) => {
@@ -206,6 +227,14 @@ export default function DriversPage() {
       dob: d.dob || "", blood_group: d.blood_group || "", father_name: d.father_name || "",
       transport_validity: d.transport_validity || "", issuing_rto: d.issuing_rto || "",
       badge_issue_date: d.badge_issue_date || "",
+      emergency_contact_name: d.emergency_contact_name || "", emergency_contact_phone: d.emergency_contact_phone || "",
+      mother_name: d.mother_name || "", permanent_address: d.permanent_address || "",
+      bank_account_number: d.bank_account_number || "", bank_ifsc_code: d.bank_ifsc_code || "",
+      bank_account_holder_name: d.bank_account_holder_name || "",
+      aadhaar_number: d.aadhaar_number || "", pan_number: d.pan_number || "",
+      license_image_url: d.license_image_url || "", aadhaar_front_url: d.aadhaar_front_url || "",
+      aadhaar_back_url: d.aadhaar_back_url || "", pan_image_url: d.pan_image_url || "",
+      profile_photo_url: d.profile_photo_url || "",
     });
     setError("");
     setShowForm(true);
@@ -213,8 +242,12 @@ export default function DriversPage() {
 
   const handleSubmit = async (e: any) => {
     e.preventDefault();
-    setSaving(true);
     setError("");
+    if (!form.license_image_url) {
+      setError("Driving licence image is required.");
+      return;
+    }
+    setSaving(true);
     const payload = {
       ...form,
       license_class:       form.license_class as "LMV" | "HMV" | "HGMV" | "HPMV" | "other",
@@ -227,6 +260,19 @@ export default function DriversPage() {
       father_name:        form.father_name        || null,
       issuing_rto:        form.issuing_rto        || null,
       address:            form.address            || null,
+      emergency_contact_name:   form.emergency_contact_name   || null,
+      emergency_contact_phone:  form.emergency_contact_phone  || null,
+      mother_name:              form.mother_name              || null,
+      permanent_address:        form.permanent_address        || null,
+      bank_account_number:      form.bank_account_number      || null,
+      bank_ifsc_code:           form.bank_ifsc_code           || null,
+      bank_account_holder_name: form.bank_account_holder_name || null,
+      aadhaar_number:           form.aadhaar_number           || null,
+      pan_number:               form.pan_number               || null,
+      aadhaar_front_url:        form.aadhaar_front_url        || null,
+      aadhaar_back_url:         form.aadhaar_back_url         || null,
+      pan_image_url:            form.pan_image_url            || null,
+      profile_photo_url:        form.profile_photo_url        || null,
     };
     try {
       const result = editingId
@@ -291,13 +337,14 @@ export default function DriversPage() {
           ) : isMobile ? (
             <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
               {drivers.map((d: any) => (
-                <div key={d.id} style={{ padding: "12px 14px", borderRadius: 10, background: "var(--bg-subtle)", border: "1px solid var(--border)" }}>
+                <div key={d.id} onClick={() => setViewDriver(d)}
+                  style={{ padding: "12px 14px", borderRadius: 10, background: "var(--bg-subtle)", border: "1px solid var(--border)", cursor: "pointer" }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 6 }}>
                     <div>
                       <div style={{ fontWeight: 700, fontSize: 14, color: "var(--text-main)", marginBottom: 3 }}>{d.name}</div>
                       <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "var(--text-muted)" }}>
                         <Phone size={11} color="#aaa" />
-                        <a href={`tel:${d.phone}`} style={{ color: "inherit", textDecoration: "none" }}>{d.phone}</a>
+                        <a href={`tel:${d.phone}`} onClick={e => e.stopPropagation()} style={{ color: "inherit", textDecoration: "none" }}>{d.phone}</a>
                       </div>
                     </div>
                     <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0, marginLeft: 8 }}>
@@ -310,9 +357,9 @@ export default function DriversPage() {
                       {d.license_expiry && <> · <Badge dateStr={d.license_expiry} /></>}
                     </div>
                     <div style={{ display: "flex", gap: 4 }}>
-                      <button onClick={() => openEdit(d)} style={{ background: "none", border: "none", cursor: "pointer", color: "#1E2D8E", padding: 4 }}><Edit2 size={14} /></button>
-                      <button onClick={() => setLedgerDriver(d)} style={{ background: "none", border: "none", cursor: "pointer", color: "#2e7d32", padding: 4 }} title="Ledger"><Wallet size={14} /></button>
-                      <button onClick={() => handleDelete(d)} style={{ background: "none", border: "none", cursor: "pointer", color: "#c62828", padding: 4 }} title="Delete"><Trash2 size={14} /></button>
+                      <button onClick={e => { e.stopPropagation(); openEdit(d); }} style={{ background: "none", border: "none", cursor: "pointer", color: "#1E2D8E", padding: 4 }}><Edit2 size={14} /></button>
+                      <button onClick={e => { e.stopPropagation(); setLedgerDriver(d); }} style={{ background: "none", border: "none", cursor: "pointer", color: "#2e7d32", padding: 4 }} title="Ledger"><Wallet size={14} /></button>
+                      <button onClick={e => { e.stopPropagation(); handleDelete(d); }} style={{ background: "none", border: "none", cursor: "pointer", color: "#c62828", padding: 4 }} title="Delete"><Trash2 size={14} /></button>
                     </div>
                   </div>
                 </div>
@@ -322,7 +369,6 @@ export default function DriversPage() {
             <table>
               <thead>
                 <tr>
-                  <th></th>
                   <th>{t("driver.name")}</th>
                   <th>{t("driver.phone")}</th>
                   <th>{t("driver.license")}</th>
@@ -335,60 +381,31 @@ export default function DriversPage() {
               </thead>
               <tbody>
                 {drivers.map((d: any) => (
-                  <React.Fragment key={d.id}>
-                    <tr style={{ cursor: "pointer" }} onClick={() => setExpandedRow(expandedRow === d.id ? null : d.id)}>
-                      <td style={{ width: 28, color: "#aaa" }}>
-                        {expandedRow === d.id ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-                      </td>
-                      <td style={{ fontWeight: 600 }}>{d.name}</td>
-                      <td style={{ display: "flex", alignItems: "center", gap: 6 }}><Phone size={13} color="#aaa" />{d.phone}</td>
-                      <td style={{ fontFamily: "monospace", fontSize: 12.5 }}>{d.license_number || "—"}</td>
-                      <td>{d.license_class || "—"}</td>
-                      <td><Badge dateStr={d.license_expiry} /></td>
-                      <td><Badge dateStr={d.transport_validity} /></td>
-                      <td><span className={`badge badge-${d.status}`}>{d.status.replace("_", " ")}</span></td>
-                      <td style={{ display: "flex", gap: 4, alignItems: "center" }}>
-                        <button onClick={e => { e.stopPropagation(); openEdit(d); }}
-                          style={{ background: "none", border: "none", cursor: "pointer", color: "#1E2D8E", padding: 4 }}>
-                          <Edit2 size={14} />
-                        </button>
-                        <button onClick={e => { e.stopPropagation(); setLedgerDriver(d); }}
-                          title="Payment Ledger"
-                          style={{ background: "none", border: "none", cursor: "pointer", color: "#2e7d32", padding: 4 }}>
-                          <Wallet size={14} />
-                        </button>
-                        <button onClick={e => { e.stopPropagation(); handleDelete(d); }}
-                          title="Delete Driver"
-                          style={{ background: "none", border: "none", cursor: "pointer", color: "#c62828", padding: 4 }}>
-                          <Trash2 size={14} />
-                        </button>
-                      </td>
-                    </tr>
-                    {expandedRow === d.id && (
-                      <tr>
-                        <td colSpan={9} style={{ background: "var(--bg-soft, #f9f9fb)", padding: "12px 20px" }}>
-                          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "8px 24px", fontSize: 12.5 }}>
-                            {[
-                              { label: "Date of Birth",   value: d.dob },
-                              { label: "Blood Group",     value: d.blood_group },
-                              { label: "Father's Name",   value: d.father_name },
-                              { label: "Issuing RTO",     value: d.issuing_rto },
-                              { label: "Badge Issued",    value: d.badge_issue_date },
-                              { label: "Address",         value: d.address },
-                              { label: "Alternate Phone", value: d.alternate_phone },
-                            ].map(f => (
-                              <div key={f.label}>
-                                <div style={{ color: "#999", fontSize: 11, marginBottom: 2 }}>{f.label}</div>
-                                <div style={{ color: f.value ? "var(--text-main, #333)" : "#ccc", fontWeight: f.value ? 500 : 400 }}>
-                                  {f.value || "—"}
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        </td>
-                      </tr>
-                    )}
-                  </React.Fragment>
+                  <tr key={d.id} style={{ cursor: "pointer" }} onClick={() => setViewDriver(d)}>
+                    <td style={{ fontWeight: 600 }}>{d.name}</td>
+                    <td style={{ display: "flex", alignItems: "center", gap: 6 }}><Phone size={13} color="#aaa" />{d.phone}</td>
+                    <td style={{ fontFamily: "monospace", fontSize: 12.5 }}>{d.license_number || "—"}</td>
+                    <td>{d.license_class || "—"}</td>
+                    <td><Badge dateStr={d.license_expiry} /></td>
+                    <td><Badge dateStr={d.transport_validity} /></td>
+                    <td><span className={`badge badge-${d.status}`}>{d.status.replace("_", " ")}</span></td>
+                    <td style={{ display: "flex", gap: 4, alignItems: "center" }}>
+                      <button onClick={e => { e.stopPropagation(); openEdit(d); }}
+                        style={{ background: "none", border: "none", cursor: "pointer", color: "#1E2D8E", padding: 4 }}>
+                        <Edit2 size={14} />
+                      </button>
+                      <button onClick={e => { e.stopPropagation(); setLedgerDriver(d); }}
+                        title="Payment Ledger"
+                        style={{ background: "none", border: "none", cursor: "pointer", color: "#2e7d32", padding: 4 }}>
+                        <Wallet size={14} />
+                      </button>
+                      <button onClick={e => { e.stopPropagation(); handleDelete(d); }}
+                        title="Delete Driver"
+                        style={{ background: "none", border: "none", cursor: "pointer", color: "#c62828", padding: 4 }}>
+                        <Trash2 size={14} />
+                      </button>
+                    </td>
+                  </tr>
                 ))}
               </tbody>
             </table>
@@ -481,12 +498,96 @@ export default function DriversPage() {
               </div>
 
               <div>
-                <label style={{ fontSize: 12, fontWeight: 600, color: "#555", display: "block", marginBottom: 4 }}>Address</label>
+                <label style={{ fontSize: 12, fontWeight: 600, color: "#555", display: "block", marginBottom: 4 }}>Current Address</label>
                 <textarea value={form.address} onChange={e => setForm(p => ({ ...p, address: e.target.value }))}
-                  placeholder="Driver's home address"
+                  placeholder="Driver's current address"
                   rows={2}
                   style={{ width: "100%", padding: "8px 12px", border: "1.5px solid #e8e8f0", borderRadius: 8, fontSize: 13.5, boxSizing: "border-box", resize: "vertical" }} />
               </div>
+
+              <div>
+                <label style={{ fontSize: 12, fontWeight: 600, color: "#555", display: "block", marginBottom: 4 }}>Permanent Address</label>
+                <textarea value={form.permanent_address} onChange={e => setForm(p => ({ ...p, permanent_address: e.target.value }))}
+                  placeholder="Leave blank if same as current address"
+                  rows={2}
+                  style={{ width: "100%", padding: "8px 12px", border: "1.5px solid #e8e8f0", borderRadius: 8, fontSize: 13.5, boxSizing: "border-box", resize: "vertical" }} />
+              </div>
+
+              <div style={{ fontSize: 12, fontWeight: 700, color: "#aaa", letterSpacing: "0.5px", marginTop: 4 }}>EMERGENCY CONTACT</div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                {[
+                  { label: "Contact Name",  key: "emergency_contact_name",  placeholder: "Sunita Kumar" },
+                  { label: "Contact Phone", key: "emergency_contact_phone", placeholder: "9876543211" },
+                ].map(f => (
+                  <div key={f.key}>
+                    <label style={{ fontSize: 12, fontWeight: 600, color: "#555", display: "block", marginBottom: 4 }}>{f.label}</label>
+                    <input type="text" value={(form as any)[f.key]} placeholder={f.placeholder}
+                      onChange={e => setForm(p => ({ ...p, [f.key]: e.target.value }))}
+                      style={{ width: "100%", padding: "8px 12px", border: "1.5px solid #e8e8f0", borderRadius: 8, fontSize: 13.5, boxSizing: "border-box" }} />
+                  </div>
+                ))}
+              </div>
+              <div>
+                <label style={{ fontSize: 12, fontWeight: 600, color: "#555", display: "block", marginBottom: 4 }}>Mother&apos;s Name</label>
+                <input type="text" value={form.mother_name} placeholder="Radha Kumar"
+                  onChange={e => setForm(p => ({ ...p, mother_name: e.target.value }))}
+                  style={{ width: "100%", padding: "8px 12px", border: "1.5px solid #e8e8f0", borderRadius: 8, fontSize: 13.5, boxSizing: "border-box" }} />
+              </div>
+
+              <div style={{ fontSize: 12, fontWeight: 700, color: "#aaa", letterSpacing: "0.5px", marginTop: 4 }}>BANK DETAILS (for salary transfers)</div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                {[
+                  { label: "Account Number",       key: "bank_account_number",      placeholder: "XXXXXXXXXXXX" },
+                  { label: "IFSC Code",            key: "bank_ifsc_code",           placeholder: "SBIN0001234" },
+                ].map(f => (
+                  <div key={f.key}>
+                    <label style={{ fontSize: 12, fontWeight: 600, color: "#555", display: "block", marginBottom: 4 }}>{f.label}</label>
+                    <input type="text" value={(form as any)[f.key]} placeholder={f.placeholder}
+                      onChange={e => setForm(p => ({ ...p, [f.key]: e.target.value }))}
+                      style={{ width: "100%", padding: "8px 12px", border: "1.5px solid #e8e8f0", borderRadius: 8, fontSize: 13.5, boxSizing: "border-box" }} />
+                  </div>
+                ))}
+              </div>
+              <div>
+                <label style={{ fontSize: 12, fontWeight: 600, color: "#555", display: "block", marginBottom: 4 }}>Account Holder Name</label>
+                <input type="text" value={form.bank_account_holder_name} placeholder="As per bank records"
+                  onChange={e => setForm(p => ({ ...p, bank_account_holder_name: e.target.value }))}
+                  style={{ width: "100%", padding: "8px 12px", border: "1.5px solid #e8e8f0", borderRadius: 8, fontSize: 13.5, boxSizing: "border-box" }} />
+              </div>
+
+              <div style={{ fontSize: 12, fontWeight: 700, color: "#aaa", letterSpacing: "0.5px", marginTop: 4 }}>ID NUMBERS</div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                {[
+                  { label: "Aadhaar Number", key: "aadhaar_number", placeholder: "XXXX XXXX XXXX" },
+                  { label: "PAN Number",     key: "pan_number",     placeholder: "ABCDE1234F" },
+                ].map(f => (
+                  <div key={f.key}>
+                    <label style={{ fontSize: 12, fontWeight: 600, color: "#555", display: "block", marginBottom: 4 }}>{f.label}</label>
+                    <input type="text" value={(form as any)[f.key]} placeholder={f.placeholder}
+                      onChange={e => setForm(p => ({ ...p, [f.key]: e.target.value }))}
+                      style={{ width: "100%", padding: "8px 12px", border: "1.5px solid #e8e8f0", borderRadius: 8, fontSize: 13.5, boxSizing: "border-box" }} />
+                  </div>
+                ))}
+              </div>
+
+              <div style={{ fontSize: 12, fontWeight: 700, color: "#aaa", letterSpacing: "0.5px", marginTop: 4 }}>DOCUMENTS</div>
+              <DocumentUpload label="Driving Licence" url={form.license_image_url} mandatory
+                uploading={!!docUploading.license}
+                onSelect={f => handleDocUpload("license_image_url", "license", f)} />
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                <DocumentUpload label="Aadhaar (Front)" url={form.aadhaar_front_url}
+                  uploading={!!docUploading.aadhaar_front}
+                  onSelect={f => handleDocUpload("aadhaar_front_url", "aadhaar_front", f)} />
+                <DocumentUpload label="Aadhaar (Back)" url={form.aadhaar_back_url}
+                  uploading={!!docUploading.aadhaar_back}
+                  onSelect={f => handleDocUpload("aadhaar_back_url", "aadhaar_back", f)} />
+              </div>
+              <DocumentUpload label="PAN Card" url={form.pan_image_url}
+                uploading={!!docUploading.pan}
+                onSelect={f => handleDocUpload("pan_image_url", "pan", f)} />
+              <DocumentUpload label="Profile Photo" url={form.profile_photo_url}
+                uploading={!!docUploading.photo}
+                onSelect={f => handleDocUpload("profile_photo_url", "photo", f)} />
 
               <div style={{ display: "flex", gap: 10, marginTop: 4 }}>
                 <button type="button" className="btn-outline" style={{ flex: 1 }} onClick={() => setShowForm(false)}>{t("common.cancel")}</button>
@@ -500,6 +601,16 @@ export default function DriversPage() {
       )}
       {/* Driver Payment Ledger Modal */}
       {ledgerDriver && <DriverLedgerModal driver={ledgerDriver} onClose={() => setLedgerDriver(null)} />}
+
+      {/* Driver Account popup */}
+      {viewDriver && (
+        <DriverAccountModal
+          driver={viewDriver}
+          isMobile={isMobile}
+          onClose={() => setViewDriver(null)}
+          onEdit={() => { setViewDriver(null); openEdit(viewDriver); }}
+        />
+      )}
     </div>
   );
 }

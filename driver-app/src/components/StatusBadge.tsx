@@ -6,10 +6,11 @@ interface Props {
 }
 
 const CONFIG: Record<string, { bg: string; color: string; label: string }> = {
-  planned:     { bg: "#DBEAFE", color: "#1D4ED8", label: "Planned" },
-  in_progress: { bg: "#DCFCE7", color: "#15803D", label: "In Progress" },
-  completed:   { bg: "#F1F5F9", color: "#475569", label: "Completed" },
-  cancelled:   { bg: "#FEE2E2", color: "#B91C1C", label: "Cancelled" },
+  planned:        { bg: "#DBEAFE", color: "#1D4ED8", label: "Planned" },
+  in_progress:    { bg: "#DCFCE7", color: "#15803D", label: "In Progress" },
+  pending_review: { bg: "#F3E8FF", color: "#7E22CE", label: "Awaiting Confirmation" },
+  completed:      { bg: "#F1F5F9", color: "#475569", label: "Completed" },
+  cancelled:      { bg: "#FEE2E2", color: "#B91C1C", label: "Cancelled" },
 };
 
 export default function StatusBadge({ status }: Props) {

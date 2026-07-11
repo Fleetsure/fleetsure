@@ -1,7 +1,7 @@
 import { TRIP_STATUS_CONFIG } from "@/lib/constants/tripStatus";
 
 export default function TripStatusStepper({ status }: { status: string }) {
-  const STEPS = ["planned", "in_progress", "completed"];
+  const STEPS = ["planned", "in_progress", "pending_review", "completed"];
   const cur = TRIP_STATUS_CONFIG[status]?.step ?? 0;
   const cancelled = status === "cancelled";
 

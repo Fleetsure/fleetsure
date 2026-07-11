@@ -52,7 +52,10 @@ export default function DashboardScreen() {
     setRefreshing(false);
   }
 
-  const inProgress = trips.filter((t) => t.status === "in_progress");
+  // pending_review (delivered, awaiting owner confirmation) still counts as
+  // an active trip from the driver's perspective — otherwise it vanishes
+  // from the dashboard the moment it's marked delivered.
+  const inProgress = trips.filter((t) => t.status === "in_progress" || t.status === "pending_review");
   const planned = trips.filter((t) => t.status === "planned");
   const currentTrip = inProgress[0] ?? null;
 

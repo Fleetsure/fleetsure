@@ -229,6 +229,56 @@ export const driverService = {
     return ok(null);
   },
 
+  // ── Driver Expenses (advance reconciliation claims) ─────────────────────────
+  // Distinct from addMiscExpense above: this is a driver_id-scoped claim
+  // against a trip's driver_advance, reviewed (approved/rejected) by the
+  // owner on the web Driver Account page — not a generic trip expense.
+
+  async addDriverExpense(
+    tripId: string,
+    driverId: string,
+    ownerId: string,
+    data: {
+      amount: number;
+      category: "fuel" | "food" | "loading" | "other";
+      note?: string | null;
+      receipt_url?: string | null;
+    }
+  ): Promise<ServiceResponse<null>> {
+    const { error } = await supabase.from("driver_expenses").insert({
+      trip_id: tripId,
+      driver_id: driverId,
+      owner_id: ownerId,
+      ...data,
+    });
+    if (error) return fail(error);
+    // Mirror into the Documents Portal (documents table) so this receipt
+    // shows up under "Expense Receipts" — owner_id is passed explicitly
+    // since this app authenticates as the driver, not the fleet owner.
+    if (data.receipt_url) {
+      const catLabel = data.category.charAt(0).toUpperCase() + data.category.slice(1);
+      await supabase.from("documents").insert({
+        owner_id: ownerId,
+        name: `${catLabel} Receipt — ${new Date().toISOString().slice(0, 10)}`,
+        category: "Expense Receipts",
+        file_url: data.receipt_url,
+        linked_type: "trip",
+        linked_id: tripId,
+      });
+    }
+    return ok(null);
+  },
+
+  async getMyDriverExpenses(tripId: string): Promise<ServiceResponse<any[]>> {
+    const { data, error } = await supabase
+      .from("driver_expenses")
+      .select("*")
+      .eq("trip_id", tripId)
+      .order("created_at", { ascending: false });
+    if (error) return fail(error);
+    return ok(data ?? []);
+  },
+
   // ── Image Upload ─────────────────────────────────────────────────────────────
 
   async uploadExpenseImage(
@@ -238,7 +288,7 @@ export const driverService = {
   ): Promise<ServiceResponse<string>> {
     try {
       const ext = localUri.split(".").pop() ?? "jpg";
-      const path = `${driverId}/${tripId}/${Date.now()}.${ext}`;
+      const path = `${driverId}/expenses/${tripId}/${Date.now()}.${ext}`;
       const fileInfo = await FileSystem.getInfoAsync(localUri);
       if (!fileInfo.exists) return fail({ message: "File not found" });
 
@@ -247,7 +297,7 @@ export const driverService = {
       });
 
       const { error } = await supabase.storage
-        .from("driver-uploads")
+        .from("fleet-documents")
         .upload(path, decode(base64), {
           contentType: `image/${ext}`,
           upsert: true,
@@ -255,7 +305,7 @@ export const driverService = {
       if (error) return fail(error);
 
       const { data } = supabase.storage
-        .from("driver-uploads")
+        .from("fleet-documents")
         .getPublicUrl(path);
       return ok(data.publicUrl);
     } catch (e: any) {

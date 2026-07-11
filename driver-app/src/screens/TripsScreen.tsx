@@ -49,8 +49,13 @@ export default function TripsScreen() {
     setRefreshing(false);
   }
 
-  const filtered = trips.filter((t) => t.status === tab);
-  const activeCount = trips.filter((t) => t.status === "in_progress").length;
+  // pending_review trips (marked delivered, awaiting owner confirmation)
+  // fold into the "In Progress" tab — still the driver's active trip, just
+  // no further action available on it.
+  const filtered = trips.filter((t) =>
+    tab === "in_progress" ? t.status === "in_progress" || t.status === "pending_review" : t.status === tab
+  );
+  const activeCount = trips.filter((t) => t.status === "in_progress" || t.status === "pending_review").length;
   const plannedCount = trips.filter((t) => t.status === "planned").length;
 
   return (

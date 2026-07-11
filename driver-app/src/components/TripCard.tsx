@@ -18,7 +18,7 @@ interface Props {
 const PRIMARY = "#1E2D8E";
 
 export default function TripCard({ trip, onPress }: Props) {
-  const isActive = trip.status === "in_progress";
+  const isActive = trip.status === "in_progress" || trip.status === "pending_review";
   return (
     <TouchableOpacity
       style={[styles.card, isActive && styles.cardActive]}

@@ -1,12 +1,31 @@
 "use client";
 import React, { useEffect, useState } from "react";
 import Header from "@/components/Header";
-import { vehicleService } from "@/lib/services/vehicleService";
+import { vehicleService, VEHICLE_DOC_LABELS } from "@/lib/services/vehicleService";
 import { insightService } from "@/lib/services/insightService";
+import { documentService } from "@/lib/services/documentService";
 import { Plus, Truck, X, Search, AlertCircle, CheckCircle, ChevronDown, ChevronUp, Wrench, Navigation, AlertTriangle } from "lucide-react";
 import { parseLocalDate, fmtDate } from "@/lib/date";
 import { useLanguage } from "@/lib/LanguageContext";
 import { useIsMobile } from "@/hooks/useIsMobile";
+import DocumentUpload from "@/components/DocumentUpload";
+
+const VEHICLE_DOC_TYPES = Object.keys(VEHICLE_DOC_LABELS);
+const VEHICLE_DOC_NAME_TO_TYPE: Record<string, string> = Object.fromEntries(
+  Object.entries(VEHICLE_DOC_LABELS).map(([type, label]) => [label, type])
+);
+// Which compliance-date field (if any) an uploaded doc type's expiry should
+// be logged against — national/state permit both map to the single
+// `permit_expiry` column since vehicles doesn't track them separately.
+const VEHICLE_DOC_EXPIRY_FIELD: Record<string, string | null> = {
+  rc: null,
+  insurance: "insurance_expiry",
+  fitness: "fitness_expiry",
+  puc: "puc_expiry",
+  national_permit: "permit_expiry",
+  state_permit: "permit_expiry",
+  road_tax: null,
+};
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -66,6 +85,12 @@ export default function VehiclesPage() {
   const isMobile = useIsMobile();
   const [cpkMap, setCpkMap]         = useState<Record<string, number>>({});  // vehicle_id → cost/km
 
+  // Document uploads need somewhere to live in storage before a new vehicle
+  // has a real id — same draft-id pattern used for driver profile docs.
+  const [draftVehicleId, setDraftVehicleId] = useState("");
+  const [vehicleDocs, setVehicleDocs]       = useState<Record<string, string>>({});
+  const [docUploading, setDocUploading]     = useState<Record<string, boolean>>({});
+
 
   // Expanded compliance row
   const [expandedRow, setExpandedRow] = useState<string | null>(null);
@@ -89,6 +114,8 @@ export default function VehiclesPage() {
     setForm({ ...EMPTY_FORM });
     setEditVehicle(null);
     setError("");
+    setDraftVehicleId(crypto.randomUUID());
+    setVehicleDocs({});
     setShowForm(true);
   };
 
@@ -107,7 +134,26 @@ export default function VehiclesPage() {
     });
     setEditVehicle(v);
     setError("");
+    setVehicleDocs({});
     setShowForm(true);
+    documentService.getAll({ linked_type: "vehicle", linked_id: v.id }).then(res => {
+      if (!res.success) return;
+      const docs: Record<string, string> = {};
+      for (const d of res.data || []) {
+        const docType = VEHICLE_DOC_NAME_TO_TYPE[d.name];
+        if (docType && !docs[docType] && d.file_url) docs[docType] = d.file_url;
+      }
+      setVehicleDocs(docs);
+    });
+  };
+
+  const handleDocUpload = async (docType: string, file: File) => {
+    setDocUploading(u => ({ ...u, [docType]: true }));
+    const expiryField = VEHICLE_DOC_EXPIRY_FIELD[docType];
+    const expiryDate = expiryField ? (form[expiryField] || null) : null;
+    const res = await vehicleService.uploadVehicleDocument(file, editVehicle?.id || draftVehicleId, docType, expiryDate);
+    if (res.success && res.data) setVehicleDocs(d => ({ ...d, [docType]: res.data as string }));
+    setDocUploading(u => ({ ...u, [docType]: false }));
   };
 
   // ── Submit ──────────────────────────────────────────────────────────────────
@@ -530,6 +576,21 @@ export default function VehiclesPage() {
                         })()}
                       </div>
                     </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* ── Section 5: Documents ── */}
+              <div style={{ background: "var(--bg-subtle)", borderRadius: 10, padding: 14, border: "1.5px solid var(--border)" }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: "#6a1b9a", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 10 }}>
+                  📄 Documents
+                </div>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                  {VEHICLE_DOC_TYPES.map(docType => (
+                    <DocumentUpload key={docType} label={VEHICLE_DOC_LABELS[docType]}
+                      url={vehicleDocs[docType] || ""}
+                      uploading={!!docUploading[docType]}
+                      onSelect={f => handleDocUpload(docType, f)} />
                   ))}
                 </div>
               </div>

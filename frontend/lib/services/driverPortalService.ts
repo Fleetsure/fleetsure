@@ -1,4 +1,5 @@
 import { supabase } from "@/lib/supabase";
+import { documentService } from "./documentService";
 import type { ServiceResponse } from "@/lib/types";
 
 export interface DriverProfile {
@@ -169,13 +170,19 @@ export const driverPortalService = {
     tripId: string,
     ownerId: string,
     vehicleId: string,
-    data: { date: string; litres: number; amount: number; odometer_km?: number; fuel_station?: string; notes?: string }
+    data: { date: string; litres: number; amount: number; odometer_km?: number; fuel_station?: string; notes?: string; receipt_url?: string }
   ): Promise<ServiceResponse<any>> {
     const { data: row, error } = await supabase
       .from("fuel_logs")
       .insert({ trip_id: tripId, owner_id: ownerId, vehicle_id: vehicleId, ...data })
       .select().single();
     if (error) return fail(error);
+    if (data.receipt_url) {
+      await documentService.logDocument({
+        ownerId, name: `Fuel Receipt — ${data.date}`, category: "Expense Receipts",
+        file_url: data.receipt_url, linked_type: "trip", linked_id: tripId,
+      });
+    }
     return ok(row);
   },
 
@@ -183,13 +190,19 @@ export const driverPortalService = {
     tripId: string,
     ownerId: string,
     vehicleId: string,
-    data: { date: string; amount: number; toll_plaza?: string; route?: string; payment_mode?: string }
+    data: { date: string; amount: number; toll_plaza?: string; route?: string; payment_mode?: string; receipt_url?: string }
   ): Promise<ServiceResponse<any>> {
     const { data: row, error } = await supabase
       .from("toll_logs")
       .insert({ trip_id: tripId, owner_id: ownerId, vehicle_id: vehicleId, ...data })
       .select().single();
     if (error) return fail(error);
+    if (data.receipt_url) {
+      await documentService.logDocument({
+        ownerId, name: `Toll Receipt — ${data.date}`, category: "Expense Receipts",
+        file_url: data.receipt_url, linked_type: "trip", linked_id: tripId,
+      });
+    }
     return ok(row);
   },
 
@@ -215,13 +228,13 @@ export const driverPortalService = {
     tripId: string
   ): Promise<ServiceResponse<string>> {
     const ext  = file.name.split(".").pop() ?? "jpg";
-    const path = `${driverId}/${tripId}/${Date.now()}.${ext}`;
+    const path = `${driverId}/expenses/${tripId}/${Date.now()}.${ext}`;
     const { error } = await supabase.storage
-      .from("driver-uploads")
+      .from("fleet-documents")
       .upload(path, file, { upsert: false });
     if (error) return fail(error);
     const { data: { publicUrl } } = supabase.storage
-      .from("driver-uploads")
+      .from("fleet-documents")
       .getPublicUrl(path);
     return ok(publicUrl);
   },

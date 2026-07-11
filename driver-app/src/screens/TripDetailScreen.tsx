@@ -34,6 +34,21 @@ type ExpTab = "fuel" | "toll" | "misc" | "other";
 const MISC_CATS = ["Tyre", "Repair", "Parking", "Cleaning", "Loading", "Unloading", "Other"];
 const OTHER_CATS = ["Driver Expense", "Food", "Lodging", "Document", "Police", "Weighbridge", "Other"];
 
+// Categories for the advance-reconciliation claim flow below — distinct
+// from the generic MISC_CATS/OTHER_CATS above (this is driver_expenses, not
+// misc_expenses).
+const CLAIM_CATS: { value: "fuel" | "food" | "loading" | "other"; label: string }[] = [
+  { value: "fuel", label: "Fuel" },
+  { value: "food", label: "Food" },
+  { value: "loading", label: "Loading" },
+  { value: "other", label: "Other" },
+];
+const CLAIM_STATUS_STYLE: Record<string, { bg: string; color: string }> = {
+  pending: { bg: "#FFF7ED", color: "#E65100" },
+  approved: { bg: "#F0FDF4", color: "#15803D" },
+  rejected: { bg: "#FEF2F2", color: "#DC2626" },
+};
+
 export default function TripDetailScreen() {
   const { driver } = useAuth();
   const route = useRoute<Route>();
@@ -48,6 +63,15 @@ export default function TripDetailScreen() {
   const [expTab, setExpTab] = useState<ExpTab>("fuel");
   const [saving, setSaving] = useState(false);
 
+  // Advance-reconciliation expense claims (driver_expenses)
+  const [claims, setClaims] = useState<any[]>([]);
+  const [showClaimForm, setShowClaimForm] = useState(false);
+  const [claimAmount, setClaimAmount] = useState("");
+  const [claimCategory, setClaimCategory] = useState<"fuel" | "food" | "loading" | "other">("fuel");
+  const [claimNote, setClaimNote] = useState("");
+  const [claimImageUri, setClaimImageUri] = useState<string | null>(null);
+  const [savingClaim, setSavingClaim] = useState(false);
+
   // Expense form state
   const [date, setDate] = useState(todayISO());
   const [amount, setAmount] = useState("");
@@ -61,8 +85,12 @@ export default function TripDetailScreen() {
   const [imageUri, setImageUri] = useState<string | null>(null);
 
   const load = useCallback(async () => {
-    const res = await driverService.getTripById(tripId, driver?.id);
-    if (res.success) setTrip(res.data ?? null);
+    const [tripRes, claimsRes] = await Promise.all([
+      driverService.getTripById(tripId, driver?.id),
+      driverService.getMyDriverExpenses(tripId),
+    ]);
+    if (tripRes.success) setTrip(tripRes.data ?? null);
+    if (claimsRes.success) setClaims(claimsRes.data ?? []);
     setLoading(false);
   }, [tripId, driver?.id]);
 
@@ -89,14 +117,17 @@ export default function TripDetailScreen() {
 
   async function handleComplete() {
     if (!trip) return;
-    Alert.alert("Mark as Delivered?", "This will complete the trip.", [
+    // Goes to pending_review, not completed — the owner confirms on the web
+    // app before it's final. Keeps a driver from being able to unilaterally
+    // close out a trip.
+    Alert.alert("Mark as Delivered?", "The owner will need to confirm this trip before it's marked completed.", [
       { text: "Cancel", style: "cancel" },
       {
-        text: "Complete",
+        text: "Mark Delivered",
         style: "default",
         onPress: async () => {
           setStatusBusy(true);
-          await driverService.updateTripStatus(trip.id, "completed", {
+          await driverService.updateTripStatus(trip.id, "pending_review", {
             end_date: todayISO(),
           });
           await load();
@@ -174,6 +205,48 @@ export default function TripDetailScreen() {
       Alert.alert("Error", "Failed to save expense. Please try again.");
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function pickClaimImage() {
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      quality: 0.7,
+    });
+    if (!result.canceled && result.assets[0]) {
+      setClaimImageUri(result.assets[0].uri);
+    }
+  }
+
+  function resetClaimForm() {
+    setClaimAmount("");
+    setClaimCategory("fuel");
+    setClaimNote("");
+    setClaimImageUri(null);
+    setShowClaimForm(false);
+  }
+
+  async function handleSubmitClaim() {
+    if (!trip || !driver || !claimAmount) return;
+    setSavingClaim(true);
+    try {
+      let receiptUrl: string | null = null;
+      if (claimImageUri) {
+        const uploadRes = await driverService.uploadExpenseImage(claimImageUri, driver.id, trip.id);
+        if (uploadRes.success) receiptUrl = uploadRes.data ?? null;
+      }
+      await driverService.addDriverExpense(trip.id, driver.id, trip.owner_id, {
+        amount: Number(claimAmount),
+        category: claimCategory,
+        note: claimNote || null,
+        receipt_url: receiptUrl,
+      });
+      resetClaimForm();
+      await load();
+    } catch {
+      Alert.alert("Error", "Failed to submit expense claim. Please try again.");
+    } finally {
+      setSavingClaim(false);
     }
   }
 
@@ -326,6 +399,12 @@ export default function TripDetailScreen() {
               )}
             </TouchableOpacity>
           )}
+          {trip.status === "pending_review" && (
+            <View style={[styles.completedNote, { backgroundColor: "#F3E8FF" }]}>
+              <Ionicons name="time-outline" size={16} color="#7E22CE" />
+              <Text style={[styles.completedNoteText, { color: "#7E22CE" }]}>Awaiting owner confirmation</Text>
+            </View>
+          )}
           {trip.status === "completed" && (
             <View style={styles.completedNote}>
               <Ionicons name="checkmark-circle" size={16} color="#15803D" />
@@ -344,6 +423,98 @@ export default function TripDetailScreen() {
             {fmtCurrency(Math.abs(profit))}
           </Text>
         </View>
+
+        {/* Trip Advance & Expenses — claim-and-approve flow against the trip's
+            driver_advance, distinct from the generic expense log below. */}
+        {Number(trip.driver_advance ?? 0) > 0 && (
+          <View style={styles.claimsCard}>
+            <View style={styles.claimsHeaderRow}>
+              <Text style={styles.claimsTitle}>Trip Advance & Expenses</Text>
+              <Text style={styles.claimsAdvance}>{fmtCurrency(trip.driver_advance ?? 0)} advance</Text>
+            </View>
+
+            {claims.length > 0 ? (
+              <View style={{ marginBottom: 10 }}>
+                {claims.map((c) => {
+                  const s = CLAIM_STATUS_STYLE[c.status] ?? CLAIM_STATUS_STYLE.pending;
+                  return (
+                    <View key={c.id} style={styles.claimRow}>
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.claimCategory}>{c.category}</Text>
+                        {c.note ? <Text style={styles.claimNote} numberOfLines={1}>{c.note}</Text> : null}
+                      </View>
+                      <Text style={styles.claimAmount}>{fmtCurrency(c.amount)}</Text>
+                      <View style={[styles.claimStatusPill, { backgroundColor: s.bg }]}>
+                        <Text style={[styles.claimStatusText, { color: s.color }]}>{c.status}</Text>
+                      </View>
+                    </View>
+                  );
+                })}
+              </View>
+            ) : (
+              <Text style={styles.noExpensesText}>No expense claims submitted yet.</Text>
+            )}
+
+            {trip.status !== "cancelled" && !showClaimForm && (
+              <TouchableOpacity style={styles.addClaimTrigger} onPress={() => setShowClaimForm(true)}>
+                <Ionicons name="add-circle-outline" size={18} color={PRIMARY} />
+                <Text style={styles.addExpTriggerText}>+ Add Expense Claim</Text>
+              </TouchableOpacity>
+            )}
+
+            {showClaimForm && (
+              <View style={{ marginTop: 6 }}>
+                <View style={styles.formField}>
+                  <Text style={styles.formLabel}>AMOUNT (₹) *</Text>
+                  <TextInput style={styles.formInput} value={claimAmount} onChangeText={setClaimAmount} keyboardType="numeric" placeholder="0" />
+                </View>
+                <View style={styles.formField}>
+                  <Text style={styles.formLabel}>CATEGORY</Text>
+                  <View style={styles.catRow}>
+                    {CLAIM_CATS.map((c) => (
+                      <TouchableOpacity
+                        key={c.value}
+                        style={[styles.catBtn, claimCategory === c.value && styles.catBtnActive]}
+                        onPress={() => setClaimCategory(c.value)}
+                      >
+                        <Text style={[styles.catBtnText, claimCategory === c.value && styles.catBtnTextActive]}>{c.label}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </View>
+                <View style={styles.formField}>
+                  <Text style={styles.formLabel}>NOTE</Text>
+                  <TextInput
+                    style={[styles.formInput, { height: 60 }]}
+                    value={claimNote}
+                    onChangeText={setClaimNote}
+                    placeholder="Optional note..."
+                    multiline
+                  />
+                </View>
+                <TouchableOpacity style={styles.imgPicker} onPress={pickClaimImage}>
+                  <Ionicons name="camera-outline" size={18} color="#64748B" />
+                  <Text style={styles.imgPickerText}>
+                    {claimImageUri ? "Receipt selected ✓" : "Attach Receipt (optional)"}
+                  </Text>
+                </TouchableOpacity>
+                {claimImageUri ? <Image source={{ uri: claimImageUri }} style={styles.imgPreview} /> : null}
+                <View style={styles.formActions}>
+                  <TouchableOpacity style={styles.cancelBtn} onPress={resetClaimForm}>
+                    <Text style={styles.cancelBtnText}>Cancel</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.saveBtn, !claimAmount && styles.saveBtnDisabled]}
+                    onPress={handleSubmitClaim}
+                    disabled={savingClaim || !claimAmount}
+                  >
+                    {savingClaim ? <ActivityIndicator color="white" /> : <Text style={styles.saveBtnText}>Submit for Review</Text>}
+                  </TouchableOpacity>
+                </View>
+              </View>
+            )}
+          </View>
+        )}
 
         {/* Add Expense */}
         {trip.status !== "cancelled" && (
@@ -614,6 +785,41 @@ const styles = StyleSheet.create({
   },
   pnlLabel: { fontSize: 13, fontWeight: "700", color: "#334155" },
   pnlValue: { fontSize: 18, fontWeight: "900" },
+  claimsCard: {
+    backgroundColor: "white",
+    borderRadius: 14,
+    padding: 14,
+    marginBottom: 14,
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+  },
+  claimsHeaderRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 10 },
+  claimsTitle: { fontSize: 13, fontWeight: "700", color: "#334155" },
+  claimsAdvance: { fontSize: 12, fontWeight: "700", color: "#E65100" },
+  claimRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: "#F1F5F9",
+  },
+  claimCategory: { fontSize: 12.5, fontWeight: "700", color: "#1E293B", textTransform: "capitalize" },
+  claimNote: { fontSize: 11, color: "#94A3B8", marginTop: 1 },
+  claimAmount: { fontSize: 13, fontWeight: "800", color: "#1E293B" },
+  claimStatusPill: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 10 },
+  claimStatusText: { fontSize: 10, fontWeight: "700", textTransform: "capitalize" },
+  addClaimTrigger: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    borderWidth: 1.5,
+    borderColor: `${PRIMARY}44`,
+    borderStyle: "dashed",
+    borderRadius: 10,
+    paddingVertical: 11,
+    justifyContent: "center",
+  },
   addExpTrigger: {
     flexDirection: "row",
     alignItems: "center",

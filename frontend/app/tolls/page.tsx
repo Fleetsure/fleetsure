@@ -8,6 +8,7 @@ import { fmtDate, todayISO } from "@/lib/date";
 import { Plus, X, Trash2, IndianRupee, Truck, Route, CreditCard, Banknote } from "lucide-react";
 import { useLanguage } from "@/lib/LanguageContext";
 import { useIsMobile } from "@/hooks/useIsMobile";
+import DocumentUpload from "@/components/DocumentUpload";
 
 const EMPTY = {
   vehicle_id:   "",
@@ -18,6 +19,7 @@ const EMPTY = {
   route:        "",
   payment_mode: "cash",
   notes:        "",
+  receipt_url:  "",
 };
 
 export default function TollsPage() {
@@ -31,6 +33,7 @@ export default function TollsPage() {
   const [saving, setSaving]     = useState(false);
   const [error, setError]       = useState("");
   const [filterVehicle, setFilterVehicle] = useState("");
+  const [receiptUploading, setReceiptUploading] = useState(false);
   const isMobile = useIsMobile();
 
 
@@ -45,6 +48,13 @@ export default function TollsPage() {
 
   const set = (k: string, v: string) => setForm((p: any) => ({ ...p, [k]: v }));
 
+  const handleReceiptUpload = async (file: File) => {
+    setReceiptUploading(true);
+    const res = await tollService.uploadReceipt(file);
+    if (res.success) set("receipt_url", res.data as string);
+    setReceiptUploading(false);
+  };
+
   const handleSubmit = async (e: any) => {
     e.preventDefault(); setSaving(true); setError("");
     try {
@@ -55,6 +65,7 @@ export default function TollsPage() {
         toll_plaza: form.toll_plaza || null,
         route:    form.route || null,
         notes:    form.notes || null,
+        receipt_url: form.receipt_url || null,
       };
       await tollService.add(payload);
       setShowForm(false); setForm({ ...EMPTY }); load();
@@ -304,6 +315,8 @@ export default function TollsPage() {
                 <label style={labelStyle}>{t("form.notes")}</label>
                 <input type="text" placeholder="Any additional info..." value={form.notes} onChange={e => set("notes", e.target.value)} style={inputStyle} />
               </div>
+
+              <DocumentUpload label="Receipt" url={form.receipt_url} uploading={receiptUploading} onSelect={handleReceiptUpload} />
 
               <div style={{ display: "flex", gap: 10, marginTop: 4 }}>
                 <button type="button" className="btn-outline" style={{ flex: 1 }} onClick={() => setShowForm(false)}>{t("common.cancel")}</button>

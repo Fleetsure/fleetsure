@@ -8,8 +8,9 @@ import { fmtDate, todayISO } from "@/lib/date";
 import { Fuel, Plus, X, AlertTriangle, TrendingDown, TrendingUp, Truck, Trash2 } from "lucide-react";
 import { useLanguage } from "@/lib/LanguageContext";
 import { useIsMobile } from "@/hooks/useIsMobile";
+import DocumentUpload from "@/components/DocumentUpload";
 
-const EMPTY = { vehicle_id: "", trip_id: "", date: todayISO(), odometer_km: "", litres: "", rate: "", amount: "", fuel_station: "", notes: "" };
+const EMPTY = { vehicle_id: "", trip_id: "", date: todayISO(), odometer_km: "", litres: "", rate: "", amount: "", fuel_station: "", notes: "", receipt_url: "" };
 
 export default function FuelPage() {
   const { t } = useLanguage();
@@ -25,7 +26,15 @@ export default function FuelPage() {
   const [saving, setSaving]       = useState(false);
   const [error, setError]         = useState("");
   const [tab, setTab]             = useState<"log" | "analytics">("log");
+  const [receiptUploading, setReceiptUploading] = useState(false);
   const isMobile = useIsMobile();
+
+  const handleReceiptUpload = async (file: File) => {
+    setReceiptUploading(true);
+    const res = await fuelService.uploadReceipt(file);
+    if (res.success) set("receipt_url", res.data as string);
+    setReceiptUploading(false);
+  };
 
 
   const load = async () => {
@@ -104,6 +113,7 @@ export default function FuelPage() {
         odometer_km: form.odometer_km ? parseFloat(form.odometer_km) : null,
         litres:      parseFloat(form.litres),
         amount:      parseFloat(form.amount),
+        receipt_url: form.receipt_url || null,
       });
       setShowForm(false); setForm({ ...EMPTY }); setManual(new Set()); load();
     } catch (err: any) {
@@ -346,6 +356,7 @@ export default function FuelPage() {
               </div>
               <div><label style={lbl}>Fuel Station</label><input placeholder="HP Petrol Pump, NH-48" value={form.fuel_station} onChange={e => set("fuel_station", e.target.value)} style={inp} /></div>
               <div><label style={lbl}>Notes</label><input placeholder="Any notes..." value={form.notes} onChange={e => set("notes", e.target.value)} style={inp} /></div>
+              <DocumentUpload label="Receipt" url={form.receipt_url} uploading={receiptUploading} onSelect={handleReceiptUpload} />
               <div style={{ display: "flex", gap: 10, marginTop: 4 }}>
                 <button type="button" className="btn-outline" style={{ flex: 1 }} onClick={() => setShowForm(false)}>{t("common.cancel")}</button>
                 <button type="submit" className="btn-primary" style={{ flex: 1, justifyContent: "center" }} disabled={saving}>{saving ? t("common.loading") : t("common.save")}</button>

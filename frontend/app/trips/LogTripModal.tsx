@@ -1,5 +1,6 @@
 import { X, Zap, AlertTriangle, CheckCircle, Clock } from "lucide-react";
 import LocationInput from "@/components/LocationInput";
+import UnitInput from "./UnitInput";
 import type { TranslationKey } from "@/lib/translations";
 
 export default function LogTripModal({
@@ -51,8 +52,14 @@ export default function LogTripModal({
               onChange={e => setForm((p: any) => ({ ...p, vehicle_id: e.target.value }))}
               style={{ width: "100%", padding: "8px 12px", border: "1.5px solid #e8e8f0", borderRadius: 8, fontSize: 13.5, boxSizing: "border-box" }}>
               <option value="">{t("form.select_vehicle")}</option>
-              {vehicles.filter(v => v.status === "active").map((v: any) => (
-                <option key={v.id} value={v.id}>{v.registration_number} — {v.make} {v.model}</option>
+              {/* In_trip vehicles stay selectable so a future trip can still be
+                  planned/scheduled with them — dispatch (not scheduling) is
+                  what actually gets blocked, in advanceStatus. Only exclude
+                  vehicles that are out of service. */}
+              {vehicles.filter(v => v.status !== "maintenance").map((v: any) => (
+                <option key={v.id} value={v.id}>
+                  {v.registration_number} — {v.make} {v.model}{v.status === "in_trip" ? " (currently on trip)" : ""}
+                </option>
               ))}
             </select>
           </div>
@@ -177,7 +184,6 @@ export default function LogTripModal({
             {[
               { label: "Freight (₹)", key: "freight_amount", placeholder: "85000", required: false, type: "number" },
               { label: "Driver Advance (₹)", key: "driver_advance", placeholder: "5000", required: false, type: "number" },
-              { label: "Weight (Tonnes)", key: "weight_tonnes", placeholder: "25",    required: false, type: "number" },
             ].map(f => (
               <div key={f.key}>
                 <label style={{ fontSize: 12, fontWeight: 600, color: "#555", display: "block", marginBottom: 4 }}>{f.label}</label>
@@ -186,6 +192,13 @@ export default function LogTripModal({
                   style={{ width: "100%", padding: "8px 12px", border: "1.5px solid #e8e8f0", borderRadius: 8, fontSize: 13.5, boxSizing: "border-box" }} />
               </div>
             ))}
+            <UnitInput
+              label="Tentative Weight"
+              valueCanonical={form.weight_tonnes}
+              canonicalUnit="tonnes"
+              onChangeCanonical={v => setForm((p: any) => ({ ...p, weight_tonnes: v }))}
+              placeholder="25"
+            />
           </div>
 
           {/* Dates / Distance */}
@@ -233,7 +246,7 @@ export default function LogTripModal({
           <div style={{ display: "flex", gap: 10, marginTop: 4 }}>
             <button type="button" className="btn-outline" style={{ flex: 1 }} onClick={onClose}>{t("common.cancel")}</button>
             <button type="submit" className="btn-primary" style={{ flex: 1, justifyContent: "center" }} disabled={saving}>
-              {saving ? t("common.loading") : t("trip.new")}
+              {saving ? t("common.loading") : editingTrip ? t("common.save") : t("trip.new")}
             </button>
           </div>
         </form>

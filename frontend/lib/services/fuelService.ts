@@ -1,5 +1,6 @@
 import { supabase } from "@/lib/supabase";
 import { query, ok, fail, getUid } from "./_base";
+import { documentService } from "./documentService";
 import type { FuelLog, ServiceResponse } from "@/lib/types";
 import type { Database } from "@/lib/database.types";
 
@@ -12,10 +13,21 @@ export const fuelService = {
     return query(vehicle_id ? q.eq("vehicle_id", vehicle_id) : q);
   },
 
+  async uploadReceipt(file: File): Promise<ServiceResponse<string>> {
+    return documentService.upload(file, getUid(), "fuel-receipts");
+  },
+
   async add(data: Omit<FuelLogInsert, "owner_id">): Promise<ServiceResponse<FuelLog>> {
-    return query(
+    const res = await query<FuelLog>(
       supabase.from("fuel_logs").insert({ ...data, owner_id: getUid() }).select().single()
     );
+    if (res.success && data.receipt_url) {
+      await documentService.logDocument({
+        name: `Fuel Receipt — ${data.date}`, category: "Expense Receipts",
+        file_url: data.receipt_url, linked_type: data.trip_id ? "trip" : "other", linked_id: data.trip_id ?? null,
+      });
+    }
+    return res;
   },
 
   async delete(id: string): Promise<ServiceResponse<null>> {

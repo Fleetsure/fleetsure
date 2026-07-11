@@ -124,6 +124,7 @@ body {
 .badge-completed { background:#e6f4ea; color:#1a7a34; }
 .badge-planned   { background:#e3f2fd; color:#1565c0; }
 .badge-in_progress { background:#e8eaf6; color:#1E2D8E; }
+.badge-pending_review { background:#f3e5f5; color:#6a1b9a; }
 .badge-cancelled { background:#fce4ec; color:#b71c1c; }
 
 input, select, textarea {
@@ -183,6 +184,7 @@ tr:hover td { background: var(--bg-hover); }
 [data-theme="dark"] .badge-completed  { background: #1a3d22; color: #6fcf97; }
 [data-theme="dark"] .badge-planned    { background: #0d2744; color: #7ab4f5; }
 [data-theme="dark"] .badge-in_progress{ background: #1e2b5e; color: #7c8ef0; }
+[data-theme="dark"] .badge-pending_review{ background: #3a1f4d; color: #c48ce6; }
 [data-theme="dark"] .badge-cancelled  { background: #3d1018; color: #f07; }
 
 /* ── Mobile responsive overrides ──────────────────────────────────────────── */

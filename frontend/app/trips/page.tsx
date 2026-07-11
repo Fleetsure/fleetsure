@@ -21,6 +21,7 @@ import TripStatusBadge from "@/components/TripStatusBadge";
 import TripStatusStepper from "@/components/TripStatusStepper";
 import LogTripModal from "./LogTripModal";
 import PdfOptionsModal from "./PdfOptionsModal";
+import WeighbridgeModal from "./WeighbridgeModal";
 
 const EMPTY_FORM = {
   vehicle_id: "", driver_id: "", driver_name: "", driver_phone: "",
@@ -87,6 +88,8 @@ export default function TripsPage() {
   const [detail, setDetail]         = useState<any>(null);
   const [detLoading, setDetLoading] = useState(false);
   const [statusBusy, setStatusBusy] = useState(false);
+  const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
+  const [showWeighbridgeModal, setShowWeighbridgeModal] = useState(false);
 
   const [distCalc, setDistCalc] = useState<"idle" | "loading" | "done" | "error">("idle");
 
@@ -95,6 +98,7 @@ export default function TripsPage() {
   const [showExpForm, setShowExpForm] = useState(false);
   const [showSettleForm, setShowSettleForm] = useState(false);
   const [settleAmount, setSettleAmount]     = useState("");
+  const [settlements, setSettlements]       = useState<any[]>([]);
   const [pdfModal, setPdfModal]   = useState(false);
   const [addingExp, setAddingExp]   = useState(false);
   const [expErr, setExpErr]         = useState("");
@@ -155,9 +159,14 @@ export default function TripsPage() {
     setShowExpForm(false);
     setExpForm({ ...EMPTY_EXP, date: todayISO() });
     setExpErr("");
+    setSettlements([]);
     try {
-      const r = await tripService.getById(trip.id);
+      const [r, sRes] = await Promise.all([
+        tripService.getById(trip.id),
+        driverService.getPaymentsForTrip(trip.id),
+      ]);
       setDetail(r.data);
+      setSettlements(sRes.data ?? []);
     } finally {
       setDetLoading(false);
     }
@@ -166,8 +175,12 @@ export default function TripsPage() {
   const refreshDetail = async () => {
     if (!selTrip) return;
     try {
-      const r = await tripService.getById(selTrip.id);
+      const [r, sRes] = await Promise.all([
+        tripService.getById(selTrip.id),
+        driverService.getPaymentsForTrip(selTrip.id),
+      ]);
       setDetail(r.data);
+      setSettlements(sRes.data ?? []);
     } catch (err) {
       console.error("[Trips] failed to refresh trip detail:", err);
     }
@@ -177,7 +190,20 @@ export default function TripsPage() {
 
   const advanceStatus = async (trip: any, e?: React.MouseEvent) => {
     e?.stopPropagation();
-    const next = trip.status === "planned" ? "in_progress" : "completed";
+    const next = trip.status === "planned" ? "in_progress" : trip.status === "in_progress" ? "pending_review" : "completed";
+
+    // Dispatching (planned -> in_progress) reserves the vehicle: block it if
+    // that vehicle is already out on another active trip. A vehicle can
+    // still be assigned to other *planned* trips while in_trip — only
+    // dispatch is blocked, not scheduling.
+    if (next === "in_progress") {
+      const veh = vehicles.find(v => v.id === trip.vehicle_id);
+      if (veh?.status === "in_trip") {
+        alert(`${veh.registration_number} is already on another active trip. Complete or cancel that trip before dispatching this one.`);
+        return;
+      }
+    }
+
     setStatusBusy(true);
     try {
       const res = await tripService.update(trip.id, { status: next });
@@ -187,8 +213,25 @@ export default function TripsPage() {
       setSelTrip((p: any) => p?.id === trip.id ? updated : p);
       setDetail((p: any) => p ? { ...p, status: next } : p);
       if (next === "completed") autoSyncTripToTyres(trip);
+
+      // Reaching in_progress reserves the vehicle ("in_trip"); reaching
+      // completed releases it back to "active". pending_review keeps it
+      // reserved since the trip isn't done yet.
+      if (trip.vehicle_id && (next === "in_progress" || next === "completed")) {
+        const vehStatus = next === "in_progress" ? "in_trip" : "active";
+        const vRes = await vehicleService.update(trip.vehicle_id, { status: vehStatus });
+        if (vRes.success) {
+          setVehicles(prev => prev.map(v => v.id === trip.vehicle_id ? { ...v, status: vehStatus } : v));
+        } else {
+          console.error("[Trips] failed to update vehicle status after trip status change:", {
+            vehicleId: trip.vehicle_id, attemptedStatus: vehStatus, error: vRes.error,
+          });
+        }
+      }
     } catch (err: any) {
-      console.error("[Trips] failed to advance status:", err);
+      console.error("[Trips] failed to advance trip status:", {
+        tripId: trip.id, from: trip.status, to: next, error: err?.message || err, raw: err,
+      });
       alert(err?.message || "Failed to update trip status. Please try again.");
     } finally { setStatusBusy(false); }
   };
@@ -203,8 +246,19 @@ export default function TripsPage() {
       setTrips(prev => prev.map(t => t.id === trip.id ? updated : t));
       setSelTrip((p: any) => p?.id === trip.id ? updated : p);
       setDetail((p: any) => p ? { ...p, status: "cancelled" } : p);
+
+      // Release the vehicle if this trip had it reserved — it only reached
+      // in_trip if it was actually dispatched (in_progress/pending_review).
+      if (trip.vehicle_id && ["in_progress", "pending_review"].includes(trip.status)) {
+        const vRes = await vehicleService.update(trip.vehicle_id, { status: "active" });
+        if (vRes.success) {
+          setVehicles(prev => prev.map(v => v.id === trip.vehicle_id ? { ...v, status: "active" } : v));
+        } else {
+          console.error("[Trips] failed to release vehicle after trip cancel:", { vehicleId: trip.vehicle_id, error: vRes.error });
+        }
+      }
     } catch (err: any) {
-      console.error("[Trips] failed to cancel trip:", err);
+      console.error("[Trips] failed to cancel trip:", { tripId: trip.id, error: err?.message || err, raw: err });
       alert(err?.message || "Failed to cancel trip. Please try again.");
     } finally { setStatusBusy(false); }
   };
@@ -277,18 +331,26 @@ export default function TripsPage() {
   };
 
   // ── Settle driver advance ───────────────────────────────────────────────────
-
+  // This used to log the settlement via miscExpenseService.add(), i.e. as a
+  // trip EXPENSE — which fed straight back into totalExp, which increased
+  // "Additional Pay to Driver" by the same amount that was just paid,
+  // triggering the same button again (an escalating loop: pay ₹650 -> total
+  // expenses go up ₹650 -> owed amount goes up again). A settlement is money
+  // leaving the owner directly to the driver, not a trip cost, so it belongs
+  // in driver_payments (type='settlement'), same ledger as the Driver
+  // Account page's "Record to Salary Ledger" — never in trip expenses.
   const handleSettle = async () => {
     if (!settleAmount || !selTrip) return;
-    await miscExpenseService.add({
-      vehicle_id:  selTrip.vehicle_id,
-      trip_id:     selTrip.id,
-      date:        todayISO(),
-      amount:      parseFloat(settleAmount),
-      category:    "other",
-      description: `Driver payment — advance settlement`,
-      notes:       undefined,
-    });
+    if (!selTrip.driver_id) {
+      alert("This trip has no driver assigned — nothing to settle.");
+      return;
+    }
+    const res = await driverService.recordSettlement(selTrip.driver_id, selTrip.id, parseFloat(settleAmount));
+    if (!res.success) {
+      console.error("[Trips] failed to record driver settlement:", { tripId: selTrip.id, error: res.error });
+      alert(res.error || "Failed to record driver payment. Please try again.");
+      return;
+    }
     setSettleAmount(""); setShowSettleForm(false);
     await refreshDetail();
   };
@@ -309,12 +371,21 @@ export default function TripsPage() {
       material:       form.material    || null,
     };
     try {
-      if (editingTrip) {
-        await tripService.update(editingTrip.id, payload);
-        setEditingTrip(null);
-      } else {
-        await tripService.create(payload);
+      const res = editingTrip
+        ? await tripService.update(editingTrip.id, payload)
+        : await tripService.create(payload);
+      if (!res.success) {
+        setFormErr(res.error || "Something went wrong");
+        return;
       }
+      // The trip detail drawer (if open on this same trip) holds its own
+      // copy of the row — refresh it too, or a save here would look like it
+      // silently did nothing while the drawer keeps showing pre-edit values.
+      if (editingTrip && selTrip?.id === editingTrip.id) {
+        setSelTrip((res as any).data);
+        refreshDetail();
+      }
+      setEditingTrip(null);
       setShowForm(false);
       setForm({ ...EMPTY_FORM, start_date: todayISO() });
       setVehicleSuggestions([]);
@@ -381,6 +452,10 @@ export default function TripsPage() {
   const margin       = freight > 0 ? ((profit / freight) * 100).toFixed(1) : "0.0";
   const driverAdv    = Number(detail?.driver_advance ?? 0);
   const driverBal    = driverAdv - totalExp; // + = driver owes back, − = pay driver more
+  // Settlements are driver_payments rows, not trip expenses — they don't
+  // feed back into totalExp/driverBal above, so recording one can't trigger
+  // another recalculation of the same owed amount.
+  const totalSettled = settlements.filter((p: any) => p.type === "settlement").reduce((s: number, p: any) => s + Number(p.amount), 0);
 
   // ── Render ──────────────────────────────────────────────────────────────────
 
@@ -404,12 +479,13 @@ export default function TripsPage() {
       <div style={{ padding: isMobile ? "14px" : "24px 28px" }}>
 
         {/* Stats */}
-        <div style={{ display: "grid", gridTemplateColumns: isMobile ? "repeat(2, 1fr)" : "repeat(4, 1fr)", gap: isMobile ? 10 : 14, marginBottom: isMobile ? 14 : 24 }}>
+        <div style={{ display: "grid", gridTemplateColumns: isMobile ? "repeat(2, 1fr)" : "repeat(5, 1fr)", gap: isMobile ? 10 : 14, marginBottom: isMobile ? 14 : 24 }}>
           {[
-            { label: "Total Trips",  value: trips.length,                                         color: "#1E2D8E" },
-            { label: "Planned",      value: trips.filter(t => t.status === "planned").length,      color: "#1565c0" },
-            { label: "In Progress",  value: trips.filter(t => t.status === "in_progress").length,  color: "#e65100" },
-            { label: "Completed",    value: trips.filter(t => t.status === "completed").length,    color: "#2e7d32" },
+            { label: "Total Trips",  value: trips.length,                                              color: "#1E2D8E" },
+            { label: "Planned",      value: trips.filter(t => t.status === "planned").length,           color: "#1565c0" },
+            { label: "In Progress",  value: trips.filter(t => t.status === "in_progress").length,       color: "#e65100" },
+            { label: "Pending Review", value: trips.filter(t => t.status === "pending_review").length,  color: "#6a1b9a" },
+            { label: "Completed",    value: trips.filter(t => t.status === "completed").length,         color: "#2e7d32" },
           ].map(s => (
             <div key={s.label} className="stat-card" style={{ textAlign: "center" }}>
               <div style={{ fontSize: isMobile ? 22 : 26, fontWeight: 700, color: s.color }}>{s.value}</div>
@@ -423,7 +499,7 @@ export default function TripsPage() {
           <div style={{ marginBottom: 14 }}>
             {/* Horizontally scrollable filter strip */}
             <div style={{ display: "flex", gap: 8, overflowX: "auto", paddingBottom: 4, WebkitOverflowScrolling: "touch" as any, scrollbarWidth: "none" as any }}>
-              {["all", "planned", "in_progress", "completed", "cancelled"].map(f => (
+              {["all", "planned", "in_progress", "pending_review", "completed", "cancelled"].map(f => (
                 <button key={f} onClick={() => setFilter(f)}
                   style={{
                     padding: "7px 14px", borderRadius: 20, fontSize: 12.5, fontWeight: 600,
@@ -438,7 +514,7 @@ export default function TripsPage() {
           </div>
         ) : (
           <div style={{ display: "flex", gap: 8, marginBottom: 20, flexWrap: "wrap", alignItems: "center" }}>
-            {["all", "planned", "in_progress", "completed", "cancelled"].map(f => (
+            {["all", "planned", "in_progress", "pending_review", "completed", "cancelled"].map(f => (
               <button key={f} onClick={() => setFilter(f)}
                 style={{
                   padding: "6px 14px", borderRadius: 20, fontSize: 12.5, fontWeight: 600,
@@ -489,8 +565,8 @@ export default function TripsPage() {
             <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
               {filtered.map((t: any) => {
                 const veh = vehicleMap[t.vehicle_id];
-                const nextLabel = t.status === "planned" ? "Dispatch" : t.status === "in_progress" ? "Complete" : null;
-                const nextColor = t.status === "planned" ? "#e65100" : "#2e7d32";
+                const nextLabel = t.status === "planned" ? "Dispatch" : t.status === "in_progress" ? "Mark Delivered" : t.status === "pending_review" ? "Confirm Completed" : null;
+                const nextColor = t.status === "planned" ? "#e65100" : t.status === "in_progress" ? "#6a1b9a" : "#2e7d32";
                 return (
                   <div key={t.id} onClick={() => openTrip(t)}
                     style={{ padding: "14px", borderRadius: 12, border: "1.5px solid var(--border)", background: "var(--bg-card)", cursor: "pointer" }}>
@@ -539,8 +615,8 @@ export default function TripsPage() {
               <tbody>
                 {filtered.map((t: any) => {
                   const veh = vehicleMap[t.vehicle_id];
-                  const nextLabel = t.status === "planned" ? "Dispatch" : t.status === "in_progress" ? "Complete" : null;
-                  const nextColor = t.status === "planned" ? "#e65100" : "#2e7d32";
+                  const nextLabel = t.status === "planned" ? "Dispatch" : t.status === "in_progress" ? "Mark Delivered" : t.status === "pending_review" ? "Confirm Completed" : null;
+                  const nextColor = t.status === "planned" ? "#e65100" : t.status === "in_progress" ? "#6a1b9a" : "#2e7d32";
                   const isSelected = selTrip?.id === t.id;
                   return (
                     <tr key={t.id} onClick={() => openTrip(t)}
@@ -620,8 +696,14 @@ export default function TripsPage() {
                 )}
                 {selTrip.status === "in_progress" && (
                   <button onClick={() => advanceStatus(selTrip)} disabled={statusBusy}
-                    style={{ padding: "8px 18px", background: "#2e7d32", color: "#fff", border: "none", borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: "pointer" }}>
+                    style={{ padding: "8px 18px", background: "#6a1b9a", color: "#fff", border: "none", borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: "pointer" }}>
                     ✓ Mark Delivered
+                  </button>
+                )}
+                {selTrip.status === "pending_review" && (
+                  <button onClick={() => advanceStatus(selTrip)} disabled={statusBusy}
+                    style={{ padding: "8px 18px", background: "#2e7d32", color: "#fff", border: "none", borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: "pointer" }}>
+                    ✓ Confirm Completed
                   </button>
                 )}
                 {!["completed", "cancelled"].includes(selTrip.status) && (
@@ -632,6 +714,9 @@ export default function TripsPage() {
                 )}
                 {selTrip.status === "cancelled" && (
                   <span style={{ fontSize: 12.5, color: "#c62828", fontWeight: 600, paddingTop: 8 }}>Trip was cancelled</span>
+                )}
+                {selTrip.status === "pending_review" && (
+                  <span style={{ fontSize: 12.5, color: "#6a1b9a", fontWeight: 600, paddingTop: 8 }}>Driver marked delivered — awaiting your confirmation</span>
                 )}
                 {selTrip.status === "completed" && (
                   <span style={{ fontSize: 12.5, color: "#2e7d32", fontWeight: 600, paddingTop: 8 }}>✓ Trip completed</span>
@@ -681,6 +766,73 @@ export default function TripsPage() {
                   ))}
                 </div>
               </div>
+
+              {/* Weighbridge & Quantity — empty_truck_weight/loading_quantity/
+                  unloading_quantity/quantity_lost are stored in kg; shown
+                  here converted to tonnes for readability. */}
+              {detail && (detail.empty_truck_weight != null || detail.loading_quantity != null || detail.unloading_quantity != null || detail.weighbridge_slip_1_url || detail.weighbridge_slip_2_url || detail.weighbridge_slip_3_url) ? (
+                <div style={{ background: "#fff8f0", border: "1px solid #ffe0b2", borderRadius: 10, padding: "12px 14px", marginBottom: 14 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: "#e65100" }}>Weighbridge & Quantity</div>
+                    <button onClick={() => setShowWeighbridgeModal(true)}
+                      style={{ fontSize: 11.5, fontWeight: 700, color: "#e65100", background: "none", border: "1px solid #ffcc80", borderRadius: 6, padding: "3px 10px", cursor: "pointer" }}>
+                      Edit
+                    </button>
+                  </div>
+
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px 20px", fontSize: 12.5, marginBottom: 12 }}>
+                    {[
+                      { label: "Empty Truck Weight", value: detail.empty_truck_weight != null ? `${(detail.empty_truck_weight / 1000).toFixed(3)} T` : null },
+                      { label: "Loading Date",       value: detail.loading_date ? fmtDate(detail.loading_date) : null },
+                      { label: "Loaded Quantity",    value: detail.loading_quantity != null ? `${(detail.loading_quantity / 1000).toFixed(3)} T` : null },
+                      { label: "Unloading Date",     value: detail.unloading_date ? fmtDate(detail.unloading_date) : null },
+                      { label: "Delivered Quantity", value: detail.unloading_quantity != null ? `${(detail.unloading_quantity / 1000).toFixed(3)} T` : null },
+                    ].map(f => (
+                      <div key={f.label}>
+                        <div style={{ color: "#bbb", fontSize: 10.5, marginBottom: 1 }}>{f.label}</div>
+                        <div style={{ fontWeight: 600, color: f.value ? "#333" : "#ddd" }}>{f.value || "—"}</div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {detail.quantity_lost !== null && detail.quantity_lost !== undefined && (
+                    <div style={{
+                      display: "flex", justifyContent: "space-between", alignItems: "center",
+                      background: detail.quantity_lost < 0 ? "#fce4ec" : "white",
+                      border: detail.quantity_lost < 0 ? "1px solid #f8bbd0" : "1px solid #ffe0b2",
+                      borderRadius: 8, padding: "8px 12px", marginBottom: 12,
+                    }}>
+                      <span style={{ fontSize: 12.5, fontWeight: 600, color: detail.quantity_lost < 0 ? "#c62828" : "#555" }}>
+                        Quantity Lost{detail.quantity_lost < 0 ? " · Data Error" : ""}
+                      </span>
+                      <span style={{ fontSize: 16, fontWeight: 800, color: detail.quantity_lost < 0 ? "#c62828" : "#e65100" }}>
+                        {(detail.quantity_lost / 1000).toFixed(3)} T
+                      </span>
+                    </div>
+                  )}
+
+                  {(detail.weighbridge_slip_1_url || detail.weighbridge_slip_2_url || detail.weighbridge_slip_3_url) && (
+                    <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                      {[
+                        { label: "Slip 1 · Empty",     url: detail.weighbridge_slip_1_url },
+                        { label: "Slip 2 · Loaded",    url: detail.weighbridge_slip_2_url },
+                        { label: "Slip 3 · Delivered", url: detail.weighbridge_slip_3_url },
+                      ].filter(s => s.url).map(s => (
+                        <div key={s.label} style={{ textAlign: "center" }}>
+                          <img src={s.url} alt={s.label} onClick={() => setLightboxUrl(s.url)}
+                            style={{ width: 72, height: 72, objectFit: "cover", borderRadius: 8, border: "1px solid #ffe0b2", cursor: "pointer" }} />
+                          <div style={{ fontSize: 10, color: "#888", marginTop: 3 }}>{s.label}</div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ) : detail && (
+                <button onClick={() => setShowWeighbridgeModal(true)}
+                  style={{ display: "flex", alignItems: "center", gap: 6, width: "100%", justifyContent: "center", padding: "9px 14px", marginBottom: 14, background: "#fff8f0", border: "1px dashed #ffcc80", borderRadius: 10, fontSize: 12.5, fontWeight: 700, color: "#e65100", cursor: "pointer" }}>
+                  ⚖️ Add Weighbridge Details
+                </button>
+              )}
 
               {/* Income bar */}
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: "#e8f5e9", borderRadius: 10, padding: "10px 14px", marginBottom: 16 }}>
@@ -848,7 +1000,7 @@ export default function TripsPage() {
                       <span style={{ fontWeight: 800, color: driverBal >= 0 ? "#2e7d32" : "#c62828" }}>
                         {fmt(Math.abs(driverBal))}
                       </span>
-                      {driverBal < 0 && !["completed", "cancelled"].includes(selTrip?.status) && (
+                      {driverBal < 0 && totalSettled === 0 && !["completed", "cancelled"].includes(selTrip?.status) && (
                         <button onClick={() => { setSettleAmount(String(Math.abs(driverBal))); setShowSettleForm(v => !v); }}
                           style={{ padding: "3px 10px", background: "#1E2D8E", color: "#fff", border: "none", borderRadius: 6, fontSize: 11, fontWeight: 600, cursor: "pointer" }}>
                           Pay Driver
@@ -856,6 +1008,11 @@ export default function TripsPage() {
                       )}
                     </div>
                   </div>
+                  {totalSettled > 0 && (
+                    <div style={{ marginTop: 8, fontSize: 11.5, color: "#2e7d32", fontWeight: 600 }}>
+                      ✓ {fmt(totalSettled)} recorded as a driver payment
+                    </div>
+                  )}
                   {showSettleForm && (
                     <div style={{ marginTop: 8, padding: "10px 12px", background: "#eef0fb", borderRadius: 8, display: "flex", gap: 8, alignItems: "center" }}>
                       <span style={{ fontSize: 12, color: "#555", flexShrink: 0 }}>Amount (₹)</span>
@@ -935,6 +1092,22 @@ export default function TripsPage() {
           vehicles={vehicles}
           isMobile={isMobile}
           onClose={() => setPdfModal(false)}
+        />
+      )}
+
+      {lightboxUrl && (
+        <div onClick={() => setLightboxUrl(null)}
+          style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.85)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1100, cursor: "zoom-out", padding: 20 }}>
+          <img src={lightboxUrl} alt="Weighbridge slip" style={{ maxWidth: "100%", maxHeight: "100%", borderRadius: 8 }} />
+        </div>
+      )}
+
+      {showWeighbridgeModal && selTrip && (
+        <WeighbridgeModal
+          trip={detail ?? selTrip}
+          isMobile={isMobile}
+          onClose={() => setShowWeighbridgeModal(false)}
+          onSaved={refreshDetail}
         />
       )}
     </div>

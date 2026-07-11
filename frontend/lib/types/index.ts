@@ -18,6 +18,8 @@ export type User = Database["public"]["Tables"]["users"]["Row"];
 export type Vehicle = Database["public"]["Tables"]["vehicles"]["Row"];
 export type Driver = Database["public"]["Tables"]["drivers"]["Row"];
 export type DriverPayment = Database["public"]["Tables"]["driver_payments"]["Row"];
+export type DriverExpense = Database["public"]["Tables"]["driver_expenses"]["Row"];
+export type DriverSalary = Database["public"]["Tables"]["driver_salary"]["Row"];
 export type Expense = Database["public"]["Tables"]["expenses"]["Row"];
 export type FuelLog = Database["public"]["Tables"]["fuel_logs"]["Row"];
 export type TollLog = Database["public"]["Tables"]["toll_logs"]["Row"];
@@ -44,6 +46,7 @@ export type InsurancePolicy = Database["public"]["Tables"]["insurance_policies"]
 
 export type Document = Database["public"]["Tables"]["documents"]["Row"] & {
   reg_number?: string;
+  linked_label?: string | null;
 };
 
 export type ReturnLoad = Database["public"]["Tables"]["marketplace_return_loads"]["Row"];

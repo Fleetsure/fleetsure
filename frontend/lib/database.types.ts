@@ -37,12 +37,15 @@ export type Database = {
       }
       documents: {
         Row: {
+          category: string | null
           content_b64: string | null
           created_at: string
-          doc_type: string | null
+          expiry_date: string | null
           file_name: string | null
-          file_size: number | null
+          file_url: string | null
           id: string
+          linked_id: string | null
+          linked_type: string | null
           mime_type: string | null
           name: string
           notes: string | null
@@ -50,12 +53,15 @@ export type Database = {
           vehicle_id: string | null
         }
         Insert: {
+          category?: string | null
           content_b64?: string | null
           created_at?: string
-          doc_type?: string | null
+          expiry_date?: string | null
           file_name?: string | null
-          file_size?: number | null
+          file_url?: string | null
           id?: string
+          linked_id?: string | null
+          linked_type?: string | null
           mime_type?: string | null
           name: string
           notes?: string | null
@@ -63,12 +69,15 @@ export type Database = {
           vehicle_id?: string | null
         }
         Update: {
+          category?: string | null
           content_b64?: string | null
           created_at?: string
-          doc_type?: string | null
+          expiry_date?: string | null
           file_name?: string | null
-          file_size?: number | null
+          file_url?: string | null
           id?: string
+          linked_id?: string | null
+          linked_type?: string | null
           mime_type?: string | null
           name?: string
           notes?: string | null
@@ -76,6 +85,73 @@ export type Database = {
           vehicle_id?: string | null
         }
         Relationships: []
+      }
+      driver_expenses: {
+        Row: {
+          amount: number
+          category: string
+          created_at: string
+          driver_id: string
+          id: string
+          linked_expense_id: string | null
+          note: string | null
+          owner_id: string
+          receipt_url: string | null
+          reviewed_at: string | null
+          status: string
+          trip_id: string
+        }
+        Insert: {
+          amount: number
+          category: string
+          created_at?: string
+          driver_id: string
+          id?: string
+          linked_expense_id?: string | null
+          note?: string | null
+          owner_id: string
+          receipt_url?: string | null
+          reviewed_at?: string | null
+          status?: string
+          trip_id: string
+        }
+        Update: {
+          amount?: number
+          category?: string
+          created_at?: string
+          driver_id?: string
+          id?: string
+          linked_expense_id?: string | null
+          note?: string | null
+          owner_id?: string
+          receipt_url?: string | null
+          reviewed_at?: string | null
+          status?: string
+          trip_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "driver_expenses_driver_id_fkey"
+            columns: ["driver_id"]
+            isOneToOne: false
+            referencedRelation: "drivers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "driver_expenses_linked_expense_id_fkey"
+            columns: ["linked_expense_id"]
+            isOneToOne: false
+            referencedRelation: "misc_expenses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "driver_expenses_trip_id_fkey"
+            columns: ["trip_id"]
+            isOneToOne: false
+            referencedRelation: "trips"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       driver_payments: {
         Row: {
@@ -121,66 +197,161 @@ export type Database = {
           },
         ]
       }
+      driver_salary: {
+        Row: {
+          advance_given: number
+          amount_returned: number
+          base_salary: number
+          created_at: string
+          driver_id: string
+          expenses_claimed: number
+          id: string
+          month: string
+          net_payable: number
+          owner_id: string
+          paid: boolean
+          paid_at: string | null
+        }
+        Insert: {
+          advance_given?: number
+          amount_returned?: number
+          base_salary?: number
+          created_at?: string
+          driver_id: string
+          expenses_claimed?: number
+          id?: string
+          month: string
+          net_payable?: number
+          owner_id: string
+          paid?: boolean
+          paid_at?: string | null
+        }
+        Update: {
+          advance_given?: number
+          amount_returned?: number
+          base_salary?: number
+          created_at?: string
+          driver_id?: string
+          expenses_claimed?: number
+          id?: string
+          month?: string
+          net_payable?: number
+          owner_id?: string
+          paid?: boolean
+          paid_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "driver_salary_driver_id_fkey"
+            columns: ["driver_id"]
+            isOneToOne: false
+            referencedRelation: "drivers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       drivers: {
         Row: {
+          aadhaar_back_url: string | null
+          aadhaar_front_url: string | null
+          aadhaar_number: string | null
           address: string | null
           alternate_phone: string | null
           badge_issue_date: string | null
+          bank_account_holder_name: string | null
+          bank_account_number: string | null
+          bank_ifsc_code: string | null
           blood_group: string | null
           created_at: string
           dob: string | null
+          emergency_contact_name: string | null
+          emergency_contact_phone: string | null
           father_name: string | null
           firebase_uid: string | null
           id: string
           issuing_rto: string | null
           license_class: Database["public"]["Enums"]["licenseclass"] | null
           license_expiry: string | null
+          license_image_url: string | null
           license_number: string | null
+          mother_name: string | null
           name: string
           owner_id: string | null
+          pan_image_url: string | null
+          pan_number: string | null
+          permanent_address: string | null
           phone: string
+          profile_photo_url: string | null
           status: Database["public"]["Enums"]["driverstatus"]
           transport_validity: string | null
           updated_at: string
         }
         Insert: {
+          aadhaar_back_url?: string | null
+          aadhaar_front_url?: string | null
+          aadhaar_number?: string | null
           address?: string | null
           alternate_phone?: string | null
           badge_issue_date?: string | null
+          bank_account_holder_name?: string | null
+          bank_account_number?: string | null
+          bank_ifsc_code?: string | null
           blood_group?: string | null
           created_at?: string
           dob?: string | null
+          emergency_contact_name?: string | null
+          emergency_contact_phone?: string | null
           father_name?: string | null
           firebase_uid?: string | null
           id?: string
           issuing_rto?: string | null
           license_class?: Database["public"]["Enums"]["licenseclass"] | null
           license_expiry?: string | null
+          license_image_url?: string | null
           license_number?: string | null
+          mother_name?: string | null
           name: string
           owner_id?: string | null
+          pan_image_url?: string | null
+          pan_number?: string | null
+          permanent_address?: string | null
           phone: string
+          profile_photo_url?: string | null
           status?: Database["public"]["Enums"]["driverstatus"]
           transport_validity?: string | null
           updated_at?: string
         }
         Update: {
+          aadhaar_back_url?: string | null
+          aadhaar_front_url?: string | null
+          aadhaar_number?: string | null
           address?: string | null
           alternate_phone?: string | null
           badge_issue_date?: string | null
+          bank_account_holder_name?: string | null
+          bank_account_number?: string | null
+          bank_ifsc_code?: string | null
           blood_group?: string | null
           created_at?: string
           dob?: string | null
+          emergency_contact_name?: string | null
+          emergency_contact_phone?: string | null
           father_name?: string | null
           firebase_uid?: string | null
           id?: string
           issuing_rto?: string | null
           license_class?: Database["public"]["Enums"]["licenseclass"] | null
           license_expiry?: string | null
+          license_image_url?: string | null
           license_number?: string | null
+          mother_name?: string | null
           name?: string
           owner_id?: string | null
+          pan_image_url?: string | null
+          pan_number?: string | null
+          permanent_address?: string | null
           phone?: string
+          profile_photo_url?: string | null
           status?: Database["public"]["Enums"]["driverstatus"]
           transport_validity?: string | null
           updated_at?: string
@@ -242,6 +413,7 @@ export type Database = {
           notes: string | null
           odometer_km: number | null
           owner_id: string | null
+          receipt_url: string | null
           trip_id: string | null
           vehicle_id: string
         }
@@ -255,6 +427,7 @@ export type Database = {
           notes?: string | null
           odometer_km?: number | null
           owner_id?: string | null
+          receipt_url?: string | null
           trip_id?: string | null
           vehicle_id: string
         }
@@ -268,6 +441,7 @@ export type Database = {
           notes?: string | null
           odometer_km?: number | null
           owner_id?: string | null
+          receipt_url?: string | null
           trip_id?: string | null
           vehicle_id?: string
         }
@@ -377,7 +551,6 @@ export type Database = {
           id: string
           notes: string | null
           owner_id: string
-          rating: number | null
           status: Database["public"]["Enums"]["loadstatus"]
           to_city: string
           updated_at: string
@@ -396,7 +569,6 @@ export type Database = {
           id?: string
           notes?: string | null
           owner_id: string
-          rating?: number | null
           status?: Database["public"]["Enums"]["loadstatus"]
           to_city: string
           updated_at?: string
@@ -415,7 +587,6 @@ export type Database = {
           id?: string
           notes?: string | null
           owner_id?: string
-          rating?: number | null
           status?: Database["public"]["Enums"]["loadstatus"]
           to_city?: string
           updated_at?: string
@@ -702,6 +873,7 @@ export type Database = {
           notes: string | null
           owner_id: string | null
           payment_mode: string
+          receipt_url: string | null
           route: string | null
           toll_plaza: string | null
           trip_id: string | null
@@ -715,6 +887,7 @@ export type Database = {
           notes?: string | null
           owner_id?: string | null
           payment_mode?: string
+          receipt_url?: string | null
           route?: string | null
           toll_plaza?: string | null
           trip_id?: string | null
@@ -728,6 +901,7 @@ export type Database = {
           notes?: string | null
           owner_id?: string | null
           payment_mode?: string
+          receipt_url?: string | null
           route?: string | null
           toll_plaza?: string | null
           trip_id?: string | null
@@ -760,17 +934,26 @@ export type Database = {
           driver_id: string | null
           driver_name: string
           driver_phone: string | null
+          empty_truck_weight: number | null
           end_date: string | null
           freight_amount: number
           id: string
+          loading_date: string | null
+          loading_quantity: number | null
           material: string | null
           notes: string | null
           origin: string
           owner_id: string | null
+          quantity_lost: number | null
           start_date: string
           status: Database["public"]["Enums"]["tripstatus"]
+          unloading_date: string | null
+          unloading_quantity: number | null
           updated_at: string
           vehicle_id: string
+          weighbridge_slip_1_url: string | null
+          weighbridge_slip_2_url: string | null
+          weighbridge_slip_3_url: string | null
           weight_tonnes: number | null
         }
         Insert: {
@@ -782,17 +965,25 @@ export type Database = {
           driver_id?: string | null
           driver_name: string
           driver_phone?: string | null
+          empty_truck_weight?: number | null
           end_date?: string | null
           freight_amount?: number
           id?: string
+          loading_date?: string | null
+          loading_quantity?: number | null
           material?: string | null
           notes?: string | null
           origin: string
           owner_id?: string | null
           start_date: string
           status?: Database["public"]["Enums"]["tripstatus"]
+          unloading_date?: string | null
+          unloading_quantity?: number | null
           updated_at?: string
           vehicle_id: string
+          weighbridge_slip_1_url?: string | null
+          weighbridge_slip_2_url?: string | null
+          weighbridge_slip_3_url?: string | null
           weight_tonnes?: number | null
         }
         Update: {
@@ -804,17 +995,25 @@ export type Database = {
           driver_id?: string | null
           driver_name?: string
           driver_phone?: string | null
+          empty_truck_weight?: number | null
           end_date?: string | null
           freight_amount?: number
           id?: string
+          loading_date?: string | null
+          loading_quantity?: number | null
           material?: string | null
           notes?: string | null
           origin?: string
           owner_id?: string | null
           start_date?: string
           status?: Database["public"]["Enums"]["tripstatus"]
+          unloading_date?: string | null
+          unloading_quantity?: number | null
           updated_at?: string
           vehicle_id?: string
+          weighbridge_slip_1_url?: string | null
+          weighbridge_slip_2_url?: string | null
+          weighbridge_slip_3_url?: string | null
           weight_tonnes?: number | null
         }
         Relationships: [
@@ -932,10 +1131,8 @@ export type Database = {
         Row: {
           created_at: string
           email: string
-          google_id: string | null
           google_picture: string | null
           gst_number: string | null
-          hashed_password: string | null
           id: string
           is_active: boolean
           last_login_at: string | null
@@ -948,10 +1145,8 @@ export type Database = {
         Insert: {
           created_at?: string
           email: string
-          google_id?: string | null
           google_picture?: string | null
           gst_number?: string | null
-          hashed_password?: string | null
           id?: string
           is_active?: boolean
           last_login_at?: string | null
@@ -964,10 +1159,8 @@ export type Database = {
         Update: {
           created_at?: string
           email?: string
-          google_id?: string | null
           google_picture?: string | null
           gst_number?: string | null
-          hashed_password?: string | null
           id?: string
           is_active?: boolean
           last_login_at?: string | null
@@ -1247,7 +1440,7 @@ export type Database = {
         | "puc"
         | "road_tax"
         | "other"
-      tripstatus: "planned" | "in_progress" | "completed" | "cancelled"
+      tripstatus: "planned" | "in_progress" | "pending_review" | "completed" | "cancelled"
       vehiclestatus: "active" | "inactive" | "in_trip" | "maintenance"
       vehicletype:
         | "truck"
@@ -1408,7 +1601,7 @@ export const Constants = {
         "road_tax",
         "other",
       ],
-      tripstatus: ["planned", "in_progress", "completed", "cancelled"],
+      tripstatus: ["planned", "in_progress", "pending_review", "completed", "cancelled"],
       vehiclestatus: ["active", "inactive", "in_trip", "maintenance"],
       vehicletype: [
         "truck",
