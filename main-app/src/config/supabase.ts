@@ -8,12 +8,11 @@ const SUPABASE_ANON_KEY =
 const EXCHANGE_PATH = "/functions/v1/exchange-token";
 const TOKEN_EXPIRY_BUFFER = 60;
 
-// Resolves once Firebase restores auth state from storage
+// Wait for @react-native-firebase/auth to restore the persisted session before
+// any Supabase request fires — otherwise auth.currentUser is null and the
+// token exchange has nothing to exchange.
 const authReady: Promise<void> = new Promise((resolve) => {
-  const unsub = auth.onAuthStateChanged(() => {
-    unsub();
-    resolve();
-  });
+  const unsub = auth.onAuthStateChanged(() => { unsub(); resolve(); });
 });
 
 let cachedSupabaseToken: string | null = null;
@@ -70,7 +69,17 @@ async function getSupabaseToken(): Promise<string | null> {
     return cachedSupabaseToken;
   }
 
-  const supabaseToken = await exchangeFirebaseToken(firebaseToken);
+  // One retry for the exchange call — a transient network blip or edge
+  // function cold start shouldn't be able to silently drop an entire
+  // session down to the anonymous role (see authFetch's catch below for
+  // what happens if this still fails after the retry).
+  let supabaseToken: string;
+  try {
+    supabaseToken = await exchangeFirebaseToken(firebaseToken);
+  } catch (firstError) {
+    console.error("[supabase] token exchange failed, retrying once:", (firstError as any)?.message ?? firstError);
+    supabaseToken = await exchangeFirebaseToken(firebaseToken);
+  }
   const supabasePayload = parseJwtPayload(supabaseToken);
   const exp = Number(supabasePayload.exp ?? 0);
   if (!exp || exp <= now) {
@@ -93,8 +102,23 @@ async function authFetch(
   try {
     const token = await getSupabaseToken();
     if (token) headers.set("Authorization", `Bearer ${token}`);
-  } catch {
-    // not signed in yet, or exchange failed — request proceeds unauthenticated
+  } catch (e: any) {
+    // Previously silent regardless of cause. A signed-in user whose token
+    // exchange fails (network blip, exchange-token edge function error,
+    // JWKS fetch failure) fell through to this same catch as "not logged
+    // in yet" — the request then went out with NO Authorization header at
+    // all, i.e. as the anonymous role. auth.jwt() is then null server-side,
+    // and every owner-scoped RPC/query silently returns zero rows — not an
+    // error, so nothing in the app ever surfaced it. Only log when a
+    // Firebase user actually exists, since that's the case that indicates a
+    // real failure rather than the expected pre-login state.
+    if (auth.currentUser) {
+      console.error("[supabase] token exchange failed while signed in — request will go out unauthenticated:", {
+        firebaseUid: auth.currentUser.uid,
+        url: typeof input === "string" ? input : (input as any)?.url ?? input,
+        error: e?.message ?? e,
+      });
+    }
   }
   return fetch(input as RequestInfo, { ...init, headers });
 }
