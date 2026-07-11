@@ -28,11 +28,29 @@ export default function TripsScreen() {
   const [tab, setTab] = useState<"in_progress" | "planned">("in_progress");
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     if (!driver) return;
     const res = await driverService.getActiveTrips(driver.id);
-    if (res.success) setTrips(res.data ?? []);
+    console.log("[TripsScreen] getActiveTrips", {
+      driverId: driver.id,
+      firebaseUid: driver.firebase_uid,
+      success: res.success,
+      count: res.data?.length,
+      error: res.error,
+    });
+    if (res.success) {
+      setTrips(res.data ?? []);
+      setLoadError(null);
+    } else {
+      // Previously silent: a failed call left `trips` at its last value
+      // with no indication anything went wrong, so a driver whose RPC call
+      // errors (or returns nothing due to an id mismatch) just sees an
+      // empty "no trips" screen with zero signal to debug from.
+      console.error("[TripsScreen] failed to load active trips:", res.error);
+      setLoadError(res.error || "Failed to load trips.");
+    }
     setLoading(false);
   }, [driver]);
 
@@ -85,6 +103,13 @@ export default function TripsScreen() {
           </Text>
         </TouchableOpacity>
       </View>
+
+      {loadError && (
+        <View style={styles.errorBanner}>
+          <Ionicons name="alert-circle" size={16} color="#B91C1C" />
+          <Text style={styles.errorBannerText}>{loadError}</Text>
+        </View>
+      )}
 
       {loading ? (
         <View style={styles.center}>
@@ -151,4 +176,13 @@ const styles = StyleSheet.create({
   list: { padding: 16, paddingBottom: 32 },
   empty: { alignItems: "center", paddingVertical: 60, gap: 10 },
   emptyTitle: { fontSize: 15, color: "#64748B", fontWeight: "600" },
+  errorBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    backgroundColor: "#FEE2E2",
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+  },
+  errorBannerText: { flex: 1, fontSize: 12.5, color: "#B91C1C", fontWeight: "600" },
 });

@@ -69,7 +69,17 @@ async function getSupabaseToken(): Promise<string | null> {
     return cachedSupabaseToken;
   }
 
-  const supabaseToken = await exchangeFirebaseToken(firebaseToken);
+  // One retry for the exchange call — a transient network blip or edge
+  // function cold start shouldn't be able to silently drop an entire
+  // session down to the anonymous role (see authFetch's catch below for
+  // what happens if this still fails after the retry).
+  let supabaseToken: string;
+  try {
+    supabaseToken = await exchangeFirebaseToken(firebaseToken);
+  } catch (firstError) {
+    console.error("[supabase] token exchange failed, retrying once:", (firstError as any)?.message ?? firstError);
+    supabaseToken = await exchangeFirebaseToken(firebaseToken);
+  }
   const supabasePayload = parseJwtPayload(supabaseToken);
   const exp = Number(supabasePayload.exp ?? 0);
   if (!exp || exp <= now) {
@@ -92,8 +102,24 @@ async function authFetch(
   try {
     const token = await getSupabaseToken();
     if (token) headers.set("Authorization", `Bearer ${token}`);
-  } catch {
-    // not logged in yet, or exchange failed — request proceeds unauthenticated
+  } catch (e: any) {
+    // Previously silent regardless of cause. A signed-in user whose token
+    // exchange fails (network blip, exchange-token edge function error,
+    // JWKS fetch failure) fell through to this same catch as "not logged
+    // in yet" — the request then went out with NO Authorization header at
+    // all, i.e. as the anonymous role. auth.jwt() is then null server-side,
+    // get_driver_id_for_uid() returns NULL, and every driver-scoped RPC
+    // (get_active_driver_trips etc.) silently returns zero rows — not an
+    // error, so nothing in the app ever surfaced it. Only log when a
+    // Firebase user actually exists, since that's the case that indicates a
+    // real failure rather than the expected pre-login state.
+    if (auth.currentUser) {
+      console.error("[supabase] token exchange failed while signed in — request will go out unauthenticated:", {
+        firebaseUid: auth.currentUser.uid,
+        url: typeof input === "string" ? input : (input as any)?.url ?? input,
+        error: e?.message ?? e,
+      });
+    }
   }
   return fetch(input as RequestInfo, { ...init, headers });
 }

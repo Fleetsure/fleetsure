@@ -47,9 +47,34 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (user && user.phoneNumber) {
         try {
           const res = await driverService.getProfileByPhone(user.phoneNumber);
-          if (res.success && res.data) setDriver(res.data);
-        } catch {
-          // silent
+          console.log("[AuthContext] getProfileByPhone on launch", {
+            firebaseUid: user.uid,
+            phone: user.phoneNumber,
+            success: res.success,
+            resolvedDriverId: res.data?.id,
+            resolvedFirebaseUid: res.data?.firebase_uid,
+            error: res.error,
+          });
+          if (res.success && res.data) {
+            // The resolved row's firebase_uid should always equal this
+            // session's own uid — if it doesn't, the phone lookup matched
+            // the wrong driver record (e.g. a duplicate phone number), and
+            // every trip/data query for this session will silently miss
+            // anything assigned to the correct record.
+            if (res.data.firebase_uid && res.data.firebase_uid !== user.uid) {
+              console.error("[AuthContext] resolved driver's firebase_uid does not match the signed-in user — likely a duplicate phone number in the drivers table.", {
+                signedInUid: user.uid, resolvedDriverId: res.data.id, resolvedFirebaseUid: res.data.firebase_uid,
+              });
+            }
+            setDriver(res.data);
+            setAuthError(null);
+          } else {
+            console.error("[AuthContext] failed to resolve driver profile on launch:", res.error);
+            setAuthError(res.error ?? "Could not load your driver profile.");
+          }
+        } catch (e: any) {
+          console.error("[AuthContext] unexpected error resolving driver profile on launch:", e);
+          setAuthError(e?.message ?? "Could not load your driver profile.");
         }
       }
       setLoading(false);

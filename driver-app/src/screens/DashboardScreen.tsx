@@ -32,10 +32,25 @@ export default function DashboardScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
+  const [loadError, setLoadError] = useState<string | null>(null);
+
   const load = useCallback(async () => {
     if (!driver) return;
     const res = await driverService.getActiveTrips(driver.id);
-    if (res.success) setTrips(res.data ?? []);
+    console.log("[DashboardScreen] getActiveTrips", {
+      driverId: driver.id,
+      firebaseUid: driver.firebase_uid,
+      success: res.success,
+      count: res.data?.length,
+      error: res.error,
+    });
+    if (res.success) {
+      setTrips(res.data ?? []);
+      setLoadError(null);
+    } else {
+      console.error("[DashboardScreen] failed to load active trips:", res.error);
+      setLoadError(res.error || "Failed to load trips.");
+    }
     setLoading(false);
   }, [driver]);
 
@@ -95,6 +110,13 @@ export default function DashboardScreen() {
           <Text style={styles.logoutText}>Sign Out</Text>
         </TouchableOpacity>
       </View>
+
+      {loadError && (
+        <View style={styles.errorBanner}>
+          <Ionicons name="alert-circle" size={16} color="#B91C1C" />
+          <Text style={styles.errorBannerText}>{loadError}</Text>
+        </View>
+      )}
 
       <ScrollView
         style={styles.scroll}
@@ -353,4 +375,13 @@ const styles = StyleSheet.create({
   },
   emptyTitle: { fontSize: 16, fontWeight: "700", color: "#64748B" },
   emptySub: { fontSize: 13, color: "#94A3B8", textAlign: "center", lineHeight: 19 },
+  errorBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    backgroundColor: "#FEE2E2",
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+  },
+  errorBannerText: { flex: 1, fontSize: 12.5, color: "#B91C1C", fontWeight: "600" },
 });
