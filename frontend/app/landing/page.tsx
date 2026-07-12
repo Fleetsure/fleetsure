@@ -11,12 +11,8 @@ import {
 } from "lucide-react";
 import { useIsMobile } from "@/hooks/useIsMobile";
 
-// ── WhatsApp ──────────────────────────────────────────────────────────────────
-const WA_NUMBER = "919606462535";
-const WA_MSG = encodeURIComponent(
-  "Hi! I manage a truck fleet and I'd like to book a demo for FleetSure. Can we connect?"
-);
-const WA_URL = `https://wa.me/${WA_NUMBER}?text=${WA_MSG}`;
+// Placeholder — replace with the real Calendly scheduling link.
+const DEMO_URL = "https://calendly.com";
 
 // ── Palette — portal blue family ─────────────────────────────────────────────
 const SAF   = "#1E2D8E";   // portal primary blue (was orange)
@@ -71,7 +67,7 @@ const FAQS = [
 function BookDemo({ large, onDark }: { large?: boolean; onDark?: boolean }) {
   const [hover, setHover] = useState(false);
   return (
-    <a href={WA_URL} target="_blank" rel="noreferrer"
+    <a href={DEMO_URL} target="_blank" rel="noreferrer"
       onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)}
       style={{
         display: "inline-flex", alignItems: "center", gap: 8,
@@ -88,7 +84,7 @@ function BookDemo({ large, onDark }: { large?: boolean; onDark?: boolean }) {
         transform: hover ? "translateY(-2px)" : "none",
         transition: "all 0.18s",
       }}>
-      💬 Book a Free Demo
+      Book a Demo
     </a>
   );
 }
@@ -321,7 +317,7 @@ export default function LandingPage() {
             ] as [string, string][]).map(([label, href]) => (
               <a key={href} href={href} style={{ fontSize: 14, fontWeight: 600, color: "#334155", textDecoration: "none", letterSpacing: "-0.1px" }}>{label}</a>
             ))}
-            <Link href="/login" style={{ fontSize: 14, fontWeight: 700, color: PEA, textDecoration: "none" }}>{t("landing.login")}</Link>
+            <Link href="/login" style={{ fontSize: 14, fontWeight: 700, color: PEA, textDecoration: "none" }}>Client Login →</Link>
 
             {/* Language picker */}
             <div style={{ position: "relative" }}>
@@ -372,7 +368,7 @@ export default function LandingPage() {
         {isMobile && (
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             <Link href="/login" style={{ fontSize: 13, fontWeight: 700, color: PEA, textDecoration: "none", padding: "6px 12px" }}>
-              Log In
+              Client Login →
             </Link>
             <button
               onClick={() => setMenuOpen(v => !v)}
@@ -447,13 +443,13 @@ export default function LandingPage() {
 
           {/* CTA */}
           <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-            <a href={WA_URL} target="_blank" rel="noreferrer" onClick={() => setMenuOpen(false)}
+            <a href={DEMO_URL} target="_blank" rel="noreferrer" onClick={() => setMenuOpen(false)}
               style={{
                 display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
                 padding: "16px", background: SAF, color: "white", borderRadius: 10,
                 fontWeight: 700, fontSize: 16, textDecoration: "none",
               }}>
-              💬 Book a Free Demo
+              Book a Demo
             </a>
             <Link href="/login" onClick={() => setMenuOpen(false)}
               style={{
@@ -461,7 +457,7 @@ export default function LandingPage() {
                 padding: "14px", border: `1.5px solid ${SAF}`, color: SAF, borderRadius: 10,
                 fontWeight: 700, fontSize: 15, textDecoration: "none",
               }}>
-              Log In
+              Client Login →
             </Link>
           </div>
         </div>
@@ -785,7 +781,7 @@ export default function LandingPage() {
               </div>
               <div>
                 <div style={{ fontSize: 10, fontWeight: 800, color: "rgba(255,255,255,0.3)", letterSpacing: "2px", textTransform: "uppercase", marginBottom: 18 }}>Account</div>
-                {([["Log In", "/login"], ["Sign Up", "/register"]] as [string, string][]).map(([label, href]) => (
+                {([["Client Login", "/login"]] as [string, string][]).map(([label, href]) => (
                   <div key={label} style={{ marginBottom: 12 }}>
                     <Link href={href} style={{ color: "rgba(255,255,255,0.55)", fontSize: 14, textDecoration: "none", fontWeight: 500 }}>{label}</Link>
                   </div>

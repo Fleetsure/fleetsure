@@ -5,6 +5,7 @@ import { onIdTokenChanged, signOut } from "firebase/auth";
 import { auth } from "@/lib/firebase";
 import { supabase, setSupabaseAuthToken } from "@/lib/supabase";
 import Sidebar from "@/components/Sidebar";
+import { useFirm } from "@/lib/FirmContext";
 
 
 const PUBLIC_ROUTES = ["/login", "/register", "/landing"];
@@ -213,6 +214,7 @@ function OnboardingModal({ onDone, onSkip }: { onDone: () => void; onSkip: () =>
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
+  const { firmVersion } = useFirm();
   const [checked, setChecked] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
@@ -251,16 +253,12 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       .single();
 
     if (!existing) {
-      // New user — insert basic row and show onboarding
-      await supabase.from("users").insert({
-        id: uid,
-        email: firebaseUser.email,
-        name: firebaseUser.displayName || firebaseUser.email,
-        google_picture: firebaseUser.photoURL || null,
-        is_active: true,
-        last_login_at: new Date().toISOString(),
-      });
-      setShowOnboarding(true);
+      // Invite-only: a Firebase account existing isn't enough — the owner
+      // must already have a users row (created when they're invited).
+      // Mirrors the same check on the login page itself; this is the
+      // backstop for a session that lands on some other route instead.
+      await signOut(auth);
+      router.replace("/login");
     } else if (!existing.is_active) {
       await signOut(auth);
       router.replace("/login");
@@ -341,7 +339,13 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         background: "var(--bg-page)", color: "var(--text-main)",
         paddingBottom: isMobile ? 60 : 0,
       }}>
-        {children}
+        {/* key=firmVersion forces all page components to remount when the
+            active firm changes, so every page re-fetches its data with the
+            new firm_id — replaces the previous window.location.reload() which
+            was destroying React/Firebase state unpredictably on reload. */}
+        <div key={firmVersion} style={{ display: "contents" }}>
+          {children}
+        </div>
       </main>
       {showOnboarding && (
         <OnboardingModal
