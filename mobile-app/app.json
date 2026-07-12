@@ -1,0 +1,56 @@
+{
+  "expo": {
+    "name": "FleetSure",
+    "slug": "fleetsure-main",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "scheme": "fleetsure",
+    "userInterfaceStyle": "light",
+    "android": {
+      "package": "com.fleetsure.mainapp",
+      "versionCode": 1,
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#001276"
+      },
+      "permissions": []
+    },
+    "ios": {
+      "bundleIdentifier": "com.fleetsure.mainapp",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
+    },
+    "plugins": [
+      "expo-asset",
+      "expo-font",
+      "expo-status-bar",
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#001276",
+          "image": "./assets/splash.png",
+          "imageWidth": 200
+        }
+      ],
+      "expo-sharing",
+      "@react-native-community/datetimepicker"
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "f09b2297-fecf-4937-b3bf-b233dc70ab7e"
+      }
+    },
+    "owner": "fleetsureapp",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/f09b2297-fecf-4937-b3bf-b233dc70ab7e",
+      "enabled": true,
+      "fallbackToCacheTimeout": 0,
+      "checkAutomatically": "ON_LOAD"
+    }
+  }
+}

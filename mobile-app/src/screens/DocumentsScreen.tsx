@@ -30,6 +30,7 @@ export default function DocumentsScreen() {
   const [trips, setTrips] = useState<Trip[]>([]);
   const [category, setCategory] = useState<string | null>(null);
   const [linkedTypeFilter, setLinkedTypeFilter] = useState<string | null>(null);
+  const [linkedIdFilter, setLinkedIdFilter] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<string | null>(null);
   const [showAdd, setShowAdd] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -58,10 +59,20 @@ export default function DocumentsScreen() {
     let result = docs;
     if (category) result = result.filter((d) => d.category === category);
     if (linkedTypeFilter) result = result.filter((d) => d.linked_type === linkedTypeFilter);
+    if (linkedIdFilter) result = result.filter((d) => d.linked_id === linkedIdFilter);
     if (statusFilter === "expired") result = result.filter((d) => expiryStatus(d.expiry_date) === "expired");
     else if (statusFilter === "expiring_soon") result = result.filter((d) => expiryStatus(d.expiry_date) === "expiring_soon");
     return result;
-  }, [docs, category, linkedTypeFilter, statusFilter]);
+  }, [docs, category, linkedTypeFilter, linkedIdFilter, statusFilter]);
+
+  const hasActiveFilters = !!(category || linkedTypeFilter || linkedIdFilter || statusFilter);
+
+  function clearAllFilters() {
+    setCategory(null);
+    setLinkedTypeFilter(null);
+    setLinkedIdFilter(null);
+    setStatusFilter(null);
+  }
 
   const expirySummary = useMemo(() => {
     let expiringSoon = 0, expired = 0;
@@ -159,11 +170,22 @@ export default function DocumentsScreen() {
 
         {/* Linked-to filter */}
         <View>
-          <Text style={styles.filterLabel}>Linked To</Text>
+          <View style={styles.filterHeaderRow}>
+            <Text style={styles.filterLabel}>Linked To</Text>
+            {hasActiveFilters ? (
+              <TouchableOpacity onPress={clearAllFilters}>
+                <Text style={styles.clearFiltersText}>Clear All Filters</Text>
+              </TouchableOpacity>
+            ) : null}
+          </View>
           <ScrollView horizontal showsHorizontalScrollIndicator={false}>
             <View style={styles.chipRow}>
               {[null, "vehicle", "driver", "trip"].map((t) => (
-                <TouchableOpacity key={String(t)} style={[styles.chip, linkedTypeFilter === t && styles.chipActive]} onPress={() => setLinkedTypeFilter(t)}>
+                <TouchableOpacity
+                  key={String(t)}
+                  style={[styles.chip, linkedTypeFilter === t && styles.chipActive]}
+                  onPress={() => { setLinkedTypeFilter(t); setLinkedIdFilter(null); }}
+                >
                   <Text style={[styles.chipText, linkedTypeFilter === t && styles.chipTextActive]}>
                     {t === null ? "All" : t.charAt(0).toUpperCase() + t.slice(1)}
                   </Text>
@@ -172,6 +194,45 @@ export default function DocumentsScreen() {
             </View>
           </ScrollView>
         </View>
+
+        {/* Specific vehicle/driver filter — only shown once a type is picked */}
+        {linkedTypeFilter === "vehicle" && vehicles.length > 0 ? (
+          <View>
+            <Text style={styles.filterLabel}>Vehicle</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+              <View style={styles.chipRow}>
+                {vehicles.map((v) => (
+                  <TouchableOpacity
+                    key={v.id}
+                    style={[styles.chip, linkedIdFilter === v.id && styles.chipActive]}
+                    onPress={() => setLinkedIdFilter(linkedIdFilter === v.id ? null : v.id)}
+                  >
+                    <Text style={[styles.chipText, linkedIdFilter === v.id && styles.chipTextActive]}>{v.registration_number}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </ScrollView>
+          </View>
+        ) : null}
+
+        {linkedTypeFilter === "driver" && drivers.length > 0 ? (
+          <View>
+            <Text style={styles.filterLabel}>Driver</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+              <View style={styles.chipRow}>
+                {drivers.map((d) => (
+                  <TouchableOpacity
+                    key={d.id}
+                    style={[styles.chip, linkedIdFilter === d.id && styles.chipActive]}
+                    onPress={() => setLinkedIdFilter(linkedIdFilter === d.id ? null : d.id)}
+                  >
+                    <Text style={[styles.chipText, linkedIdFilter === d.id && styles.chipTextActive]}>{d.name}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </ScrollView>
+          </View>
+        ) : null}
 
         {/* Status filter */}
         <View>
@@ -248,6 +309,8 @@ const styles = StyleSheet.create({
   saveBtn: { backgroundColor: colors.primary, borderRadius: radii.md, paddingVertical: 12, alignItems: "center", marginTop: 4 },
   saveBtnText: { color: "white", fontWeight: "700" },
   filterLabel: { fontSize: 11, fontWeight: "700", color: colors.onSurfaceVariant, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6, marginLeft: 2 },
+  filterHeaderRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
+  clearFiltersText: { fontSize: 11, fontWeight: "700", color: colors.primary },
   chipRow: { flexDirection: "row", gap: 8 },
   chip: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: radii.full, borderWidth: 1, borderColor: colors.outlineVariant, backgroundColor: colors.surfaceContainerLowest },
   chipActive: { backgroundColor: colors.primaryContainer, borderColor: colors.primaryContainer },

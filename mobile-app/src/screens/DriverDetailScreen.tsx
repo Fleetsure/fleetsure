@@ -4,6 +4,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { MaterialIcons } from "@expo/vector-icons";
 import { useRoute, useNavigation, RouteProp, useFocusEffect } from "@react-navigation/native";
 import * as DocumentPicker from "expo-document-picker";
+import { pickImageFromGallery } from "../lib/pickImage";
 import { driverService } from "../lib/services/driverService";
 import { documentService, expiryStatus } from "../lib/services/documentService";
 import ScreenHeader from "../components/ScreenHeader";
@@ -33,6 +34,9 @@ const DRIVER_DOC_CATEGORIES = [
   "Police Verification",
   "Other",
 ];
+
+// Subset that must be on file for compliance — checked against uploaded doc categories.
+const DRIVER_REQUIRED_CATEGORIES = ["Driving Licence", "Aadhar Card", "PAN Card"];
 
 function formatDate(d: string | null): string {
   if (!d) return "—";
@@ -71,6 +75,18 @@ export default function DriverDetailScreen() {
     const asset = res.assets[0];
     setPickedFile({ uri: asset.uri, name: asset.name, mimeType: asset.mimeType ?? null });
     if (!docName) setDocName(asset.name.replace(/\.[^.]+$/, ""));
+  }
+
+  async function handlePickFromGallery() {
+    const asset = await pickImageFromGallery();
+    if (!asset) return;
+    setPickedFile(asset);
+    if (!docName) setDocName(docCategory);
+  }
+
+  function openUploadFor(category: string) {
+    setDocCategory(category);
+    setShowUpload(true);
   }
 
   async function handleUpload() {
@@ -157,10 +173,17 @@ export default function DriverDetailScreen() {
 
           {showUpload ? (
             <Card>
-              <TouchableOpacity style={styles.pickBtn} onPress={handlePickFile}>
-                <MaterialIcons name="attach-file" size={18} color={colors.primary} />
-                <Text style={styles.pickBtnText}>{pickedFile ? pickedFile.name : "Choose file (image or PDF) *"}</Text>
-              </TouchableOpacity>
+              <View style={styles.pickRow}>
+                <TouchableOpacity style={[styles.pickBtn, { flex: 1, marginBottom: 0 }]} onPress={handlePickFile}>
+                  <MaterialIcons name="attach-file" size={18} color={colors.primary} />
+                  <Text style={styles.pickBtnText} numberOfLines={1}>Pick File (PDF/Doc)</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={[styles.pickBtn, { flex: 1, marginBottom: 0 }]} onPress={handlePickFromGallery}>
+                  <MaterialIcons name="photo-library" size={18} color={colors.primary} />
+                  <Text style={styles.pickBtnText} numberOfLines={1}>Pick from Gallery</Text>
+                </TouchableOpacity>
+              </View>
+              {pickedFile ? <Text style={styles.pickedFileText}>{pickedFile.name}</Text> : null}
               <FormField label="Document Name" required value={docName} onChangeText={setDocName} placeholder="e.g. Aadhar Card" />
               <ChipPicker label="Category *" options={DRIVER_DOC_CATEGORIES} value={docCategory} onChange={(v) => setDocCategory(v ?? DRIVER_DOC_CATEGORIES[0])} />
               <DateField label="Expiry Date" value={expiryDate} onChange={setExpiryDate} placeholder="Optional (for Licence, etc.)" />
@@ -203,6 +226,32 @@ export default function DriverDetailScreen() {
           )}
         </View>
 
+        {/* Required documents checklist */}
+        <Card>
+          <Text style={styles.sectionHeading}>Required Documents</Text>
+          {DRIVER_REQUIRED_CATEGORIES.map((cat, i) => {
+            const uploaded = docs.some((doc) => doc.category === cat);
+            return (
+              <React.Fragment key={cat}>
+                {i > 0 ? <View style={styles.checklistDivider} /> : null}
+                <TouchableOpacity
+                  style={styles.checklistRow}
+                  onPress={() => { if (!uploaded) openUploadFor(cat); }}
+                  disabled={uploaded}
+                >
+                  <MaterialIcons
+                    name={uploaded ? "check-circle" : "warning"}
+                    size={18}
+                    color={uploaded ? colors.success : colors.danger}
+                  />
+                  <Text style={styles.checklistLabel}>{cat}</Text>
+                  {!uploaded ? <Text style={styles.checklistAction}>Upload</Text> : null}
+                </TouchableOpacity>
+              </React.Fragment>
+            );
+          })}
+        </Card>
+
       </ScrollView>
     </SafeAreaView>
   );
@@ -231,8 +280,14 @@ const styles = StyleSheet.create({
   docSectionHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: spacing.stackGap },
   uploadBtn: { flexDirection: "row", alignItems: "center", gap: 4, backgroundColor: colors.primaryContainer, borderRadius: radii.full, paddingHorizontal: 12, paddingVertical: 7 },
   uploadBtnText: { ...type.labelMd, color: colors.onPrimaryContainer },
-  pickBtn: { flexDirection: "row", alignItems: "center", gap: 8, borderWidth: 1.5, borderColor: colors.outlineVariant, borderStyle: "dashed", borderRadius: radii.md, padding: 14, marginBottom: 14 },
+  pickRow: { flexDirection: "row", gap: 8, marginBottom: 8 },
+  pickBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, borderWidth: 1.5, borderColor: colors.outlineVariant, borderStyle: "dashed", borderRadius: radii.md, padding: 12, marginBottom: 14 },
   pickBtnText: { ...type.bodyMd, color: colors.onSurfaceVariant, flexShrink: 1 },
+  pickedFileText: { fontSize: 12, color: colors.primary, marginBottom: 14, marginTop: -6 },
+  checklistRow: { flexDirection: "row", alignItems: "center", gap: 10, paddingVertical: 10 },
+  checklistDivider: { height: 1, backgroundColor: colors.outlineVariant },
+  checklistLabel: { ...type.bodyMd, color: colors.onSurface, flex: 1 },
+  checklistAction: { ...type.labelMd, color: colors.primary },
   saveBtn: { backgroundColor: colors.primary, borderRadius: radii.md, paddingVertical: 12, alignItems: "center", marginTop: 4 },
   saveBtnText: { color: "white", fontWeight: "700" },
   docRow: { flexDirection: "row", alignItems: "center", gap: 8 },

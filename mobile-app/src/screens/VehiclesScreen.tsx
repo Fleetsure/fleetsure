@@ -1,32 +1,48 @@
 import React, { useCallback, useMemo, useState } from "react";
-import { View, Text, FlatList, TouchableOpacity, StyleSheet, ActivityIndicator, RefreshControl, Alert } from "react-native";
+import { View, Text, FlatList, TouchableOpacity, StyleSheet, ActivityIndicator, RefreshControl } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { MaterialIcons } from "@expo/vector-icons";
 import { useNavigation, useFocusEffect } from "@react-navigation/native";
 import { vehicleService } from "../lib/services/vehicleService";
 import { useFirm } from "../context/FirmContext";
+import { useColors } from "../context/ThemeContext";
 import Card from "../components/Card";
-import { colors, radii, spacing, type } from "../theme";
+import { radii, spacing, type } from "../theme";
 import type { Vehicle } from "../lib/types";
 
-const STATUS_STYLE: Record<string, { label: string; bg: string; fg: string; icon: keyof typeof MaterialIcons.glyphMap }> = {
-  active: { label: "Available", bg: colors.successBg, fg: colors.success, icon: "check-circle" },
-  in_trip: { label: "On Trip", bg: colors.secondaryContainer, fg: colors.onSecondaryContainer, icon: "local-shipping" },
-  maintenance: { label: "In Maintenance", bg: colors.errorContainer, fg: colors.onErrorContainer, icon: "build" },
-  inactive: { label: "Inactive", bg: colors.surfaceContainerHighest, fg: colors.onSurfaceVariant, icon: "block" },
-};
+function getStatusStyle(colors: ReturnType<typeof useColors>): Record<string, { label: string; bg: string; fg: string; icon: keyof typeof MaterialIcons.glyphMap }> {
+  return {
+    active: { label: "Available", bg: colors.successBg, fg: colors.success, icon: "check-circle" },
+    in_trip: { label: "On Trip", bg: colors.secondaryContainer, fg: colors.onSecondaryContainer, icon: "local-shipping" },
+    maintenance: { label: "In Maintenance", bg: colors.errorContainer, fg: colors.onErrorContainer, icon: "build" },
+    inactive: { label: "Inactive", bg: colors.surfaceContainerHighest, fg: colors.onSurfaceVariant, icon: "block" },
+  };
+}
 
 function daysUntil(dateStr: string | null): number | null {
   if (!dateStr) return null;
   return Math.ceil((new Date(dateStr).getTime() - Date.now()) / 86_400_000);
 }
 
+function complianceTone(colors: ReturnType<typeof useColors>, days: number | null): { bg: string; fg: string; label: string } {
+  if (days === null) return { bg: colors.surfaceContainerHighest, fg: colors.onSurfaceVariant, label: "—" };
+  if (days < 0) return { bg: colors.dangerBg, fg: colors.danger, label: "Expired" };
+  if (days <= 30) return { bg: colors.amberBg, fg: colors.amber, label: `${days}d left` };
+  return { bg: colors.successBg, fg: colors.success, label: `${days}d left` };
+}
+
+type VehicleFilter = "all" | "active" | "in_trip" | "maintenance" | "insurance_due";
+
 export default function VehiclesScreen() {
   const navigation = useNavigation<any>();
   const { firmVersion } = useFirm();
+  const colors = useColors();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
+  const statusStyle = useMemo(() => getStatusStyle(colors), [colors]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
+  const [filter, setFilter] = useState<VehicleFilter>("all");
 
   const load = useCallback(async () => {
     const res = await vehicleService.getAll();
@@ -60,6 +76,12 @@ export default function VehiclesScreen() {
     };
   }, [vehicles]);
 
+  const filtered = useMemo(() => {
+    if (filter === "all") return vehicles;
+    if (filter === "insurance_due") return vehicles.filter((v) => { const d = daysUntil(v.insurance_expiry); return d !== null && d <= 30; });
+    return vehicles.filter((v) => v.status === filter);
+  }, [vehicles, filter]);
+
   if (loading) {
     return (
       <SafeAreaView style={styles.center} edges={["top"]}>
@@ -79,34 +101,41 @@ export default function VehiclesScreen() {
       </View>
 
       <FlatList
-        data={vehicles}
+        data={filtered}
         keyExtractor={(v) => v.id}
         contentContainerStyle={styles.list}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
         ListHeaderComponent={
           <View style={styles.statBento}>
             <View style={styles.statRowTop}>
-              <Card style={{ flex: 1 }}>
-                <Text style={styles.bentoLabel}>Total Fleet</Text>
-                <Text style={styles.bentoValueLg}>{stats.total}</Text>
-              </Card>
-              <Card style={{ flex: 1, backgroundColor: colors.secondaryContainer }}>
-                <Text style={[styles.bentoLabel, { color: colors.onSecondaryContainer }]}>Available</Text>
-                <Text style={styles.bentoValueLg}>{stats.available}</Text>
-              </Card>
+              <TouchableOpacity style={{ flex: 1 }} activeOpacity={0.8} onPress={() => setFilter("all")}>
+                <Card style={[filter === "all" && styles.statCardActive]}>
+                  <Text style={styles.bentoLabel}>Total Fleet</Text>
+                  <Text style={styles.bentoValueLg}>{stats.total}</Text>
+                </Card>
+              </TouchableOpacity>
+              <TouchableOpacity style={{ flex: 1 }} activeOpacity={0.8} onPress={() => setFilter("active")}>
+                <Card style={[{ backgroundColor: colors.secondaryContainer }, filter === "active" && styles.statCardActive]}>
+                  <Text style={[styles.bentoLabel, { color: colors.onSecondaryContainer }]}>Available</Text>
+                  <Text style={styles.bentoValueLg}>{stats.available}</Text>
+                </Card>
+              </TouchableOpacity>
             </View>
             <View style={styles.statRowBottom}>
-              <MiniStat icon="local-shipping" value={stats.onTrip} label="On Trip" color={colors.primary} />
-              <MiniStat icon="build" value={stats.maintenance} label="Maintenance" color={colors.amber} bg={colors.amberBg} />
-              <MiniStat icon="policy" value={stats.insuranceDue} label="Ins. Due" color={colors.danger} bg={colors.dangerBg} />
+              <MiniStat styles={styles} icon="local-shipping" value={stats.onTrip} label="On Trip" color={colors.primary} active={filter === "in_trip"} onPress={() => setFilter("in_trip")} />
+              <MiniStat styles={styles} icon="build" value={stats.maintenance} label="Maintenance" color={colors.amber} bg={colors.amberBg} active={filter === "maintenance"} onPress={() => setFilter("maintenance")} />
+              <MiniStat styles={styles} icon="policy" value={stats.insuranceDue} label="Ins. Due" color={colors.danger} bg={colors.dangerBg} active={filter === "insurance_due"} onPress={() => setFilter("insurance_due")} />
             </View>
             <Text style={styles.listHeading}>Your Fleet</Text>
           </View>
         }
-        ListEmptyComponent={<Card><Text style={{ color: colors.onSurfaceVariant }}>No vehicles yet.</Text></Card>}
+        ListEmptyComponent={<Card><Text style={{ color: colors.onSurfaceVariant }}>No vehicles match this filter.</Text></Card>}
         renderItem={({ item }) => {
-          const st = STATUS_STYLE[item.status] ?? STATUS_STYLE.inactive;
+          const st = statusStyle[item.status] ?? statusStyle.inactive;
           const insDays = daysUntil(item.insurance_expiry);
+          const insurance = complianceTone(colors, insDays);
+          const fitness = complianceTone(colors, daysUntil(item.fitness_expiry));
+          const puc = complianceTone(colors, daysUntil(item.puc_expiry));
           return (
             <TouchableOpacity activeOpacity={0.7} onPress={() => navigation.navigate("VehicleDetail", { vehicle: item })}>
             <Card style={{ padding: 0, overflow: "hidden" }}>
@@ -133,9 +162,10 @@ export default function VehiclesScreen() {
                 </View>
               </View>
               <View style={styles.cardFooter}>
-                <View style={{ flexDirection: "row", gap: 8 }}>
-                  <IconBtn icon="description" onPress={() => navigation.navigate("VehicleDetail", { vehicle: item })} />
-                  <IconBtn icon="build" onPress={() => Alert.alert("Coming soon", "Maintenance log isn't available in the app yet.")} />
+                <View style={styles.complianceRow}>
+                  <ComplianceChip styles={styles} label="Insurance" tone={insurance} />
+                  <ComplianceChip styles={styles} label="Fitness" tone={fitness} />
+                  <ComplianceChip styles={styles} label="PUC" tone={puc} />
                 </View>
                 <TouchableOpacity onPress={() => navigation.navigate("VehicleDetail", { vehicle: item })}>
                   <Text style={styles.detailsLink}>Details</Text>
@@ -150,25 +180,30 @@ export default function VehiclesScreen() {
   );
 }
 
-function MiniStat({ icon, value, label, color, bg }: { icon: keyof typeof MaterialIcons.glyphMap; value: number; label: string; color: string; bg?: string }) {
+function MiniStat({
+  icon, value, label, color, bg, active, onPress, styles,
+}: { icon: keyof typeof MaterialIcons.glyphMap; value: number; label: string; color: string; bg?: string; active?: boolean; onPress?: () => void; styles: ReturnType<typeof makeStyles> }) {
   return (
-    <Card style={[{ flex: 1, alignItems: "center", paddingVertical: 12 }, bg ? { backgroundColor: bg } : null]}>
-      <MaterialIcons name={icon} size={20} color={color} style={{ marginBottom: 4 }} />
-      <Text style={[styles.miniStatValue, { color }]}>{value}</Text>
-      <Text style={styles.miniStatLabel}>{label}</Text>
-    </Card>
-  );
-}
-
-function IconBtn({ icon, onPress }: { icon: keyof typeof MaterialIcons.glyphMap; onPress: () => void }) {
-  return (
-    <TouchableOpacity style={styles.iconBtn} onPress={onPress}>
-      <MaterialIcons name={icon} size={20} color={colors.onSurfaceVariant} />
+    <TouchableOpacity style={{ flex: 1 }} activeOpacity={0.8} onPress={onPress}>
+      <Card style={[{ alignItems: "center", paddingVertical: 12 }, bg ? { backgroundColor: bg } : null, active && styles.statCardActive]}>
+        <MaterialIcons name={icon} size={20} color={color} style={{ marginBottom: 4 }} />
+        <Text style={[styles.miniStatValue, { color }]}>{value}</Text>
+        <Text style={styles.miniStatLabel}>{label}</Text>
+      </Card>
     </TouchableOpacity>
   );
 }
 
-const styles = StyleSheet.create({
+function ComplianceChip({ label, tone, styles }: { label: string; tone: { bg: string; fg: string; label: string }; styles: ReturnType<typeof makeStyles> }) {
+  return (
+    <View style={[styles.complianceChip, { backgroundColor: tone.bg }]}>
+      <Text style={[styles.complianceChipText, { color: tone.fg }]}>{label} · {tone.label}</Text>
+    </View>
+  );
+}
+
+function makeStyles(colors: ReturnType<typeof useColors>) {
+  return StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.background },
   center: { flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: colors.background },
   header: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: spacing.containerMargin, paddingTop: 8, paddingBottom: 4 },
@@ -193,7 +228,11 @@ const styles = StyleSheet.create({
   bodyCol: {},
   bodyLabel: { fontSize: 10, color: colors.onSurfaceVariant, textTransform: "uppercase", fontWeight: "600", marginBottom: 2 },
   bodyValue: { ...type.bodyMd, color: colors.onSurface },
-  cardFooter: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", padding: spacing.cardPadding, borderTopWidth: 1, borderTopColor: colors.surfaceContainer },
-  iconBtn: { width: 40, height: 40, borderRadius: radii.md, backgroundColor: colors.surfaceContainer, justifyContent: "center", alignItems: "center" },
-  detailsLink: { ...type.labelMd, color: colors.primary, fontWeight: "700" },
-});
+  cardFooter: { padding: spacing.cardPadding, borderTopWidth: 1, borderTopColor: colors.surfaceContainer, gap: 10 },
+  complianceRow: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
+  complianceChip: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: radii.full },
+  complianceChipText: { fontSize: 11, fontWeight: "700" },
+  detailsLink: { ...type.labelMd, color: colors.primary, fontWeight: "700", textAlign: "right" },
+  statCardActive: { borderWidth: 2, borderColor: colors.primary },
+  });
+}

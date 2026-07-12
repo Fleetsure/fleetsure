@@ -1,3 +1,5 @@
+import * as FileSystem from "expo-file-system/legacy";
+import { decode } from "base64-arraybuffer";
 import { supabase } from "../supabase";
 import { query, getUid, getFirmId, scopeToFirm, ok, fail } from "./_base";
 import type { Document, ServiceResponse } from "../types";
@@ -29,11 +31,15 @@ async function upload(file: PickedFile, folder = "manual"): Promise<ServiceRespo
   try {
     const ext = file.name.split(".").pop() ?? "bin";
     const path = `${getUid()}/${folder}/${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`;
-    const res = await fetch(file.uri);
-    const blob = await res.blob();
+    // fetch(uri).blob() doesn't work in React Native/Hermes ("Creating
+    // blobs from ArrayBuffer not supported") — read the file as base64 and
+    // decode to an ArrayBuffer instead, which supabase-js's storage upload
+    // accepts directly.
+    const base64 = await FileSystem.readAsStringAsync(file.uri, { encoding: FileSystem.EncodingType.Base64 });
+    const arrayBuffer = decode(base64);
     const { error } = await supabase.storage
       .from("fleet-documents")
-      .upload(path, blob, { contentType: file.mimeType ?? undefined, upsert: false });
+      .upload(path, arrayBuffer, { contentType: file.mimeType ?? "application/octet-stream", upsert: false });
     if (error) throw error;
     const { data } = supabase.storage.from("fleet-documents").getPublicUrl(path);
     return ok(data.publicUrl);

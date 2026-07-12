@@ -1,12 +1,13 @@
-import React from "react";
+import React, { useMemo } from "react";
 import { View, Text, TouchableOpacity, ScrollView, StyleSheet, Alert } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { MaterialIcons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
 import { useAuth } from "../context/AuthContext";
+import { useColors } from "../context/ThemeContext";
 import Card from "../components/Card";
 import ScreenHeader from "../components/ScreenHeader";
-import { colors, radii, spacing, type } from "../theme";
+import { radii, spacing, type } from "../theme";
 
 type IconName = React.ComponentProps<typeof MaterialIcons>["name"];
 
@@ -48,6 +49,8 @@ const SECTIONS: { title: string; items: SettingsItem[] }[] = [
 export default function SettingsScreen() {
   const navigation = useNavigation<any>();
   const { user, signOut } = useAuth();
+  const colors = useColors();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
 
   function handleLogout() {
     Alert.alert("Log Out", "Are you sure you want to log out?", [
@@ -108,16 +111,18 @@ export default function SettingsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: colors.background },
-  label: { fontSize: 10, fontWeight: "700", color: colors.onSurfaceVariant, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 4 },
-  value: { ...type.bodyLg, color: colors.onSurface },
-  divider: { height: 1, backgroundColor: colors.outlineVariant, marginVertical: 12 },
-  sectionLabel: { fontSize: 11, fontWeight: "700", color: colors.onSurfaceVariant, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 8, marginLeft: 4 },
-  menuCard: { padding: 0 },
-  menuRow: { flexDirection: "row", alignItems: "center", gap: 12, paddingHorizontal: spacing.cardPadding, paddingVertical: 14 },
-  menuDivider: { height: 1, backgroundColor: colors.outlineVariant, marginLeft: spacing.cardPadding },
-  menuLabel: { ...type.bodyMd, color: colors.onSurface, flex: 1, fontWeight: "500" },
-  logoutBtn: { flexDirection: "row", justifyContent: "center", alignItems: "center", gap: 8, borderWidth: 1.5, borderColor: colors.error, borderRadius: radii.md, paddingVertical: 14 },
-  logoutText: { color: colors.error, fontWeight: "700", fontSize: 15 },
-});
+function makeStyles(colors: ReturnType<typeof useColors>) {
+  return StyleSheet.create({
+    root: { flex: 1, backgroundColor: colors.background },
+    label: { fontSize: 10, fontWeight: "700", color: colors.onSurfaceVariant, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 4 },
+    value: { ...type.bodyLg, color: colors.onSurface },
+    divider: { height: 1, backgroundColor: colors.outlineVariant, marginVertical: 12 },
+    sectionLabel: { fontSize: 11, fontWeight: "700", color: colors.onSurfaceVariant, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 8, marginLeft: 4 },
+    menuCard: { padding: 0 },
+    menuRow: { flexDirection: "row", alignItems: "center", gap: 12, paddingHorizontal: spacing.cardPadding, paddingVertical: 14 },
+    menuDivider: { height: 1, backgroundColor: colors.outlineVariant, marginLeft: spacing.cardPadding },
+    menuLabel: { ...type.bodyMd, color: colors.onSurface, flex: 1, fontWeight: "500" },
+    logoutBtn: { flexDirection: "row", justifyContent: "center", alignItems: "center", gap: 8, borderWidth: 1.5, borderColor: colors.error, borderRadius: radii.md, paddingVertical: 14 },
+    logoutText: { color: colors.error, fontWeight: "700", fontSize: 15 },
+  });
+}

@@ -1,8 +1,8 @@
-import React from "react";
-import { NavigationContainer, DefaultTheme, DarkTheme } from "@react-navigation/native";
+import React, { useRef } from "react";
+import { NavigationContainer, DefaultTheme, DarkTheme, StackActions, useNavigationContainerRef } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
-import { ActivityIndicator, View } from "react-native";
+import { ActivityIndicator, View, PanResponder } from "react-native";
 
 import { useAuth } from "../context/AuthContext";
 import { FirmProvider } from "../context/FirmContext";
@@ -33,6 +33,9 @@ import LanguageScreen from "../screens/LanguageScreen";
 import GeneralSettingsScreen from "../screens/GeneralSettingsScreen";
 import BillingScreen from "../screens/BillingScreen";
 import ExpensesScreen from "../screens/expenses/ExpensesScreen";
+import FuelScreen from "../screens/expenses/FuelScreen";
+import TollsScreen from "../screens/expenses/TollsScreen";
+import TyresScreen from "../screens/expenses/TyresScreen";
 import FleetHealthScreen from "../screens/FleetHealthScreen";
 import DocumentsScreen from "../screens/DocumentsScreen";
 import AccountsScreen from "../screens/AccountsScreen";
@@ -65,7 +68,10 @@ export type MoreStackParamList = {
   LanguageRegion: undefined;
   GeneralSettings: undefined;
   Billing: undefined;
-  Expenses: { initialTab?: "fuel" | "tolls" | "tyres" | "misc" } | undefined;
+  Expenses: undefined;
+  Fuel: undefined;
+  Tolls: undefined;
+  Tyres: undefined;
   FleetHealth: undefined;
   Documents: undefined;
   Accounts: undefined;
@@ -114,6 +120,9 @@ function MoreNavigator() {
       <MoreStack.Screen name="GeneralSettings" component={GeneralSettingsScreen} />
       <MoreStack.Screen name="Billing" component={BillingScreen} />
       <MoreStack.Screen name="Expenses" component={ExpensesScreen} />
+      <MoreStack.Screen name="Fuel" component={FuelScreen} />
+      <MoreStack.Screen name="Tolls" component={TollsScreen} />
+      <MoreStack.Screen name="Tyres" component={TyresScreen} />
       <MoreStack.Screen name="FleetHealth" component={FleetHealthScreen} />
       <MoreStack.Screen name="Documents" component={DocumentsScreen} />
       <MoreStack.Screen name="Accounts" component={AccountsScreen} />
@@ -155,24 +164,79 @@ function DriversNavigator() {
   );
 }
 
-function MainTabs() {
+// Re-pressing a tab that's already active resets its nested stack back to
+// the root screen instead of leaving you wherever you'd drilled into.
+// `target: route.state?.key` is required — without it the popToTop action
+// is dispatched at the tab navigator (which doesn't understand stack
+// actions) and bubbles up to the root stack instead of the nested one.
+function resetOnRepressListener({ navigation, route }: { navigation: any; route: any }) {
+  return {
+    tabPress: () => {
+      if (navigation.isFocused()) {
+        navigation.dispatch({
+          ...StackActions.popToTop(),
+          target: route.state?.key,
+        });
+      }
+    },
+  };
+}
+
+const TAB_ORDER: (keyof MainTabParamList)[] = ["HomeTab", "TripsTab", "VehiclesTab", "DriversTab", "MoreTab"];
+
+// Swipe left/right to move between tabs. A full PagerView integration
+// would mean reimplementing how @react-navigation/bottom-tabs mounts its
+// screens (it doesn't expose a "put my scenes inside this pager" hook) —
+// this PanResponder is the sanctioned fallback: it only claims the gesture
+// once a drag is clearly horizontal (bubble phase, not capture), so
+// existing horizontal chip-row ScrollViews inside each screen still get
+// first refusal and keep scrolling normally.
+function MainTabs({ navigationRef }: { navigationRef: React.RefObject<any> }) {
+  const panResponder = useRef(
+    PanResponder.create({
+      onMoveShouldSetPanResponder: (_evt, gesture) =>
+        Math.abs(gesture.dx) > 25 && Math.abs(gesture.dx) > Math.abs(gesture.dy) * 2,
+      onPanResponderRelease: (_evt, gesture) => {
+        if (Math.abs(gesture.dx) < 60) return;
+
+        const rootState = navigationRef.current?.getState() as any;
+        const mainRoute = rootState?.routes?.find((r: any) => r.name === "Main");
+        const tabState = mainRoute?.state;
+        if (!tabState) return;
+
+        const currentTabName = tabState.routeNames?.[tabState.index] ?? tabState.routes?.[tabState.index]?.name;
+        const currentIndex = TAB_ORDER.indexOf(currentTabName);
+        if (currentIndex === -1) return;
+
+        // Swipe right (positive dx) → previous tab, swipe left → next tab.
+        const nextIndex = gesture.dx > 0 ? currentIndex - 1 : currentIndex + 1;
+        if (nextIndex < 0 || nextIndex >= TAB_ORDER.length) return;
+
+        navigationRef.current?.navigate(TAB_ORDER[nextIndex] as any);
+      },
+    })
+  ).current;
+
   return (
-    <Tab.Navigator
-      screenOptions={{ headerShown: false }}
-      tabBar={(props) => <BottomNav {...props} />}
-    >
-      <Tab.Screen name="HomeTab" component={HomeScreen} />
-      <Tab.Screen name="TripsTab" component={TripsNavigator} />
-      <Tab.Screen name="VehiclesTab" component={VehiclesNavigator} />
-      <Tab.Screen name="DriversTab" component={DriversNavigator} />
-      <Tab.Screen name="MoreTab" component={MoreNavigator} />
-    </Tab.Navigator>
+    <View style={{ flex: 1 }} {...panResponder.panHandlers}>
+      <Tab.Navigator
+        screenOptions={{ headerShown: false }}
+        tabBar={(props) => <BottomNav {...props} />}
+      >
+        <Tab.Screen name="HomeTab" component={HomeScreen} />
+        <Tab.Screen name="TripsTab" component={TripsNavigator} listeners={resetOnRepressListener} />
+        <Tab.Screen name="VehiclesTab" component={VehiclesNavigator} listeners={resetOnRepressListener} />
+        <Tab.Screen name="DriversTab" component={DriversNavigator} listeners={resetOnRepressListener} />
+        <Tab.Screen name="MoreTab" component={MoreNavigator} listeners={resetOnRepressListener} />
+      </Tab.Navigator>
+    </View>
   );
 }
 
 export default function AppNavigator() {
   const { user, loading } = useAuth();
   const { scheme } = useTheme();
+  const navigationRef = useNavigationContainerRef<any>();
 
   if (loading) {
     return (
@@ -183,13 +247,13 @@ export default function AppNavigator() {
   }
 
   return (
-    <NavigationContainer theme={scheme === "dark" ? DarkTheme : DefaultTheme}>
+    <NavigationContainer ref={navigationRef} theme={scheme === "dark" ? DarkTheme : DefaultTheme}>
       <RootStack.Navigator screenOptions={{ headerShown: false }}>
         {user ? (
           <RootStack.Screen name="Main">
             {() => (
               <FirmProvider>
-                <MainTabs />
+                <MainTabs navigationRef={navigationRef} />
               </FirmProvider>
             )}
           </RootStack.Screen>
