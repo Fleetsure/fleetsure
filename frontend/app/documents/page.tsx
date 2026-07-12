@@ -44,7 +44,7 @@ function ExpiryBadge({ expiry_date }: { expiry_date: string | null }) {
 }
 
 export default function DocumentsPage() {
-  const { activeFirmId } = useFirm();
+  const { activeFirmId, firms } = useFirm();
   const [docs, setDocs] = useState<Document[]>([]);
   const [drivers, setDrivers] = useState<any[]>([]);
   const [vehicles, setVehicles] = useState<any[]>([]);
@@ -98,7 +98,7 @@ export default function DocumentsPage() {
   const visible = useMemo(() => docs.filter(d => {
     if (category && d.category !== category) return false;
     if (driverFilter && !(d.linked_type === "driver" && d.linked_id === driverFilter)) return false;
-    if (vehicleFilter && !(d.linked_type === "vehicle" && d.linked_id === vehicleFilter) && d.vehicle_id !== vehicleFilter) return false;
+    if (vehicleFilter && !(d.linked_type === "vehicle" && d.linked_id === vehicleFilter)) return false;
     if (dateFrom && d.created_at.slice(0, 10) < dateFrom) return false;
     if (dateTo && d.created_at.slice(0, 10) > dateTo) return false;
     if (search && !d.name.toLowerCase().includes(search.toLowerCase())) return false;
@@ -195,6 +195,13 @@ export default function DocumentsPage() {
               <p style={{ color: "#aaa", fontSize: 14, margin: 0 }}>
                 {hasFilters ? "No documents match your filters." : "No documents found."}
               </p>
+              {!hasFilters && firms.length > 1 && (
+                <p style={{ color: "#e65100", fontSize: 12.5, marginTop: 8, maxWidth: 360, marginLeft: "auto", marginRight: "auto" }}>
+                  You have {firms.length} firms — documents are scoped to whichever one is active
+                  ({firms.find(f => f.id === activeFirmId)?.name ?? "none selected"}). Switch firms
+                  from the top bar if you're looking for documents uploaded under a different one.
+                </p>
+              )}
             </div>
           ) : view === "grid" ? (
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: 14 }}>

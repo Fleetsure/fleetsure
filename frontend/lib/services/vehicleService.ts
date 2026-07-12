@@ -34,8 +34,16 @@ export const vehicleService = {
   },
 
   async delete(id: string): Promise<ServiceResponse<null>> {
+    const uid = getUid();
+    // documents.linked_id has no real FK (it's polymorphic across
+    // vehicles/drivers/trips), so deleting a vehicle never cascades to its
+    // documents on its own — clean those up explicitly first, best-effort,
+    // or they become permanently orphaned: still visible under "All" but
+    // unreachable via the vehicle filter on the Documents page forever,
+    // since that filter can only ever match a currently-existing vehicle.
+    await supabase.from("documents").delete().eq("owner_id", uid).eq("linked_type", "vehicle").eq("linked_id", id);
     return query(
-      supabase.from("vehicles").delete().eq("id", id).eq("owner_id", getUid())
+      supabase.from("vehicles").delete().eq("id", id).eq("owner_id", uid)
     );
   },
 
