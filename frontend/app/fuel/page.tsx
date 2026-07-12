@@ -9,11 +9,13 @@ import { Fuel, Plus, X, AlertTriangle, TrendingDown, TrendingUp, Truck, Trash2 }
 import { useLanguage } from "@/lib/LanguageContext";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import DocumentUpload from "@/components/DocumentUpload";
+import { useFirm } from "@/lib/FirmContext";
 
 const EMPTY = { vehicle_id: "", trip_id: "", date: todayISO(), odometer_km: "", litres: "", rate: "", amount: "", fuel_station: "", notes: "", receipt_url: "" };
 
 export default function FuelPage() {
   const { t } = useLanguage();
+  const { activeFirmId } = useFirm();
   const [logs, setLogs]           = useState<any[]>([]);
   const [analytics, setAnalytics] = useState<any[]>([]);
   const [vehicles, setVehicles]   = useState<any[]>([]);
@@ -38,6 +40,7 @@ export default function FuelPage() {
 
 
   const load = async () => {
+    if (!activeFirmId) { setLogs([]); setAnalytics([]); setVehicles([]); setTrips([]); setLoading(false); return; }
     try {
       const [l, a, v, t] = await Promise.all([fuelService.getAll(), fuelService.getAnalytics(), vehicleService.getAll(), tripService.getAll()]);
       setLogs(l.data || []);
@@ -50,7 +53,7 @@ export default function FuelPage() {
       setLoading(false);
     }
   };
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); }, [activeFirmId]);
 
   const set = (k: string, v: string) => setForm((p: any) => ({ ...p, [k]: v }));
 

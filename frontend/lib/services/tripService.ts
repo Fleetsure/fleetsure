@@ -1,5 +1,5 @@
 import { supabase } from "@/lib/supabase";
-import { query, ok, fail, getUid } from "./_base";
+import { query, ok, fail, getUid, getFirmId, scopeToFirm } from "./_base";
 import { documentService } from "./documentService";
 import type { Trip, Expense, ServiceResponse } from "@/lib/types";
 import type { Database } from "@/lib/database.types";
@@ -12,7 +12,7 @@ export const tripService = {
   async getAll(limit = 200): Promise<ServiceResponse<Trip[]>> {
     const uid = getUid();
     return query(
-      supabase.from("trips").select("*").eq("owner_id", uid).order("start_date", { ascending: false }).limit(limit)
+      scopeToFirm(supabase.from("trips").select("*").eq("owner_id", uid)).order("start_date", { ascending: false }).limit(limit)
     );
   },
 
@@ -37,13 +37,19 @@ export const tripService = {
 
   async create(data: Omit<TripInsert, "owner_id">): Promise<ServiceResponse<Trip>> {
     return query(
-      supabase.from("trips").insert({ ...data, owner_id: getUid() }).select().single()
+      supabase.from("trips").insert({ ...data, owner_id: getUid(), firm_id: getFirmId() }).select().single()
     );
   },
 
   async update(id: string, data: TripUpdate): Promise<ServiceResponse<Trip>> {
     return query(
       supabase.from("trips").update(data).eq("id", id).eq("owner_id", getUid()).select().single()
+    );
+  },
+
+  async delete(id: string): Promise<ServiceResponse<null>> {
+    return query(
+      supabase.from("trips").delete().eq("id", id).eq("owner_id", getUid())
     );
   },
 

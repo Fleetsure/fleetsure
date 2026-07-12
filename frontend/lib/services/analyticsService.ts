@@ -1,5 +1,5 @@
 import { supabase } from "@/lib/supabase";
-import { ok, fail, getUid } from "./_base";
+import { ok, fail, getUid, scopeToFirm } from "./_base";
 import type { ServiceResponse } from "@/lib/types";
 
 const cutoff = (days: number) => {
@@ -23,9 +23,9 @@ async function expensesByTrip(tripIds: string[], uid: string): Promise<Record<st
 
   const [exps, fuels, tolls, misc] = await Promise.all([
     supabase.from("expenses").select("trip_id,amount").in("trip_id", tripIds),
-    supabase.from("fuel_logs").select("trip_id,amount").eq("owner_id", uid).in("trip_id", tripIds),
-    supabase.from("toll_logs").select("trip_id,amount").eq("owner_id", uid).in("trip_id", tripIds),
-    supabase.from("misc_expenses").select("trip_id,amount").eq("owner_id", uid).in("trip_id", tripIds),
+    scopeToFirm(supabase.from("fuel_logs").select("trip_id,amount").eq("owner_id", uid)).in("trip_id", tripIds),
+    scopeToFirm(supabase.from("toll_logs").select("trip_id,amount").eq("owner_id", uid)).in("trip_id", tripIds),
+    scopeToFirm(supabase.from("misc_expenses").select("trip_id,amount").eq("owner_id", uid)).in("trip_id", tripIds),
   ]);
   for (const e of [...(exps.data || []), ...(fuels.data || []), ...(tolls.data || []), ...(misc.data || [])])
     add(e.trip_id, e.amount);
@@ -42,9 +42,9 @@ async function sumExpensesForTrips(tripIds: string[]): Promise<Record<string, nu
   // tyre_logs has no trip_id (vehicle-level, not trip-level) — excluded here
   const [exps, fuels, tolls, misc] = await Promise.all([
     supabase.from("expenses").select("expense_type,amount").in("trip_id", tripIds),
-    supabase.from("fuel_logs").select("amount").eq("owner_id", uid).in("trip_id", tripIds),
-    supabase.from("toll_logs").select("amount").eq("owner_id", uid).in("trip_id", tripIds),
-    supabase.from("misc_expenses").select("category,amount").eq("owner_id", uid).in("trip_id", tripIds),
+    scopeToFirm(supabase.from("fuel_logs").select("amount").eq("owner_id", uid)).in("trip_id", tripIds),
+    scopeToFirm(supabase.from("toll_logs").select("amount").eq("owner_id", uid)).in("trip_id", tripIds),
+    scopeToFirm(supabase.from("misc_expenses").select("category,amount").eq("owner_id", uid)).in("trip_id", tripIds),
   ]);
 
   for (const e of exps.data || []) add(e.expense_type, e.amount);
@@ -62,10 +62,10 @@ export const analyticsService = {
       const from = cutoff(days);
 
       const [tripRes, vehicleRes, activeRes] = await Promise.all([
-        supabase.from("trips").select("id,status,freight_amount,distance_km,vehicle_id")
-          .eq("owner_id", uid).gte("start_date", from),
-        supabase.from("vehicles").select("id").eq("owner_id", uid),
-        supabase.from("trips").select("vehicle_id").eq("owner_id", uid).eq("status", "in_progress"),
+        scopeToFirm(supabase.from("trips").select("id,status,freight_amount,distance_km,vehicle_id")
+          .eq("owner_id", uid)).gte("start_date", from),
+        scopeToFirm(supabase.from("vehicles").select("id").eq("owner_id", uid)),
+        scopeToFirm(supabase.from("trips").select("vehicle_id").eq("owner_id", uid)).eq("status", "in_progress"),
       ]);
 
       const trips    = tripRes.data || [];
@@ -102,9 +102,9 @@ export const analyticsService = {
     try {
       const uid  = getUid();
       const from = cutoff(180);
-      const { data: trips } = await supabase.from("trips")
+      const { data: trips } = await scopeToFirm(supabase.from("trips")
         .select("id,status,freight_amount,start_date")
-        .eq("owner_id", uid).gte("start_date", from);
+        .eq("owner_id", uid)).gte("start_date", from);
 
       const months: Record<string, { month: string; month_key: string; trips: number; revenue: number; expenses: number; profit: number }> = {};
 
@@ -145,9 +145,9 @@ export const analyticsService = {
       const from = cutoff(days);
 
       const [tripRes, vehicleRes] = await Promise.all([
-        supabase.from("trips").select("id,status,freight_amount,distance_km,vehicle_id")
-          .eq("owner_id", uid).gte("start_date", from),
-        supabase.from("vehicles").select("id,registration_number,make,model").eq("owner_id", uid),
+        scopeToFirm(supabase.from("trips").select("id,status,freight_amount,distance_km,vehicle_id")
+          .eq("owner_id", uid)).gte("start_date", from),
+        scopeToFirm(supabase.from("vehicles").select("id,registration_number,make,model").eq("owner_id", uid)),
       ]);
 
       const vMap: Record<string, any> = {};
@@ -190,8 +190,8 @@ export const analyticsService = {
     try {
       const uid  = getUid();
       const from = cutoff(days);
-      const { data: trips } = await supabase.from("trips")
-        .select("id").eq("owner_id", uid).gte("start_date", from);
+      const { data: trips } = await scopeToFirm(supabase.from("trips")
+        .select("id").eq("owner_id", uid)).gte("start_date", from);
       const tripIds = (trips || []).map((t: any) => t.id);
 
       const catTotals = await sumExpensesForTrips(tripIds);
@@ -221,10 +221,10 @@ export const analyticsService = {
       const uid  = getUid();
       const from = cutoff(days);
       const [tripRes, vehicleRes] = await Promise.all([
-        supabase.from("trips")
+        scopeToFirm(supabase.from("trips")
           .select("id,origin,destination,driver_name,vehicle_id,freight_amount,start_date,status,distance_km")
-          .eq("owner_id", uid).gte("start_date", from).order("start_date", { ascending: false }),
-        supabase.from("vehicles").select("id,registration_number").eq("owner_id", uid),
+          .eq("owner_id", uid)).gte("start_date", from).order("start_date", { ascending: false }),
+        scopeToFirm(supabase.from("vehicles").select("id,registration_number").eq("owner_id", uid)),
       ]);
 
       const trips = tripRes.data || [];
@@ -259,9 +259,9 @@ export const analyticsService = {
     try {
       const uid  = getUid();
       const from = cutoff(days);
-      const { data: trips } = await supabase.from("trips")
+      const { data: trips } = await scopeToFirm(supabase.from("trips")
         .select("id,driver_name,freight_amount,status")
-        .eq("owner_id", uid).gte("start_date", from);
+        .eq("owner_id", uid)).gte("start_date", from);
 
       const byDriver: Record<string, any> = {};
       for (const t of trips || []) {
@@ -297,17 +297,17 @@ export const analyticsService = {
       const today = new Date().toISOString().slice(0, 10);
 
       const [activeRes, plannedRes, completedRes, userRes, vehiclesRes] = await Promise.all([
-        supabase.from("trips")
+        scopeToFirm(supabase.from("trips")
           .select("id,origin,destination,driver_name,vehicles(registration_number)")
-          .eq("owner_id", uid).eq("status", "in_progress"),
-        supabase.from("trips")
+          .eq("owner_id", uid)).eq("status", "in_progress"),
+        scopeToFirm(supabase.from("trips")
           .select("id", { count: "exact", head: true })
-          .eq("owner_id", uid).eq("status", "planned"),
-        supabase.from("trips")
+          .eq("owner_id", uid)).eq("status", "planned"),
+        scopeToFirm(supabase.from("trips")
           .select("id,freight_amount")
-          .eq("owner_id", uid).eq("status", "completed").eq("end_date", today),
+          .eq("owner_id", uid)).eq("status", "completed").eq("end_date", today),
         supabase.from("users").select("phone").eq("id", uid).single(),
-        supabase.from("vehicles").select("id,registration_number").eq("owner_id", uid),
+        scopeToFirm(supabase.from("vehicles").select("id,registration_number").eq("owner_id", uid)),
       ]);
 
       const active_trips = (activeRes.data || []).map((t: any) => ({
@@ -338,8 +338,8 @@ export const analyticsService = {
       });
 
       // Idle vehicles: no trip in last 14 days
-      const recentRes = await supabase.from("trips")
-        .select("vehicle_id").eq("owner_id", uid).gte("start_date", cutoff(14));
+      const recentRes = await scopeToFirm(supabase.from("trips")
+        .select("vehicle_id").eq("owner_id", uid)).gte("start_date", cutoff(14));
       const activeIds  = new Set((recentRes.data || []).map((t: any) => t.vehicle_id));
       const idle_vehicles = (vehiclesRes.data || [])
         .filter((v: any) => !activeIds.has(v.id))

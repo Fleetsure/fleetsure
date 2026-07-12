@@ -1,5 +1,5 @@
 import { supabase } from "@/lib/supabase";
-import { getUid } from "./_base";
+import { getUid, getFirmId } from "./_base";
 import type { VehicleTyreSetup, TyreUnit } from "@/lib/tyreCalc";
 import type { Json } from "@/lib/database.types";
 
@@ -25,6 +25,7 @@ export async function saveTyreSetup(vehicleId: string, setup: VehicleTyreSetup):
   await supabase.from("tyre_setups").upsert(
     {
       owner_id: getUid(),
+      firm_id: getFirmId(),
       vehicle_id: vehicleId,
       tyre_count: setup.tyre_count,
       has_spare: setup.has_spare,

@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import LanguageSwitcher from "@/components/LanguageSwitcher";
+import FirmSwitcher from "@/components/FirmSwitcher";
 import { vehicleService } from "@/lib/services/vehicleService";
 import { driverService } from "@/lib/services/driverService";
 import { tripService } from "@/lib/services/tripService";
@@ -238,6 +239,7 @@ export default function Header({ title, subtitle }: { title: string; subtitle?: 
             {subtitle && <p style={{ margin: 0, fontSize: 12, color: "var(--text-muted)", marginTop: 1 }}>{subtitle}</p>}
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
+            <FirmSwitcher />
             {/* Bell */}
             <button
               onClick={() => setInsightsOpen(true)}
@@ -302,6 +304,7 @@ export default function Header({ title, subtitle }: { title: string; subtitle?: 
             )}
           </button>
 
+          <FirmSwitcher />
           <LanguageSwitcher />
           <button onClick={() => window.location.reload()} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text-muted)", padding: 6 }}>
             ↺

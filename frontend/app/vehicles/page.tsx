@@ -1,14 +1,16 @@
 "use client";
 import React, { useEffect, useState } from "react";
 import Header from "@/components/Header";
+import { useFirm } from "@/lib/FirmContext";
 import { vehicleService, VEHICLE_DOC_LABELS } from "@/lib/services/vehicleService";
 import { insightService } from "@/lib/services/insightService";
 import { documentService } from "@/lib/services/documentService";
-import { Plus, Truck, X, Search, AlertCircle, CheckCircle, ChevronDown, ChevronUp, Wrench, Navigation, AlertTriangle } from "lucide-react";
+import { Plus, Truck, X, Search, AlertCircle, CheckCircle, ChevronDown, ChevronUp, Wrench, Navigation, AlertTriangle, Trash2 } from "lucide-react";
 import { parseLocalDate, fmtDate } from "@/lib/date";
 import { useLanguage } from "@/lib/LanguageContext";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import DocumentUpload from "@/components/DocumentUpload";
+import ConfirmDeleteModal from "@/components/ConfirmDeleteModal";
 
 const VEHICLE_DOC_TYPES = Object.keys(VEHICLE_DOC_LABELS);
 const VEHICLE_DOC_NAME_TO_TYPE: Record<string, string> = Object.fromEntries(
@@ -74,6 +76,7 @@ function ComplianceDot({ dateStr }: { dateStr?: string }) {
 
 export default function VehiclesPage() {
   const { t } = useLanguage();
+  const { activeFirmId } = useFirm();
   const [vehicles, setVehicles]     = useState<any[]>([]);
   const [loading, setLoading]       = useState(true);
   const [showForm, setShowForm]     = useState(false);
@@ -94,10 +97,15 @@ export default function VehiclesPage() {
 
   // Expanded compliance row
   const [expandedRow, setExpandedRow] = useState<string | null>(null);
+  const [deleteVehicle, setDeleteVehicle] = useState<any>(null);
 
-  const load = () => vehicleService.getAll().then(r => setVehicles(r.data || [])).finally(() => setLoading(false));
+  const load = () => {
+    if (!activeFirmId) { setVehicles([]); setLoading(false); return; }
+    vehicleService.getAll().then(r => setVehicles(r.data || [])).finally(() => setLoading(false));
+  };
   useEffect(() => {
     load();
+    if (!activeFirmId) return;
     // Pull cost-per-km from insights (non-blocking)
     insightService.getAll().then(res => {
       const map: Record<string, number> = {};
@@ -108,7 +116,7 @@ export default function VehiclesPage() {
       });
       setCpkMap(map);
     }).catch(err => console.error("[Vehicles] failed to load cost-per-km insights:", err));
-  }, []);
+  }, [activeFirmId]);
 
   const openAdd = () => {
     setForm({ ...EMPTY_FORM });
@@ -160,9 +168,24 @@ export default function VehiclesPage() {
 
   const handleSubmit = async (e: any) => {
     e.preventDefault();
-    setSaving(true);
     setError("");
+
+    if (!form.insurance_expiry || !form.fitness_expiry || !form.puc_expiry || !form.permit_expiry) {
+      setError("Insurance, fitness (FC), PUC and permit expiry dates are all required.");
+      return;
+    }
+
+    setSaving(true);
     try {
+      if (!editVehicle) {
+        const exists = await vehicleService.existsByRegistration(form.registration_number);
+        if (exists) {
+          setError("Vehicle number already exists.");
+          setSaving(false);
+          return;
+        }
+      }
+
       const payload = {
         ...form,
         year: form.year ? parseInt(form.year) : null,
@@ -190,6 +213,13 @@ export default function VehiclesPage() {
     } finally {
       setSaving(false);
     }
+  };
+
+  const handleDeleteVehicle = async () => {
+    const res = await vehicleService.delete(deleteVehicle.id);
+    if (!res.success) throw new Error(res.error || "Failed to delete vehicle");
+    setVehicles(prev => prev.filter(v => v.id !== deleteVehicle.id));
+    setDeleteVehicle(null);
   };
 
   const set = (key: string, val: string) => setForm((p: any) => ({ ...p, [key]: val }));
@@ -307,6 +337,10 @@ export default function VehiclesPage() {
                         style={{ background: "none", border: "none", cursor: "pointer", color: "#1E2D8E", padding: 4, minHeight: 44, minWidth: 36, display: "flex", alignItems: "center", justifyContent: "center" }}>
                         <span style={{ fontSize: 13 }}>{t("common.edit")}</span>
                       </button>
+                      <button onClick={() => setDeleteVehicle(v)}
+                        style={{ background: "none", border: "none", cursor: "pointer", color: "#ccc", padding: 4, minHeight: 44, minWidth: 36, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                        <Trash2 size={16} />
+                      </button>
                     </div>
                   </div>
                   <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 6 }}>
@@ -385,6 +419,12 @@ export default function VehiclesPage() {
                           onMouseEnter={e => (e.currentTarget.style.background = "#f0f0f8")}
                           onMouseLeave={e => (e.currentTarget.style.background = "none")}>
                           {t("common.edit")}
+                        </button>
+                        <button onClick={e => { e.stopPropagation(); setDeleteVehicle(v); }}
+                          style={{ background: "none", border: "none", cursor: "pointer", color: "#ccc", padding: "4px 8px", borderRadius: 6 }}
+                          onMouseEnter={e => (e.currentTarget.style.color = "#e53935")}
+                          onMouseLeave={e => (e.currentTarget.style.color = "#ccc")}>
+                          <Trash2 size={13} />
                         </button>
                         {expandedRow === v.id
                           ? <ChevronUp size={13} style={{ color: "#aaa", verticalAlign: "middle", marginLeft: 4 }} />
@@ -556,10 +596,11 @@ export default function VehiclesPage() {
                     { label: t("vehicle.permit_expiry"),    key: "permit_expiry" },
                   ].map(f => (
                     <div key={f.key}>
-                      <label style={labelStyle}>{f.label}</label>
+                      <label style={labelStyle}>{f.label} *</label>
                       <div style={{ position: "relative" }}>
                         <input
                           type="date"
+                          required
                           value={form[f.key]}
                           onChange={e => set(f.key, e.target.value)}
                           style={inputStyle}
@@ -605,6 +646,15 @@ export default function VehiclesPage() {
             </form>
           </div>
         </div>
+      )}
+
+      {deleteVehicle && (
+        <ConfirmDeleteModal
+          title="Delete Vehicle"
+          message={`Delete ${deleteVehicle.registration_number}? This will permanently delete the vehicle AND all its trips, fuel logs, toll logs, tyre records, and expense history. This cannot be undone.`}
+          onConfirm={handleDeleteVehicle}
+          onClose={() => setDeleteVehicle(null)}
+        />
       )}
     </div>
   );

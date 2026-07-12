@@ -1,5 +1,5 @@
 import { supabase } from "@/lib/supabase";
-import { query, getUid } from "./_base";
+import { query, getUid, getFirmId, scopeToFirm } from "./_base";
 import { documentService } from "./documentService";
 import type { Vehicle, ServiceResponse } from "@/lib/types";
 
@@ -17,13 +17,13 @@ export const vehicleService = {
   async getAll(): Promise<ServiceResponse<Vehicle[]>> {
     const uid = getUid();
     return query(
-      supabase.from("vehicles").select("*").eq("owner_id", uid).order("created_at", { ascending: false })
+      scopeToFirm(supabase.from("vehicles").select("*").eq("owner_id", uid)).order("created_at", { ascending: false })
     );
   },
 
   async create(data: Omit<Vehicle, "id" | "owner_id" | "created_at">): Promise<ServiceResponse<Vehicle>> {
     return query(
-      supabase.from("vehicles").insert({ ...data, owner_id: getUid() }).select().single()
+      supabase.from("vehicles").insert({ ...data, owner_id: getUid(), firm_id: getFirmId() }).select().single()
     );
   },
 
@@ -31,6 +31,21 @@ export const vehicleService = {
     return query(
       supabase.from("vehicles").update(data).eq("id", id).eq("owner_id", getUid()).select().single()
     );
+  },
+
+  async delete(id: string): Promise<ServiceResponse<null>> {
+    return query(
+      supabase.from("vehicles").delete().eq("id", id).eq("owner_id", getUid())
+    );
+  },
+
+  // Deliberately not firm-scoped — a registration number is a physical
+  // vehicle identity and must stay unique across the whole owner's fleet,
+  // not just within the currently active firm.
+  async existsByRegistration(registrationNumber: string): Promise<boolean> {
+    const { data } = await supabase.from("vehicles").select("id")
+      .eq("owner_id", getUid()).eq("registration_number", registrationNumber).maybeSingle();
+    return !!data;
   },
 
   // ── Compliance documents ─────────────────────────────────────────────────

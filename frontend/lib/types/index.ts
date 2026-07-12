@@ -15,6 +15,7 @@ export interface ServiceResponse<T = undefined> {
 // itself.
 
 export type User = Database["public"]["Tables"]["users"]["Row"];
+export type Firm = Database["public"]["Tables"]["firms"]["Row"];
 export type Vehicle = Database["public"]["Tables"]["vehicles"]["Row"];
 export type Driver = Database["public"]["Tables"]["drivers"]["Row"];
 export type DriverPayment = Database["public"]["Tables"]["driver_payments"]["Row"];
@@ -24,6 +25,10 @@ export type Expense = Database["public"]["Tables"]["expenses"]["Row"];
 export type FuelLog = Database["public"]["Tables"]["fuel_logs"]["Row"];
 export type TollLog = Database["public"]["Tables"]["toll_logs"]["Row"];
 export type TyreLog = Database["public"]["Tables"]["tyre_logs"]["Row"];
+export type TyreRotation = Database["public"]["Tables"]["tyre_rotations"]["Row"];
+export type TyreScrap = Database["public"]["Tables"]["tyre_scraps"]["Row"];
+export type VehicleBattery = Database["public"]["Tables"]["vehicle_batteries"]["Row"];
+export type MaintenanceSchedule = Database["public"]["Tables"]["maintenance_schedules"]["Row"];
 export type MiscExpense = Database["public"]["Tables"]["misc_expenses"]["Row"];
 export type Party = Database["public"]["Tables"]["parties"]["Row"];
 export type TeamMember = Database["public"]["Tables"]["team_members"]["Row"];

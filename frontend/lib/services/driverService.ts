@@ -1,5 +1,5 @@
 import { supabase } from "@/lib/supabase";
-import { query, ok, fail, getUid } from "./_base";
+import { query, ok, fail, getUid, getFirmId, scopeToFirm } from "./_base";
 import { documentService } from "./documentService";
 import type { Driver, DriverPayment, DriverExpense, DriverSalary, Trip, ServiceResponse } from "@/lib/types";
 import type { Database } from "@/lib/database.types";
@@ -28,13 +28,13 @@ export const driverService = {
   async getAll(): Promise<ServiceResponse<Driver[]>> {
     const uid = getUid();
     return query(
-      supabase.from("drivers").select("*").eq("owner_id", uid).order("name")
+      scopeToFirm(supabase.from("drivers").select("*").eq("owner_id", uid)).order("name")
     );
   },
 
   async create(data: Omit<DriverInsert, "owner_id">): Promise<ServiceResponse<Driver>> {
     return query(
-      supabase.from("drivers").insert({ ...data, owner_id: getUid() }).select().single()
+      supabase.from("drivers").insert({ ...data, owner_id: getUid(), firm_id: getFirmId() }).select().single()
     );
   },
 
@@ -46,7 +46,7 @@ export const driverService = {
 
   async getPayments(driver_id?: string): Promise<ServiceResponse<DriverPayment[]>> {
     const uid = getUid();
-    const q = supabase.from("driver_payments").select("*").eq("owner_id", uid).order("date", { ascending: false });
+    const q = scopeToFirm(supabase.from("driver_payments").select("*").eq("owner_id", uid)).order("date", { ascending: false });
     return query(driver_id ? q.eq("driver_id", driver_id) : q);
   },
 
@@ -74,7 +74,7 @@ export const driverService = {
 
   async addPayment(data: Omit<DriverPaymentInsert, "owner_id">): Promise<ServiceResponse<DriverPayment>> {
     return query(
-      supabase.from("driver_payments").insert({ ...data, owner_id: getUid() }).select().single()
+      supabase.from("driver_payments").insert({ ...data, owner_id: getUid(), firm_id: getFirmId() }).select().single()
     );
   },
 
@@ -190,7 +190,7 @@ export const driverService = {
   async recordSettlement(driverId: string, tripId: string, amount: number): Promise<ServiceResponse<DriverPayment>> {
     return query(
       supabase.from("driver_payments").insert({
-        driver_id: driverId, trip_id: tripId, owner_id: getUid(),
+        driver_id: driverId, trip_id: tripId, owner_id: getUid(), firm_id: getFirmId(),
         date: new Date().toISOString().slice(0, 10), type: "settlement", amount,
         notes: "Advance reconciliation — leftover credited to salary",
       }).select().single()

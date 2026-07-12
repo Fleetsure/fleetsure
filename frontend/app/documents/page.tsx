@@ -12,6 +12,7 @@ import { useIsMobile } from "@/hooks/useIsMobile";
 import DocumentUploadModal from "./DocumentUploadModal";
 import DocumentPreviewModal from "./DocumentPreviewModal";
 import type { Document } from "@/lib/types";
+import { useFirm } from "@/lib/FirmContext";
 
 const MIME_ICONS: Record<string, any> = {
   "application/pdf": FileText,
@@ -43,6 +44,7 @@ function ExpiryBadge({ expiry_date }: { expiry_date: string | null }) {
 }
 
 export default function DocumentsPage() {
+  const { activeFirmId } = useFirm();
   const [docs, setDocs] = useState<Document[]>([]);
   const [drivers, setDrivers] = useState<any[]>([]);
   const [vehicles, setVehicles] = useState<any[]>([]);
@@ -65,6 +67,11 @@ export default function DocumentsPage() {
   const isMobile = useIsMobile();
 
   const load = () => {
+    if (!activeFirmId) {
+      setDocs([]); setDrivers([]); setVehicles([]); setTrips([]);
+      setExpirySummary({ expiringSoon: 0, expired: 0 }); setLoading(false);
+      return;
+    }
     Promise.all([
       documentService.getAll(),
       driverService.getAll(),
@@ -79,7 +86,7 @@ export default function DocumentsPage() {
       if (ex.success && ex.data) setExpirySummary(ex.data);
     }).finally(() => setLoading(false));
   };
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); }, [activeFirmId]);
 
   const handleDownload = (doc: Document) => documentService.download(doc);
 

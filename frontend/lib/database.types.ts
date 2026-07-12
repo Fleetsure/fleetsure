@@ -43,6 +43,7 @@ export type Database = {
           expiry_date: string | null
           file_name: string | null
           file_url: string | null
+          firm_id: string | null
           id: string
           linked_id: string | null
           linked_type: string | null
@@ -59,6 +60,7 @@ export type Database = {
           expiry_date?: string | null
           file_name?: string | null
           file_url?: string | null
+          firm_id?: string | null
           id?: string
           linked_id?: string | null
           linked_type?: string | null
@@ -75,6 +77,7 @@ export type Database = {
           expiry_date?: string | null
           file_name?: string | null
           file_url?: string | null
+          firm_id?: string | null
           id?: string
           linked_id?: string | null
           linked_type?: string | null
@@ -84,7 +87,15 @@ export type Database = {
           owner_id?: string | null
           vehicle_id?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "documents_firm_id_fkey"
+            columns: ["firm_id"]
+            isOneToOne: false
+            referencedRelation: "firms"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       driver_expenses: {
         Row: {
@@ -145,6 +156,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "driver_expenses_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "driver_expenses_trip_id_fkey"
             columns: ["trip_id"]
             isOneToOne: false
@@ -159,6 +177,7 @@ export type Database = {
           created_at: string
           date: string
           driver_id: string
+          firm_id: string | null
           id: string
           notes: string | null
           owner_id: string | null
@@ -170,6 +189,7 @@ export type Database = {
           created_at?: string
           date: string
           driver_id: string
+          firm_id?: string | null
           id?: string
           notes?: string | null
           owner_id?: string | null
@@ -181,6 +201,7 @@ export type Database = {
           created_at?: string
           date?: string
           driver_id?: string
+          firm_id?: string | null
           id?: string
           notes?: string | null
           owner_id?: string | null
@@ -193,6 +214,13 @@ export type Database = {
             columns: ["driver_id"]
             isOneToOne: false
             referencedRelation: "drivers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "driver_payments_firm_id_fkey"
+            columns: ["firm_id"]
+            isOneToOne: false
+            referencedRelation: "firms"
             referencedColumns: ["id"]
           },
         ]
@@ -248,6 +276,13 @@ export type Database = {
             referencedRelation: "drivers"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "driver_salary_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
         ]
       }
       drivers: {
@@ -268,6 +303,7 @@ export type Database = {
           emergency_contact_phone: string | null
           father_name: string | null
           firebase_uid: string | null
+          firm_id: string | null
           id: string
           issuing_rto: string | null
           license_class: Database["public"]["Enums"]["licenseclass"] | null
@@ -303,6 +339,7 @@ export type Database = {
           emergency_contact_phone?: string | null
           father_name?: string | null
           firebase_uid?: string | null
+          firm_id?: string | null
           id?: string
           issuing_rto?: string | null
           license_class?: Database["public"]["Enums"]["licenseclass"] | null
@@ -338,6 +375,7 @@ export type Database = {
           emergency_contact_phone?: string | null
           father_name?: string | null
           firebase_uid?: string | null
+          firm_id?: string | null
           id?: string
           issuing_rto?: string | null
           license_class?: Database["public"]["Enums"]["licenseclass"] | null
@@ -356,7 +394,15 @@ export type Database = {
           transport_validity?: string | null
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "drivers_firm_id_fkey"
+            columns: ["firm_id"]
+            isOneToOne: false
+            referencedRelation: "firms"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       expenses: {
         Row: {
@@ -402,11 +448,50 @@ export type Database = {
           },
         ]
       }
+      firms: {
+        Row: {
+          address: string | null
+          created_at: string
+          gstin: string | null
+          id: string
+          name: string
+          owner_id: string
+          pan: string | null
+        }
+        Insert: {
+          address?: string | null
+          created_at?: string
+          gstin?: string | null
+          id?: string
+          name: string
+          owner_id: string
+          pan?: string | null
+        }
+        Update: {
+          address?: string | null
+          created_at?: string
+          gstin?: string | null
+          id?: string
+          name?: string
+          owner_id?: string
+          pan?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "firms_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       fuel_logs: {
         Row: {
           amount: number
           created_at: string
           date: string
+          firm_id: string | null
           fuel_station: string | null
           id: string
           litres: number
@@ -421,6 +506,7 @@ export type Database = {
           amount: number
           created_at?: string
           date: string
+          firm_id?: string | null
           fuel_station?: string | null
           id?: string
           litres: number
@@ -435,6 +521,7 @@ export type Database = {
           amount?: number
           created_at?: string
           date?: string
+          firm_id?: string | null
           fuel_station?: string | null
           id?: string
           litres?: number
@@ -446,6 +533,13 @@ export type Database = {
           vehicle_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "fuel_logs_firm_id_fkey"
+            columns: ["firm_id"]
+            isOneToOne: false
+            referencedRelation: "firms"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "fuel_logs_vehicle_id_fkey"
             columns: ["vehicle_id"]
@@ -496,6 +590,70 @@ export type Database = {
           vehicle_id?: string
         }
         Relationships: []
+      }
+      maintenance_schedules: {
+        Row: {
+          amount: number
+          created_at: string
+          description: string
+          firm_id: string | null
+          frequency: string
+          id: string
+          last_done: string | null
+          next_due: string | null
+          notes: string | null
+          owner_id: string
+          vehicle_id: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          description: string
+          firm_id?: string | null
+          frequency: string
+          id?: string
+          last_done?: string | null
+          next_due?: string | null
+          notes?: string | null
+          owner_id: string
+          vehicle_id: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          description?: string
+          firm_id?: string | null
+          frequency?: string
+          id?: string
+          last_done?: string | null
+          next_due?: string | null
+          notes?: string | null
+          owner_id?: string
+          vehicle_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "maintenance_schedules_firm_id_fkey"
+            columns: ["firm_id"]
+            isOneToOne: false
+            referencedRelation: "firms"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "maintenance_schedules_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "maintenance_schedules_vehicle_id_fkey"
+            columns: ["vehicle_id"]
+            isOneToOne: false
+            referencedRelation: "vehicles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       marketplace_load_interests: {
         Row: {
@@ -610,6 +768,7 @@ export type Database = {
           created_at: string
           date: string
           description: string | null
+          firm_id: string | null
           id: string
           notes: string | null
           owner_id: string | null
@@ -622,6 +781,7 @@ export type Database = {
           created_at?: string
           date: string
           description?: string | null
+          firm_id?: string | null
           id?: string
           notes?: string | null
           owner_id?: string | null
@@ -634,6 +794,7 @@ export type Database = {
           created_at?: string
           date?: string
           description?: string | null
+          firm_id?: string | null
           id?: string
           notes?: string | null
           owner_id?: string | null
@@ -641,6 +802,13 @@ export type Database = {
           vehicle_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "misc_expenses_firm_id_fkey"
+            columns: ["firm_id"]
+            isOneToOne: false
+            referencedRelation: "firms"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "misc_expenses_trip_id_fkey"
             columns: ["trip_id"]
@@ -869,6 +1037,7 @@ export type Database = {
           amount: number
           created_at: string
           date: string
+          firm_id: string | null
           id: string
           notes: string | null
           owner_id: string | null
@@ -883,6 +1052,7 @@ export type Database = {
           amount: number
           created_at?: string
           date: string
+          firm_id?: string | null
           id?: string
           notes?: string | null
           owner_id?: string | null
@@ -897,6 +1067,7 @@ export type Database = {
           amount?: number
           created_at?: string
           date?: string
+          firm_id?: string | null
           id?: string
           notes?: string | null
           owner_id?: string | null
@@ -908,6 +1079,13 @@ export type Database = {
           vehicle_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "toll_logs_firm_id_fkey"
+            columns: ["firm_id"]
+            isOneToOne: false
+            referencedRelation: "firms"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "toll_logs_trip_id_fkey"
             columns: ["trip_id"]
@@ -936,6 +1114,7 @@ export type Database = {
           driver_phone: string | null
           empty_truck_weight: number | null
           end_date: string | null
+          firm_id: string | null
           freight_amount: number
           id: string
           loading_date: string | null
@@ -944,6 +1123,7 @@ export type Database = {
           notes: string | null
           origin: string
           owner_id: string | null
+          payment_status: string
           quantity_lost: number | null
           start_date: string
           status: Database["public"]["Enums"]["tripstatus"]
@@ -967,6 +1147,7 @@ export type Database = {
           driver_phone?: string | null
           empty_truck_weight?: number | null
           end_date?: string | null
+          firm_id?: string | null
           freight_amount?: number
           id?: string
           loading_date?: string | null
@@ -975,6 +1156,8 @@ export type Database = {
           notes?: string | null
           origin: string
           owner_id?: string | null
+          payment_status?: string
+          quantity_lost?: number | null
           start_date: string
           status?: Database["public"]["Enums"]["tripstatus"]
           unloading_date?: string | null
@@ -997,6 +1180,7 @@ export type Database = {
           driver_phone?: string | null
           empty_truck_weight?: number | null
           end_date?: string | null
+          firm_id?: string | null
           freight_amount?: number
           id?: string
           loading_date?: string | null
@@ -1005,6 +1189,8 @@ export type Database = {
           notes?: string | null
           origin?: string
           owner_id?: string | null
+          payment_status?: string
+          quantity_lost?: number | null
           start_date?: string
           status?: Database["public"]["Enums"]["tripstatus"]
           unloading_date?: string | null
@@ -1017,6 +1203,13 @@ export type Database = {
           weight_tonnes?: number | null
         }
         Relationships: [
+          {
+            foreignKeyName: "trips_firm_id_fkey"
+            columns: ["firm_id"]
+            isOneToOne: false
+            referencedRelation: "firms"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "trips_vehicle_id_fkey"
             columns: ["vehicle_id"]
@@ -1031,11 +1224,14 @@ export type Database = {
           amount: number
           created_at: string
           date: string
+          firm_id: string | null
           id: string
           notes: string | null
           odometer_km: number | null
           owner_id: string | null
           tyre_brand: string | null
+          tyre_condition: string | null
+          tyre_construction: string | null
           tyre_count: number
           tyre_position: string | null
           tyre_type: string
@@ -1045,11 +1241,14 @@ export type Database = {
           amount: number
           created_at?: string
           date: string
+          firm_id?: string | null
           id?: string
           notes?: string | null
           odometer_km?: number | null
           owner_id?: string | null
           tyre_brand?: string | null
+          tyre_condition?: string | null
+          tyre_construction?: string | null
           tyre_count?: number
           tyre_position?: string | null
           tyre_type?: string
@@ -1059,17 +1258,27 @@ export type Database = {
           amount?: number
           created_at?: string
           date?: string
+          firm_id?: string | null
           id?: string
           notes?: string | null
           odometer_km?: number | null
           owner_id?: string | null
           tyre_brand?: string | null
+          tyre_condition?: string | null
+          tyre_construction?: string | null
           tyre_count?: number
           tyre_position?: string | null
           tyre_type?: string
           vehicle_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "tyre_logs_firm_id_fkey"
+            columns: ["firm_id"]
+            isOneToOne: false
+            referencedRelation: "firms"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "tyre_logs_vehicle_id_fkey"
             columns: ["vehicle_id"]
@@ -1079,8 +1288,131 @@ export type Database = {
           },
         ]
       }
+      tyre_rotations: {
+        Row: {
+          created_at: string
+          date: string
+          firm_id: string | null
+          id: string
+          notes: string | null
+          odometer_km: number | null
+          owner_id: string
+          positions_rotated: string
+          vehicle_id: string
+        }
+        Insert: {
+          created_at?: string
+          date: string
+          firm_id?: string | null
+          id?: string
+          notes?: string | null
+          odometer_km?: number | null
+          owner_id: string
+          positions_rotated: string
+          vehicle_id: string
+        }
+        Update: {
+          created_at?: string
+          date?: string
+          firm_id?: string | null
+          id?: string
+          notes?: string | null
+          odometer_km?: number | null
+          owner_id?: string
+          positions_rotated?: string
+          vehicle_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tyre_rotations_firm_id_fkey"
+            columns: ["firm_id"]
+            isOneToOne: false
+            referencedRelation: "firms"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tyre_rotations_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tyre_rotations_vehicle_id_fkey"
+            columns: ["vehicle_id"]
+            isOneToOne: false
+            referencedRelation: "vehicles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tyre_scraps: {
+        Row: {
+          created_at: string
+          date: string
+          dealer_name: string | null
+          firm_id: string | null
+          id: string
+          notes: string | null
+          owner_id: string
+          scrap_amount: number
+          tyre_construction: string | null
+          tyre_count: number
+          vehicle_id: string
+        }
+        Insert: {
+          created_at?: string
+          date: string
+          dealer_name?: string | null
+          firm_id?: string | null
+          id?: string
+          notes?: string | null
+          owner_id: string
+          scrap_amount?: number
+          tyre_construction?: string | null
+          tyre_count?: number
+          vehicle_id: string
+        }
+        Update: {
+          created_at?: string
+          date?: string
+          dealer_name?: string | null
+          firm_id?: string | null
+          id?: string
+          notes?: string | null
+          owner_id?: string
+          scrap_amount?: number
+          tyre_construction?: string | null
+          tyre_count?: number
+          vehicle_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tyre_scraps_firm_id_fkey"
+            columns: ["firm_id"]
+            isOneToOne: false
+            referencedRelation: "firms"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tyre_scraps_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tyre_scraps_vehicle_id_fkey"
+            columns: ["vehicle_id"]
+            isOneToOne: false
+            referencedRelation: "vehicles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tyre_setups: {
         Row: {
+          firm_id: string | null
           has_spare: boolean
           id: string
           owner_id: string
@@ -1091,6 +1423,7 @@ export type Database = {
           vehicle_id: string
         }
         Insert: {
+          firm_id?: string | null
           has_spare?: boolean
           id?: string
           owner_id: string
@@ -1101,6 +1434,7 @@ export type Database = {
           vehicle_id: string
         }
         Update: {
+          firm_id?: string | null
           has_spare?: boolean
           id?: string
           owner_id?: string
@@ -1111,6 +1445,13 @@ export type Database = {
           vehicle_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "tyre_setups_firm_id_fkey"
+            columns: ["firm_id"]
+            isOneToOne: false
+            referencedRelation: "firms"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "tyre_setups_owner_id_fkey"
             columns: ["owner_id"]
@@ -1171,6 +1512,76 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      vehicle_batteries: {
+        Row: {
+          brand: string | null
+          capacity_ah: number | null
+          condition: string | null
+          cost: number | null
+          created_at: string
+          firm_id: string | null
+          id: string
+          installation_date: string | null
+          notes: string | null
+          owner_id: string
+          updated_at: string
+          vehicle_id: string
+          warranty_expiry: string | null
+        }
+        Insert: {
+          brand?: string | null
+          capacity_ah?: number | null
+          condition?: string | null
+          cost?: number | null
+          created_at?: string
+          firm_id?: string | null
+          id?: string
+          installation_date?: string | null
+          notes?: string | null
+          owner_id: string
+          updated_at?: string
+          vehicle_id: string
+          warranty_expiry?: string | null
+        }
+        Update: {
+          brand?: string | null
+          capacity_ah?: number | null
+          condition?: string | null
+          cost?: number | null
+          created_at?: string
+          firm_id?: string | null
+          id?: string
+          installation_date?: string | null
+          notes?: string | null
+          owner_id?: string
+          updated_at?: string
+          vehicle_id?: string
+          warranty_expiry?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vehicle_batteries_firm_id_fkey"
+            columns: ["firm_id"]
+            isOneToOne: false
+            referencedRelation: "firms"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vehicle_batteries_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vehicle_batteries_vehicle_id_fkey"
+            columns: ["vehicle_id"]
+            isOneToOne: false
+            referencedRelation: "vehicles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       vehicle_issues: {
         Row: {
@@ -1250,6 +1661,7 @@ export type Database = {
           color: string | null
           created_at: string
           engine_number: string | null
+          firm_id: string | null
           fitness_expiry: string | null
           fuel_type: string | null
           id: string
@@ -1274,6 +1686,7 @@ export type Database = {
           color?: string | null
           created_at?: string
           engine_number?: string | null
+          firm_id?: string | null
           fitness_expiry?: string | null
           fuel_type?: string | null
           id?: string
@@ -1298,6 +1711,7 @@ export type Database = {
           color?: string | null
           created_at?: string
           engine_number?: string | null
+          firm_id?: string | null
           fitness_expiry?: string | null
           fuel_type?: string | null
           id?: string
@@ -1316,7 +1730,15 @@ export type Database = {
           vehicle_type?: Database["public"]["Enums"]["vehicletype"]
           year?: number | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "vehicles_firm_id_fkey"
+            columns: ["firm_id"]
+            isOneToOne: false
+            referencedRelation: "firms"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {
@@ -1379,22 +1801,37 @@ export type Database = {
       get_driver_by_phone: {
         Args: { p_phone: string }
         Returns: {
+          aadhaar_back_url: string | null
+          aadhaar_front_url: string | null
+          aadhaar_number: string | null
           address: string | null
           alternate_phone: string | null
           badge_issue_date: string | null
+          bank_account_holder_name: string | null
+          bank_account_number: string | null
+          bank_ifsc_code: string | null
           blood_group: string | null
           created_at: string
           dob: string | null
+          emergency_contact_name: string | null
+          emergency_contact_phone: string | null
           father_name: string | null
           firebase_uid: string | null
+          firm_id: string | null
           id: string
           issuing_rto: string | null
           license_class: Database["public"]["Enums"]["licenseclass"] | null
           license_expiry: string | null
+          license_image_url: string | null
           license_number: string | null
+          mother_name: string | null
           name: string
           owner_id: string | null
+          pan_image_url: string | null
+          pan_number: string | null
+          permanent_address: string | null
           phone: string
+          profile_photo_url: string | null
           status: Database["public"]["Enums"]["driverstatus"]
           transport_validity: string | null
           updated_at: string
@@ -1440,7 +1877,12 @@ export type Database = {
         | "puc"
         | "road_tax"
         | "other"
-      tripstatus: "planned" | "in_progress" | "pending_review" | "completed" | "cancelled"
+      tripstatus:
+        | "planned"
+        | "in_progress"
+        | "completed"
+        | "cancelled"
+        | "pending_review"
       vehiclestatus: "active" | "inactive" | "in_trip" | "maintenance"
       vehicletype:
         | "truck"
@@ -1601,7 +2043,13 @@ export const Constants = {
         "road_tax",
         "other",
       ],
-      tripstatus: ["planned", "in_progress", "pending_review", "completed", "cancelled"],
+      tripstatus: [
+        "planned",
+        "in_progress",
+        "completed",
+        "cancelled",
+        "pending_review",
+      ],
       vehiclestatus: ["active", "inactive", "in_trip", "maintenance"],
       vehicletype: [
         "truck",

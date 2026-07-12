@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 import AppShell from "@/components/AppShell";
 import { LanguageProvider } from "@/lib/LanguageContext";
+import { FirmProvider } from "@/lib/FirmContext";
 
 export const metadata: Metadata = {
   title: "FleetSure — Fleet Management Platform",
@@ -43,7 +44,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         `}} />
       </head>
       <body style={{ margin: 0, display: "flex", minHeight: "100vh" }}>
-        <LanguageProvider><AppShell>{children}</AppShell></LanguageProvider>
+        <LanguageProvider><FirmProvider><AppShell>{children}</AppShell></FirmProvider></LanguageProvider>
       </body>
     </html>
   );

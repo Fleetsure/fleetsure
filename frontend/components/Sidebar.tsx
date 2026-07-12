@@ -6,7 +6,7 @@ import {
   Wrench, Fuel, HeartPulse, ReceiptText, Circle, PackageOpen, BarChart2, TrendingUp,
   ShieldCheck, FileText, ChevronDown, ChevronUp, Settings,
   PlusCircle, UserCircle, LogOut, Building2, Upload,
-  Menu, X, IndianRupee, ArrowLeftRight,
+  Menu, X, IndianRupee, ArrowLeftRight, Landmark,
 } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
 import Image from "next/image";
@@ -49,6 +49,7 @@ export default function Sidebar() {
         { label: t("nav.insurance"),    href: "/insurance",    icon: ShieldCheck },
       ]
     },
+    { label: t("nav.accounts"),    href: "/accounts",    icon: Landmark },
     { label: t("nav.analytics"),   href: "/analytics",   icon: TrendingUp },
     { label: t("nav.marketplace"), href: "/marketplace", icon: ArrowLeftRight },
     { label: t("nav.parties"),     href: "/parties",     icon: Building2 },

@@ -9,6 +9,7 @@ import { Plus, X, Trash2, IndianRupee, Truck, Route, CreditCard, Banknote } from
 import { useLanguage } from "@/lib/LanguageContext";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import DocumentUpload from "@/components/DocumentUpload";
+import { useFirm } from "@/lib/FirmContext";
 
 const EMPTY = {
   vehicle_id:   "",
@@ -24,6 +25,7 @@ const EMPTY = {
 
 export default function TollsPage() {
   const { t } = useLanguage();
+  const { activeFirmId } = useFirm();
   const [logs, setLogs]         = useState<any[]>([]);
   const [vehicles, setVehicles] = useState<any[]>([]);
   const [trips, setTrips]       = useState<any[]>([]);
@@ -38,13 +40,14 @@ export default function TollsPage() {
 
 
   const load = async () => {
+    if (!activeFirmId) { setLogs([]); setVehicles([]); setTrips([]); setLoading(false); return; }
     const [l, v, t] = await Promise.all([tollService.getAll(), vehicleService.getAll(), tripService.getAll()]);
     setLogs(l.data || []);
     setVehicles(v.data || []);
     setTrips(t.data || []);
     setLoading(false);
   };
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); }, [activeFirmId]);
 
   const set = (k: string, v: string) => setForm((p: any) => ({ ...p, [k]: v }));
 

@@ -3,10 +3,17 @@ import { useEffect, useState } from "react";
 import Header from "@/components/Header";
 import { vehicleService } from "@/lib/services/vehicleService";
 import { driverService } from "@/lib/services/driverService";
+import { batteryService } from "@/lib/services/batteryService";
+import { maintenanceService } from "@/lib/services/maintenanceService";
 import { useLanguage } from "@/lib/LanguageContext";
-import { HeartPulse, AlertTriangle, CheckCircle, Clock, Truck, Users, ChevronUp, ChevronDown } from "lucide-react";
+import { HeartPulse, AlertTriangle, CheckCircle, Clock, Truck, Users, ChevronUp, ChevronDown, BatteryFull, Plus, Trash2, Wrench } from "lucide-react";
 import { parseLocalDate, fmtDate } from "@/lib/date";
 import { useIsMobile } from "@/hooks/useIsMobile";
+import BatteryModal from "./BatteryModal";
+import { useFirm } from "@/lib/FirmContext";
+import MaintenanceModal from "./MaintenanceModal";
+
+const FREQUENCY_LABEL: Record<string, string> = { monthly: "Monthly", quarterly: "Quarterly", yearly: "Yearly", one_time: "One-time" };
 
 type Vehicle = {
   id: string;
@@ -89,19 +96,55 @@ function StatusBadge({ dateStr }: { dateStr: string | null }) {
 }
 
 export default function FleetHealthPage() {
+  const { activeFirmId } = useFirm();
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [drivers, setDrivers]   = useState<any[]>([]);
+  const [batteries, setBatteries] = useState<any[]>([]);
+  const [maintenanceItems, setMaintenanceItems] = useState<any[]>([]);
   const [loading, setLoading]   = useState(true);
   const [sortField, setSortField] = useState<string | null>(null);
   const [sortAsc, setSortAsc]     = useState(true);
+  const [showBattery, setShowBattery] = useState(false);
+  const [showMaintenance, setShowMaintenance] = useState(false);
   const isMobile = useIsMobile();
 
+  const loadBatteries = () => batteryService.getAll().then(r => setBatteries(r.data || []));
+  const loadMaintenance = () => maintenanceService.getAll().then(r => setMaintenanceItems(r.data || []));
 
   useEffect(() => {
-    Promise.all([vehicleService.getAll(), driverService.getAll()])
-      .then(([v, d]) => { setVehicles((v.data || []) as Vehicle[]); setDrivers(d.data || []); })
+    if (!activeFirmId) {
+      setVehicles([]); setDrivers([]); setBatteries([]); setMaintenanceItems([]); setLoading(false);
+      return;
+    }
+    Promise.all([vehicleService.getAll(), driverService.getAll(), batteryService.getAll(), maintenanceService.getAll()])
+      .then(([v, d, b, m]) => { setVehicles((v.data || []) as Vehicle[]); setDrivers(d.data || []); setBatteries(b.data || []); setMaintenanceItems(m.data || []); })
       .finally(() => setLoading(false));
-  }, []);
+  }, [activeFirmId]);
+
+  const handleAddBattery = async (data: any) => {
+    await batteryService.add(data);
+    setShowBattery(false); loadBatteries();
+  };
+  const handleDeleteBattery = async (id: string) => {
+    if (!confirm("Delete this battery record?")) return;
+    await batteryService.delete(id); loadBatteries();
+  };
+  const handleAddMaintenance = async (data: any) => {
+    await maintenanceService.add(data);
+    setShowMaintenance(false); loadMaintenance();
+  };
+  const handleDeleteMaintenance = async (id: string) => {
+    if (!confirm("Delete this maintenance item?")) return;
+    await maintenanceService.delete(id); loadMaintenance();
+  };
+  const vehicleName = (id: string) => vehicles.find(v => v.id === id)?.registration_number || "—";
+
+  const monthlyTotalsByVehicle = maintenanceItems
+    .filter(m => m.frequency === "monthly")
+    .reduce((acc: Record<string, number>, m) => {
+      acc[m.vehicle_id] = (acc[m.vehicle_id] || 0) + parseFloat(m.amount || 0);
+      return acc;
+    }, {});
 
   // Compute per-vehicle compliance
   const rows = vehicles.map(v => {
@@ -510,7 +553,114 @@ export default function FleetHealthPage() {
           )}
         </div>
 
+        {/* ── Battery Status ──────────────────────────────────── */}
+        <div className="card" style={{ padding: 0, overflow: "hidden" }}>
+          <div style={{ padding: "16px 20px", borderBottom: "1px solid #f0f0f5", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <BatteryFull size={16} color="#1565c0" />
+              <div style={{ fontWeight: 700, fontSize: 15 }}>Battery Status</div>
+            </div>
+            <button className="btn-outline" onClick={() => setShowBattery(true)}><Plus size={13} /> Add Battery</button>
+          </div>
+
+          {batteries.length === 0 ? (
+            <div style={{ textAlign: "center", padding: "40px 0" }}>
+              <BatteryFull size={36} color="#e0e0e0" style={{ display: "block", margin: "0 auto 10px" }} />
+              <p style={{ color: "#aaa", fontSize: 13 }}>No battery records yet.</p>
+            </div>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: 8, padding: "12px 16px" }}>
+              {batteries.map((b: any) => {
+                const { status, daysLeft } = getStatus(b.warranty_expiry);
+                const condColor = b.condition === "dead" ? "#c62828" : b.condition === "weak" ? "#e65100" : "#2e7d32";
+                const condBg    = b.condition === "dead" ? "#fce4ec" : b.condition === "weak" ? "#fff3e0" : "#e8f5e9";
+                return (
+                  <div key={b.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 12px", borderRadius: 8, background: "var(--bg-subtle)", border: "1px solid var(--border)", fontSize: 12.5, gap: 10, flexWrap: "wrap" }}>
+                    <div>
+                      <span style={{ fontWeight: 700, color: "#1E2D8E" }}>{vehicleName(b.vehicle_id)}</span>
+                      <span style={{ color: "#888", marginLeft: 8 }}>{[b.brand, b.capacity_ah ? `${b.capacity_ah} Ah` : null].filter(Boolean).join(" · ") || "—"}</span>
+                      <span style={{ fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 6, background: condBg, color: condColor, marginLeft: 8, textTransform: "capitalize" }}>{b.condition}</span>
+                    </div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                      {b.warranty_expiry && (status === "expired" ? (
+                        <span style={{ fontWeight: 700, color: "#c62828" }}>Warranty expired {Math.abs(daysLeft!)}d ago</span>
+                      ) : status === "expiring_soon" ? (
+                        <span style={{ fontWeight: 700, color: "#e65100" }}>Warranty expires in {daysLeft}d</span>
+                      ) : (
+                        <span style={{ color: "#aaa" }}>Warranty until {fmtDate(b.warranty_expiry)}</span>
+                      ))}
+                      <button onClick={() => handleDeleteBattery(b.id)} style={{ background: "none", border: "none", cursor: "pointer", color: "#ccc", padding: 2 }}><Trash2 size={13} /></button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* ── Scheduled Maintenance ───────────────────────────────────── */}
+        <div className="card" style={{ padding: 0, overflow: "hidden" }}>
+          <div style={{ padding: "16px 20px", borderBottom: "1px solid #f0f0f5", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <Wrench size={16} color="#1565c0" />
+              <div style={{ fontWeight: 700, fontSize: 15 }}>Scheduled Maintenance</div>
+            </div>
+            <button className="btn-outline" onClick={() => setShowMaintenance(true)}><Plus size={13} /> Add Item</button>
+          </div>
+
+          {Object.keys(monthlyTotalsByVehicle).length > 0 && (
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", padding: "12px 16px 0" }}>
+              {Object.entries(monthlyTotalsByVehicle).map(([vid, total]) => (
+                <span key={vid} style={{ fontSize: 11.5, fontWeight: 600, padding: "4px 10px", borderRadius: 8, background: "#eef0fb", color: "#1E2D8E" }}>
+                  {vehicleName(vid)}: ₹{Math.round(total).toLocaleString("en-IN")}/mo
+                </span>
+              ))}
+            </div>
+          )}
+
+          {maintenanceItems.length === 0 ? (
+            <div style={{ textAlign: "center", padding: "40px 0" }}>
+              <Wrench size={36} color="#e0e0e0" style={{ display: "block", margin: "0 auto 10px" }} />
+              <p style={{ color: "#aaa", fontSize: 13 }}>No maintenance items scheduled yet.</p>
+            </div>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: 8, padding: "12px 16px" }}>
+              {maintenanceItems.map((m: any) => {
+                const { status, daysLeft } = getStatus(m.next_due_date);
+                return (
+                  <div key={m.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 12px", borderRadius: 8, background: status === "expired" ? "#fff8f8" : "var(--bg-subtle)", border: `1px solid ${status === "expired" ? "#ffcdd2" : "var(--border)"}`, fontSize: 12.5, gap: 10, flexWrap: "wrap" }}>
+                    <div>
+                      <span style={{ fontWeight: 700, color: "#1E2D8E" }}>{vehicleName(m.vehicle_id)}</span>
+                      <span style={{ color: "#888", marginLeft: 8 }}>{m.description}</span>
+                      <span style={{ fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 6, background: "#eef0fb", color: "#1E2D8E", marginLeft: 8 }}>{FREQUENCY_LABEL[m.frequency] || m.frequency}</span>
+                    </div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                      <span style={{ color: "#aaa" }}>₹{parseFloat(m.amount || 0).toLocaleString("en-IN")}</span>
+                      {m.next_due_date && (status === "expired" ? (
+                        <span style={{ fontWeight: 700, color: "#c62828" }}>Overdue {Math.abs(daysLeft!)}d</span>
+                      ) : status === "expiring_soon" ? (
+                        <span style={{ fontWeight: 700, color: "#e65100" }}>Due in {daysLeft}d</span>
+                      ) : (
+                        <span style={{ color: "#aaa" }}>Due {fmtDate(m.next_due_date)}</span>
+                      ))}
+                      <button onClick={() => handleDeleteMaintenance(m.id)} style={{ background: "none", border: "none", cursor: "pointer", color: "#ccc", padding: 2 }}><Trash2 size={13} /></button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
       </div>
+
+      {showBattery && (
+        <BatteryModal vehicles={vehicles} onSave={handleAddBattery} onClose={() => setShowBattery(false)} />
+      )}
+
+      {showMaintenance && (
+        <MaintenanceModal vehicles={vehicles} onSave={handleAddMaintenance} onClose={() => setShowMaintenance(false)} />
+      )}
     </div>
   );
 }

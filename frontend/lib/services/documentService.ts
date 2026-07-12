@@ -1,5 +1,5 @@
 import { supabase } from "@/lib/supabase";
-import { query, ok, fail, getUid } from "./_base";
+import { query, ok, fail, getUid, getFirmId, scopeToFirm } from "./_base";
 import { daysUntil } from "@/lib/date";
 import type { Document, ServiceResponse } from "@/lib/types";
 
@@ -50,6 +50,7 @@ export const documentService = {
     return query(
       supabase.from("documents").insert({
         owner_id: input.ownerId ?? getUid(),
+        firm_id: getFirmId(),
         name: input.name,
         category: input.category,
         file_url: input.file_url,
@@ -74,10 +75,10 @@ export const documentService = {
 
   async getAll(filters: DocumentFilters = {}): Promise<ServiceResponse<Document[]>> {
     const uid = getUid();
-    let q = supabase
+    let q = scopeToFirm(supabase
       .from("documents")
       .select("*, vehicles(registration_number)")
-      .eq("owner_id", uid)
+      .eq("owner_id", uid))
       .order("created_at", { ascending: false });
 
     if (filters.category)    q = q.eq("category", filters.category);
@@ -126,7 +127,7 @@ export const documentService = {
   async getExpirySummary(): Promise<ServiceResponse<{ expiringSoon: number; expired: number }>> {
     const uid = getUid();
     const res = await query<{ expiry_date: string | null }[]>(
-      supabase.from("documents").select("expiry_date").eq("owner_id", uid).not("expiry_date", "is", null)
+      scopeToFirm(supabase.from("documents").select("expiry_date").eq("owner_id", uid)).not("expiry_date", "is", null)
     );
     if (!res.success) return res as unknown as ServiceResponse<{ expiringSoon: number; expired: number }>;
     let expiringSoon = 0, expired = 0;

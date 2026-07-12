@@ -2,11 +2,11 @@
 import { useEffect, useState } from "react";
 import { getTyreSetup, saveTyreSetup } from "@/lib/services/tyreSetupService";
 import Header from "@/components/Header";
-import { tyreService } from "@/lib/services/tyreService";
+import { tyreService, tyreRotationService, tyreScrapService } from "@/lib/services/tyreService";
 import { vehicleService } from "@/lib/services/vehicleService";
 import { tripService } from "@/lib/services/tripService";
 import { fmtDate, todayISO } from "@/lib/date";
-import { Plus, X, Trash2, Circle, AlertTriangle, Info, RotateCcw, Settings } from "lucide-react";
+import { Plus, X, Trash2, Circle, AlertTriangle, Info, RotateCcw, Settings, Recycle } from "lucide-react";
 import { useLanguage } from "@/lib/LanguageContext";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import {
@@ -16,6 +16,9 @@ import { lbl, inp } from "./styles";
 import TruckDiagram from "./TruckDiagram";
 import SetupModal from "./SetupModal";
 import EditTyreModal from "./EditTyreModal";
+import RotationModal from "./RotationModal";
+import ScrapModal from "./ScrapModal";
+import { useFirm } from "@/lib/FirmContext";
 
 const TYRE_TYPES = [
   { value: "new",       label: "New Tyre" },
@@ -35,15 +38,21 @@ const EMPTY_LOG = {
   vehicle_id: "", date: todayISO(), amount: "",
   tyre_brand: "", tyre_count: "1", tyre_type: "new",
   tyre_position: "", odometer_km: "", notes: "",
+  tyre_construction: "", tyre_condition: "",
 };
+const CONSTRUCTION_TOOLTIP = "Nylon = bias-ply, better for rough roads. Radial = highway, better mileage.";
+const CONDITION_TOOLTIP = "Remould = retreaded tyre, cheaper alternative.";
 
 // ── Main Page ─────────────────────────────────────────────────────────────────
 
 export default function TyresPage() {
   const { t } = useLanguage();
+  const { activeFirmId } = useFirm();
   const [tab, setTab] = useState<"health" | "logs">("health");
   const [vehicles, setVehicles] = useState<any[]>([]);
   const [logs, setLogs] = useState<any[]>([]);
+  const [rotations, setRotations] = useState<any[]>([]);
+  const [scraps, setScraps] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const isMobile = useIsMobile();
 
@@ -63,13 +72,18 @@ export default function TyresPage() {
   const [error, setError] = useState("");
   const [filterVehicle, setFilterVehicle] = useState("");
   const [filterType, setFilterType] = useState("");
-
+  const [showRotation, setShowRotation] = useState(false);
+  const [showScrap, setShowScrap] = useState(false);
 
   const load = async () => {
-    const [l, v] = await Promise.all([tyreService.getAll(), vehicleService.getAll()]);
-    setLogs(l.data || []); setVehicles(v.data || []); setLoading(false);
+    if (!activeFirmId) { setLogs([]); setVehicles([]); setRotations([]); setScraps([]); setLoading(false); return; }
+    const [l, v, r, s] = await Promise.all([
+      tyreService.getAll(), vehicleService.getAll(), tyreRotationService.getAll(), tyreScrapService.getAll(),
+    ]);
+    setLogs(l.data || []); setVehicles(v.data || []); setRotations(r.data || []); setScraps(s.data || []);
+    setLoading(false);
   };
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); }, [activeFirmId]);
 
   useEffect(() => {
     if (!selVehicleId) { setSetup(null); return; }
@@ -152,12 +166,31 @@ export default function TyresPage() {
     await tyreService.delete(id); load();
   };
 
+  const handleAddRotation = async (data: any) => {
+    await tyreRotationService.add(data);
+    setShowRotation(false); load();
+  };
+  const handleDeleteRotation = async (id: string) => {
+    if (!confirm("Delete this rotation entry?")) return;
+    await tyreRotationService.delete(id); load();
+  };
+
+  const handleAddScrap = async (data: any) => {
+    await tyreScrapService.add(data);
+    setShowScrap(false); load();
+  };
+  const handleDeleteScrap = async (id: string) => {
+    if (!confirm("Delete this scrap entry?")) return;
+    await tyreScrapService.delete(id); load();
+  };
+
   // ── Derived ─────────────────────────────────────────────────────────────────
 
   const vehicleName = (id: string) => vehicles.find(v => v.id === id)?.registration_number || "—";
   const filtered = logs.filter(l => (!filterVehicle || l.vehicle_id === filterVehicle) && (!filterType || l.tyre_type === filterType));
   const totalSpend = logs.reduce((s, l) => s + parseFloat(l.amount || 0), 0);
   const thisMonth = logs.filter(l => l.date?.slice(0, 7) === todayISO().slice(0, 7)).reduce((s, l) => s + parseFloat(l.amount || 0), 0);
+  const scrapIncome = scraps.reduce((s, l) => s + parseFloat(l.scrap_amount || 0), 0);
   const insights = setup ? getInsights(setup.tyres) : [];
 
   const fleetAvgHealth = setup && setup.tyres.length > 0
@@ -338,12 +371,13 @@ export default function TyresPage() {
         {/* ── EXPENSE LOGS TAB ────────────────────────────────────────────────── */}
         {tab === "logs" && (
           <div>
-            <div style={{ display: "grid", gridTemplateColumns: isMobile ? "repeat(2, 1fr)" : "repeat(4, 1fr)", gap: 12, marginBottom: 20 }}>
+            <div style={{ display: "grid", gridTemplateColumns: isMobile ? "repeat(2, 1fr)" : "repeat(5, 1fr)", gap: 12, marginBottom: 20 }}>
               {[
                 { label: "Total Entries", value: logs.length,                                             color: "#1E2D8E" },
                 { label: "Total Spend",   value: `₹${totalSpend.toLocaleString("en-IN")}`,               color: "#2e7d32" },
                 { label: "This Month",    value: `₹${thisMonth.toLocaleString("en-IN")}`,                 color: "#0277bd" },
                 { label: "New / Repairs", value: `${logs.filter(l => l.tyre_type === "new").length} / ${logs.filter(l => l.tyre_type === "repair").length}`, color: "#e65100" },
+                { label: "Scrap Income",  value: `+₹${scrapIncome.toLocaleString("en-IN")}`,              color: "#2e7d32" },
               ].map(s => (
                 <div key={s.label} className="stat-card" style={{ textAlign: "center" }}>
                   <div style={{ fontSize: 22, fontWeight: 700, color: s.color }}>{s.value}</div>
@@ -366,6 +400,12 @@ export default function TyresPage() {
                     <option value="">All Types</option>
                     {TYRE_TYPES.map(ty => <option key={ty.value} value={ty.value}>{ty.label}</option>)}
                   </select>
+                  <button className="btn-outline" onClick={() => setShowRotation(true)} style={{ whiteSpace: "nowrap" }}>
+                    <RotateCcw size={14} /> Rotate Tyres
+                  </button>
+                  <button className="btn-outline" onClick={() => setShowScrap(true)} style={{ whiteSpace: "nowrap" }}>
+                    <Recycle size={14} /> Scrap Tyre
+                  </button>
                   <button className="btn-primary" onClick={() => { setForm({ ...EMPTY_LOG }); setError(""); setShowForm(true); }} style={{ whiteSpace: "nowrap" }}>
                     <Plus size={15} /> {t("tyre.add")}
                   </button>
@@ -448,6 +488,61 @@ export default function TyresPage() {
                 </table>
               )}
             </div>
+
+            {/* Rotations */}
+            <div className="card" style={{ marginTop: 20 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+                <h2 style={{ margin: 0, fontSize: 15, fontWeight: 700 }}>Tyre Rotations</h2>
+                <button className="btn-outline" onClick={() => setShowRotation(true)}><RotateCcw size={13} /> Log Rotation</button>
+              </div>
+              {rotations.length === 0 ? (
+                <div style={{ fontSize: 13, color: "#aaa", textAlign: "center", padding: "20px 0" }}>No rotations logged yet.</div>
+              ) : (
+                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                  {rotations.map((r: any) => (
+                    <div key={r.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 12px", borderRadius: 8, background: "var(--bg-subtle)", border: "1px solid var(--border)", fontSize: 12.5, gap: 10, flexWrap: "wrap" }}>
+                      <div>
+                        <span style={{ fontWeight: 700, color: "#1E2D8E" }}>{vehicleName(r.vehicle_id)}</span>
+                        <span style={{ color: "#888", marginLeft: 8 }}>{r.positions_rotated}</span>
+                        {r.odometer_km && <span style={{ color: "#aaa", marginLeft: 8 }}>{parseFloat(r.odometer_km).toLocaleString("en-IN")} km</span>}
+                      </div>
+                      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                        <span style={{ color: "#aaa" }}>{fmtDate(r.date)}</span>
+                        <button onClick={() => handleDeleteRotation(r.id)} style={{ background: "none", border: "none", cursor: "pointer", color: "#ccc", padding: 2 }}><Trash2 size={13} /></button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Scraps */}
+            <div className="card" style={{ marginTop: 20 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+                <h2 style={{ margin: 0, fontSize: 15, fontWeight: 700 }}>Scrap History</h2>
+                <button className="btn-outline" onClick={() => setShowScrap(true)}><Recycle size={13} /> Log Scrap</button>
+              </div>
+              {scraps.length === 0 ? (
+                <div style={{ fontSize: 13, color: "#aaa", textAlign: "center", padding: "20px 0" }}>No scrap entries yet.</div>
+              ) : (
+                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                  {scraps.map((sc: any) => (
+                    <div key={sc.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 12px", borderRadius: 8, background: "var(--bg-subtle)", border: "1px solid var(--border)", fontSize: 12.5, gap: 10, flexWrap: "wrap" }}>
+                      <div>
+                        <span style={{ fontWeight: 700, color: "#1E2D8E" }}>{vehicleName(sc.vehicle_id)}</span>
+                        <span style={{ color: "#888", marginLeft: 8 }}>{sc.tyre_count} tyre{sc.tyre_count > 1 ? "s" : ""}{sc.construction ? ` · ${sc.construction}` : ""}</span>
+                        {sc.dealer_name && <span style={{ color: "#aaa", marginLeft: 8 }}>{sc.dealer_name}</span>}
+                      </div>
+                      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                        <span style={{ fontWeight: 700, color: "#2e7d32" }}>+₹{parseFloat(sc.scrap_amount).toLocaleString("en-IN")}</span>
+                        <span style={{ color: "#aaa" }}>{fmtDate(sc.date)}</span>
+                        <button onClick={() => handleDeleteScrap(sc.id)} style={{ background: "none", border: "none", cursor: "pointer", color: "#ccc", padding: 2 }}><Trash2 size={13} /></button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         )}
       </div>
@@ -459,6 +554,14 @@ export default function TyresPage() {
 
       {editingTyre && (
         <EditTyreModal tyre={editingTyre} onSave={saveTyreEdit} onClose={() => setEditingTyre(null)} />
+      )}
+
+      {showRotation && (
+        <RotationModal vehicles={vehicles} onSave={handleAddRotation} onClose={() => setShowRotation(false)} />
+      )}
+
+      {showScrap && (
+        <ScrapModal vehicles={vehicles} onSave={handleAddScrap} onClose={() => setShowScrap(false)} />
       )}
 
       {showForm && (
@@ -504,6 +607,24 @@ export default function TyresPage() {
                 <div>
                   <label style={lbl}>Tyre Count</label>
                   <input type="number" min="1" max="20" value={form.tyre_count} onChange={e => setF("tyre_count", e.target.value)} style={inp} />
+                </div>
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                <div>
+                  <label style={lbl}>Tyre Construction *</label>
+                  <select required title={CONSTRUCTION_TOOLTIP} value={form.tyre_construction} onChange={e => setF("tyre_construction", e.target.value)} style={inp}>
+                    <option value="">Select construction</option>
+                    <option value="nylon">Nylon</option>
+                    <option value="radial">Radial</option>
+                  </select>
+                </div>
+                <div>
+                  <label style={lbl}>Tyre Condition *</label>
+                  <select required title={CONDITION_TOOLTIP} value={form.tyre_condition} onChange={e => setF("tyre_condition", e.target.value)} style={inp}>
+                    <option value="">Select condition</option>
+                    <option value="new">New</option>
+                    <option value="remould">Remould</option>
+                  </select>
                 </div>
               </div>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>

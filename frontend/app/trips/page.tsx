@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import Header from "@/components/Header";
+import { useFirm } from "@/lib/FirmContext";
 import { tripService } from "@/lib/services/tripService";
 import { fuelService } from "@/lib/services/fuelService";
 import { tollService } from "@/lib/services/tollService";
@@ -19,6 +20,7 @@ import { geocode, haversineKm } from "@/lib/geo";
 import { shareOnWhatsApp } from "@/lib/tripShare";
 import TripStatusBadge from "@/components/TripStatusBadge";
 import TripStatusStepper from "@/components/TripStatusStepper";
+import ConfirmDeleteModal from "@/components/ConfirmDeleteModal";
 import LogTripModal from "./LogTripModal";
 import PdfOptionsModal from "./PdfOptionsModal";
 import WeighbridgeModal from "./WeighbridgeModal";
@@ -59,10 +61,14 @@ const fmt = (n: number) =>
 const expLabel = (t: string) =>
   EXPENSE_TYPES.find(e => e.value === t)?.label ?? t;
 
+// Active trips (in_progress/pending_review) shouldn't be deleted mid-run.
+const DELETABLE_STATUSES = ["planned", "completed"];
+
 // ── Main page ─────────────────────────────────────────────────────────────────
 
 export default function TripsPage() {
   const { t } = useLanguage();
+  const { activeFirmId } = useFirm();
   const [trips, setTrips]       = useState<any[]>([]);
   const [vehicles, setVehicles] = useState<any[]>([]);
   const [drivers, setDrivers]   = useState<any[]>([]);
@@ -90,6 +96,7 @@ export default function TripsPage() {
   const [statusBusy, setStatusBusy] = useState(false);
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
   const [showWeighbridgeModal, setShowWeighbridgeModal] = useState(false);
+  const [deleteTrip, setDeleteTrip] = useState<any>(null);
 
   const [distCalc, setDistCalc] = useState<"idle" | "loading" | "done" | "error">("idle");
 
@@ -105,10 +112,12 @@ export default function TripsPage() {
 
   // ── Data loading ────────────────────────────────────────────────────────────
 
-  const load = () =>
+  const load = () => {
+    if (!activeFirmId) { setTrips([]); setVehicles([]); setDrivers([]); setLoading(false); return; }
     Promise.all([tripService.getAll(), vehicleService.getAll(), driverService.getAll()])
       .then(([t, v, d]) => { setTrips(t.data || []); setVehicles(v.data || []); setDrivers(d.data || []); })
       .finally(() => setLoading(false));
+  };
 
   const handleOriginChange = (value: string) => {
     setForm(p => ({ ...p, origin: value }));
@@ -132,7 +141,7 @@ export default function TripsPage() {
     setVehicleSuggestions([]);
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); }, [activeFirmId]);
 
   // Auto-calculate distance from origin + destination
   useEffect(() => {
@@ -261,6 +270,14 @@ export default function TripsPage() {
       console.error("[Trips] failed to cancel trip:", { tripId: trip.id, error: err?.message || err, raw: err });
       alert(err?.message || "Failed to cancel trip. Please try again.");
     } finally { setStatusBusy(false); }
+  };
+
+  const handleDeleteTrip = async () => {
+    const res = await tripService.delete(deleteTrip.id);
+    if (!res.success) throw new Error(res.error || "Failed to delete trip");
+    setTrips(prev => prev.filter(t => t.id !== deleteTrip.id));
+    if (selTrip?.id === deleteTrip.id) { setSelTrip(null); setDetail(null); }
+    setDeleteTrip(null);
   };
 
   // ── Add expense ─────────────────────────────────────────────────────────────
@@ -592,6 +609,12 @@ export default function TripsPage() {
                             {nextLabel}
                           </button>
                         )}
+                        {DELETABLE_STATUSES.includes(t.status) && (
+                          <button onClick={e => { e.stopPropagation(); setDeleteTrip(t); }}
+                            style={{ background: "none", border: "none", cursor: "pointer", color: "#ccc", padding: 4 }}>
+                            <Trash2 size={15} />
+                          </button>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -635,7 +658,7 @@ export default function TripsPage() {
                         {fmt(Number(t.freight_amount))}
                       </td>
                       <td><TripStatusBadge status={t.status} /></td>
-                      <td onClick={e => e.stopPropagation()}>
+                      <td onClick={e => e.stopPropagation()} style={{ display: "flex", alignItems: "center", gap: 8 }}>
                         {nextLabel ? (
                           <button
                             onClick={e => advanceStatus(t, e)}
@@ -646,6 +669,14 @@ export default function TripsPage() {
                         ) : t.status === "completed" ? (
                           <span style={{ fontSize: 12, color: "#2e7d32", fontWeight: 600 }}>✓ Done</span>
                         ) : null}
+                        {DELETABLE_STATUSES.includes(t.status) && (
+                          <button onClick={() => setDeleteTrip(t)}
+                            style={{ background: "none", border: "none", cursor: "pointer", color: "#ccc", padding: 4 }}
+                            onMouseEnter={e => (e.currentTarget.style.color = "#e53935")}
+                            onMouseLeave={e => (e.currentTarget.style.color = "#ccc")}>
+                            <Trash2 size={14} />
+                          </button>
+                        )}
                       </td>
                     </tr>
                   );
@@ -1108,6 +1139,15 @@ export default function TripsPage() {
           isMobile={isMobile}
           onClose={() => setShowWeighbridgeModal(false)}
           onSaved={refreshDetail}
+        />
+      )}
+
+      {deleteTrip && (
+        <ConfirmDeleteModal
+          title="Delete Trip"
+          message="Delete this trip? This cannot be undone."
+          onConfirm={handleDeleteTrip}
+          onClose={() => setDeleteTrip(null)}
         />
       )}
     </div>

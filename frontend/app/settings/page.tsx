@@ -8,10 +8,11 @@ import {
   UserCircle, Bell, Lock, Palette,
   Settings, CreditCard, Download,
   Users, Globe, Receipt, Plug, AlertTriangle,
-  Search, Upload, Phone,
+  Search, Upload, Phone, Building2,
 } from "lucide-react";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import ManageUsers from "./sections/ManageUsers";
+import ManageFirms from "./sections/ManageFirms";
 import ExportSettings from "./sections/ExportSettings";
 import BillingSettings from "./sections/BillingSettings";
 import IntegrationsSettings from "./sections/IntegrationsSettings";
@@ -34,6 +35,7 @@ const SECTIONS = [
     label: "Fleet Settings",
     items: [
       { id: "general",  label: "General Settings",        icon: Settings,    desc: "Organization name, timezone, currency" },
+      { id: "firms",    label: "My Firms",                icon: Building2,   desc: "Manage multiple firms and switch between them" },
       { id: "billing",  label: "Billing & Subscriptions", icon: CreditCard,  desc: "Plan, invoices, and payment methods" },
       { id: "export",   label: "Export Account Data",     icon: Download,    desc: "Download all your fleet data" },
     ]
@@ -238,6 +240,7 @@ function SettingsInner() {
                      item.id === "billing" ? t("settings.billing") :
                      item.id === "export" ? t("settings.export") :
                      item.id === "manage-users" ? t("settings.manage_users") :
+                     item.id === "firms" ? t("settings.firms") :
                      item.id === "language" ? t("settings.language_region") :
                      item.id === "gst" ? t("settings.gst") :
                      item.id === "integrations" ? t("settings.integrations") :
@@ -282,6 +285,8 @@ function SettingsInner() {
             <ExportSettings />
           ) : active === "manage-users" ? (
             <ManageUsers />
+          ) : active === "firms" ? (
+            <ManageFirms />
           ) : active === "billing" ? (
             <BillingSettings />
           ) : active === "integrations" ? (

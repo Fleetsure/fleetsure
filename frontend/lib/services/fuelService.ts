@@ -1,5 +1,5 @@
 import { supabase } from "@/lib/supabase";
-import { query, ok, fail, getUid } from "./_base";
+import { query, ok, fail, getUid, getFirmId, scopeToFirm } from "./_base";
 import { documentService } from "./documentService";
 import type { FuelLog, ServiceResponse } from "@/lib/types";
 import type { Database } from "@/lib/database.types";
@@ -9,7 +9,7 @@ type FuelLogInsert = Database["public"]["Tables"]["fuel_logs"]["Insert"];
 export const fuelService = {
   async getAll(vehicle_id?: string): Promise<ServiceResponse<FuelLog[]>> {
     const uid = getUid();
-    const q = supabase.from("fuel_logs").select("*").eq("owner_id", uid).order("date", { ascending: false });
+    const q = scopeToFirm(supabase.from("fuel_logs").select("*").eq("owner_id", uid)).order("date", { ascending: false });
     return query(vehicle_id ? q.eq("vehicle_id", vehicle_id) : q);
   },
 
@@ -19,7 +19,7 @@ export const fuelService = {
 
   async add(data: Omit<FuelLogInsert, "owner_id">): Promise<ServiceResponse<FuelLog>> {
     const res = await query<FuelLog>(
-      supabase.from("fuel_logs").insert({ ...data, owner_id: getUid() }).select().single()
+      supabase.from("fuel_logs").insert({ ...data, owner_id: getUid(), firm_id: getFirmId() }).select().single()
     );
     if (res.success && data.receipt_url) {
       await documentService.logDocument({
@@ -39,10 +39,10 @@ export const fuelService = {
   // Per-vehicle analytics: total litres, avg km/L, anomaly detection
   async getAnalytics(): Promise<ServiceResponse<any[]>> {
     const uid = getUid();
-    const { data, error } = await supabase
+    const { data, error } = await scopeToFirm(supabase
       .from("fuel_logs")
       .select("id, vehicle_id, date, odometer_km, litres, amount, vehicles(registration_number, make, model)")
-      .eq("owner_id", uid)
+      .eq("owner_id", uid))
       .order("date", { ascending: true });
 
     if (error) return fail(error);
