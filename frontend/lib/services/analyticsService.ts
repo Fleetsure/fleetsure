@@ -321,19 +321,34 @@ export const analyticsService = {
       const completed_today = completedToday.length;
       const revenue_today   = completedToday.reduce((s: number, t: any) => s + parseFloat(t.freight_amount || 0), 0);
 
-      // Compliance: policies expiring within 30 days
+      // Compliance: policies expiring within 30 days.
+      // No embed here — insurance_policies has no foreign key to vehicles
+      // at all, so `vehicles(registration_number)` could never resolve:
+      // PostgREST requires a real FK for embeds and returns a 400 when
+      // there isn't one. That request isn't wrapped in query()'s try/catch
+      // here, so compRes.data just silently came back undefined/empty on
+      // every call — compliance_alerts has been silently empty regardless
+      // of whether any policies were actually expiring. Same fix as
+      // documentService.getAll(): a separate batched lookup instead.
       const in30 = new Date(); in30.setDate(in30.getDate() + 30);
       const compRes = await supabase.from("insurance_policies")
-        .select("policy_type,expiry_date,vehicles(registration_number)")
+        .select("policy_type,expiry_date,vehicle_id")
         .eq("owner_id", uid)
         .lte("expiry_date", in30.toISOString().slice(0, 10))
         .gte("expiry_date", today);
 
-      const compliance_alerts = (compRes.data || []).map((p: any) => {
+      const compPolicies = compRes.data || [];
+      const compVehicleIds = [...new Set(compPolicies.map((p: any) => p.vehicle_id).filter(Boolean))];
+      const compVehiclesRes = compVehicleIds.length
+        ? await supabase.from("vehicles").select("id, registration_number").in("id", compVehicleIds)
+        : { data: [] as { id: string; registration_number: string }[] };
+      const compVehicleMap = new Map((compVehiclesRes.data || []).map((v: any) => [v.id, v.registration_number]));
+
+      const compliance_alerts = compPolicies.map((p: any) => {
         const daysLeft = Math.floor((new Date(p.expiry_date).getTime() - Date.now()) / 86_400_000);
         return {
           severity: daysLeft <= 7 ? "critical" : "warning",
-          title: `${(p.vehicles as any)?.registration_number || "?"} ${p.policy_type} expires in ${daysLeft}d`,
+          title: `${compVehicleMap.get(p.vehicle_id) ?? "?"} ${p.policy_type} expires in ${daysLeft}d`,
         };
       });
 

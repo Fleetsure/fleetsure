@@ -75,9 +75,19 @@ export const documentService = {
 
   async getAll(filters: DocumentFilters = {}): Promise<ServiceResponse<Document[]>> {
     const uid = getUid();
+    // No embed here — documents.linked_id is a polymorphic reference (can
+    // point at vehicles, drivers, or trips depending on linked_type), not a
+    // real foreign key to any single table, so `vehicles(registration_number)`
+    // can never resolve: PostgREST requires an actual FK for embeds and
+    // returns a 400 ("could not find a relationship in the schema cache")
+    // when there isn't one. That 400 made every call here fail silently
+    // (query() catches it, callers never checked res.success), so this page
+    // has been showing 0 documents regardless of firm scoping. Resolved the
+    // same way driver/trip labels already are below: a separate batched
+    // lookup instead of an embed.
     let q = scopeToFirm(supabase
       .from("documents")
-      .select("*, vehicles(registration_number)")
+      .select("*")
       .eq("owner_id", uid))
       .order("created_at", { ascending: false });
 
@@ -92,12 +102,16 @@ export const documentService = {
     if (!res.success) return res;
     const rows = res.data || [];
 
-    // Enrich driver/trip labels client-side (vehicle already joined above) —
-    // batches one query per linked_type instead of one per row.
-    const driverIds = [...new Set(rows.filter(r => r.linked_type === "driver" && r.linked_id).map(r => r.linked_id))];
-    const tripIds    = [...new Set(rows.filter(r => r.linked_type === "trip"   && r.linked_id).map(r => r.linked_id))];
+    // Enrich vehicle/driver/trip labels client-side — batches one query per
+    // linked_type instead of one per row (and instead of a broken embed).
+    const vehicleIds = [...new Set(rows.filter(r => r.linked_type === "vehicle" && r.linked_id).map(r => r.linked_id))];
+    const driverIds  = [...new Set(rows.filter(r => r.linked_type === "driver"  && r.linked_id).map(r => r.linked_id))];
+    const tripIds    = [...new Set(rows.filter(r => r.linked_type === "trip"    && r.linked_id).map(r => r.linked_id))];
 
-    const [driversRes, tripsRes] = await Promise.all([
+    const [vehiclesRes, driversRes, tripsRes] = await Promise.all([
+      vehicleIds.length
+        ? query<{ id: string; registration_number: string }[]>(supabase.from("vehicles").select("id, registration_number").in("id", vehicleIds))
+        : Promise.resolve(ok([] as { id: string; registration_number: string }[])),
       driverIds.length
         ? query<{ id: string; name: string }[]>(supabase.from("drivers").select("id, name").in("id", driverIds))
         : Promise.resolve(ok([] as { id: string; name: string }[])),
@@ -107,17 +121,18 @@ export const documentService = {
           )
         : Promise.resolve(ok([] as { id: string; origin: string; destination: string; start_date: string }[])),
     ]);
-    const driverMap = new Map((driversRes.data || []).map(d => [d.id, d.name]));
-    const tripMap   = new Map((tripsRes.data || []).map(t => [t.id, `${t.origin} → ${t.destination} (${t.start_date})`]));
+    const vehicleMap = new Map((vehiclesRes.data || []).map(v => [v.id, v.registration_number]));
+    const driverMap  = new Map((driversRes.data  || []).map(d => [d.id, d.name]));
+    const tripMap    = new Map((tripsRes.data    || []).map(t => [t.id, `${t.origin} → ${t.destination} (${t.start_date})`]));
 
     const data = rows.map((d: any) => {
       let linked_label: string | null = null;
-      if (d.linked_type === "vehicle") linked_label = d.vehicles?.registration_number ?? d.reg_number ?? null;
+      if (d.linked_type === "vehicle") linked_label = vehicleMap.get(d.linked_id) ?? null;
       else if (d.linked_type === "driver") linked_label = driverMap.get(d.linked_id) ?? null;
       else if (d.linked_type === "trip") linked_label = tripMap.get(d.linked_id) ?? null;
       return {
         ...d,
-        reg_number: d.vehicles?.registration_number || null,
+        reg_number: d.linked_type === "vehicle" ? (vehicleMap.get(d.linked_id) ?? null) : null,
         linked_label,
       };
     });
