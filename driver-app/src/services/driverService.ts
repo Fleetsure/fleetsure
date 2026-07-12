@@ -11,6 +11,48 @@ export interface DriverProfile {
   license_expiry?: string | null;
   status?: string;
   firebase_uid?: string | null;
+  // Extended profile — mandatory before the profile is considered complete
+  emergency_contact_name?: string | null;
+  emergency_contact_phone?: string | null;
+  address?: string | null;
+  permanent_address?: string | null;
+  aadhaar_number?: string | null;
+  pan_number?: string | null;
+  license_image_url?: string | null;
+  aadhaar_front_url?: string | null;
+  aadhaar_back_url?: string | null;
+  pan_image_url?: string | null;
+  profile_photo_url?: string | null;
+}
+
+export interface DriverProfileUpdate {
+  emergency_contact_name?: string | null;
+  emergency_contact_phone?: string | null;
+  address?: string | null;
+  permanent_address?: string | null;
+  aadhaar_number?: string | null;
+  pan_number?: string | null;
+  license_image_url?: string | null;
+  aadhaar_front_url?: string | null;
+  aadhaar_back_url?: string | null;
+  pan_image_url?: string | null;
+  profile_photo_url?: string | null;
+}
+
+// A profile isn't "complete" until every mandatory field + every mandatory
+// document is filled in — same rule the profile screen uses to block save
+// and the dashboard uses to show a completion banner.
+export const MANDATORY_PROFILE_FIELDS: (keyof DriverProfile)[] = [
+  "emergency_contact_name", "emergency_contact_phone",
+  "address", "permanent_address", "aadhaar_number", "pan_number",
+];
+export const MANDATORY_PROFILE_DOCS: (keyof DriverProfile)[] = [
+  "license_image_url", "aadhaar_front_url", "aadhaar_back_url", "pan_image_url",
+];
+
+export function isProfileComplete(driver: DriverProfile | null): boolean {
+  if (!driver) return false;
+  return [...MANDATORY_PROFILE_FIELDS, ...MANDATORY_PROFILE_DOCS].every(k => !!driver[k]);
 }
 
 export interface DriverTrip {
@@ -88,6 +130,56 @@ export const driverService = {
     });
     if (error) return fail(error);
     return ok(null);
+  },
+
+  // No general RLS UPDATE policy lets a driver edit their own row (only the
+  // narrow firebase_uid-linking one does) — this RPC is the safe, scoped
+  // alternative: a hard-coded column allowlist, same shape as
+  // linkFirebaseUid above, instead of a broad policy that could touch
+  // owner_id/status. See migration 20260718000000_driver_self_profile_update.
+  async updateProfile(data: DriverProfileUpdate): Promise<ServiceResponse<DriverProfile>> {
+    const { data: row, error } = await supabase.rpc("update_driver_own_profile", {
+      p_emergency_contact_name:  data.emergency_contact_name  ?? null,
+      p_emergency_contact_phone: data.emergency_contact_phone ?? null,
+      p_address:                 data.address                 ?? null,
+      p_permanent_address:       data.permanent_address        ?? null,
+      p_aadhaar_number:          data.aadhaar_number            ?? null,
+      p_pan_number:              data.pan_number                ?? null,
+      p_license_image_url:       data.license_image_url         ?? null,
+      p_aadhaar_front_url:       data.aadhaar_front_url         ?? null,
+      p_aadhaar_back_url:        data.aadhaar_back_url          ?? null,
+      p_pan_image_url:           data.pan_image_url             ?? null,
+      p_profile_photo_url:       data.profile_photo_url         ?? null,
+    });
+    if (error) return fail(error);
+    return ok(row as DriverProfile);
+  },
+
+  // Uploads to the shared fleet-documents bucket — its RLS explicitly allows
+  // a driver-authenticated session to write under their own driver id
+  // (see owner_or_driver_upload_fleet_documents), same bucket the web
+  // portal's owner-side uploads use, so URLs are consistently public either way.
+  async uploadProfileDocument(localUri: string, driverId: string, docType: string): Promise<ServiceResponse<string>> {
+    try {
+      const ext = localUri.split(".").pop() ?? "jpg";
+      const path = `${driverId}/profile-docs/${docType}_${Date.now()}.${ext}`;
+      const fileInfo = await FileSystem.getInfoAsync(localUri);
+      if (!fileInfo.exists) return fail({ message: "File not found" });
+
+      const base64 = await FileSystem.readAsStringAsync(localUri, {
+        encoding: FileSystem.EncodingType.Base64,
+      });
+
+      const { error } = await supabase.storage
+        .from("fleet-documents")
+        .upload(path, decode(base64), { contentType: `image/${ext}`, upsert: true });
+      if (error) return fail(error);
+
+      const { data } = supabase.storage.from("fleet-documents").getPublicUrl(path);
+      return ok(data.publicUrl);
+    } catch (e: any) {
+      return fail(e);
+    }
   },
 
   // ── Trips ────────────────────────────────────────────────────────────────────

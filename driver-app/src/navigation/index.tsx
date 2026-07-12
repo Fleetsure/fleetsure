@@ -12,6 +12,7 @@ import TripsScreen from "../screens/TripsScreen";
 import TripDetailScreen from "../screens/TripDetailScreen";
 import IssuesScreen from "../screens/IssuesScreen";
 import HistoryScreen from "../screens/HistoryScreen";
+import ProfileScreen from "../screens/ProfileScreen";
 
 const PRIMARY = "#1E2D8E";
 
@@ -25,6 +26,7 @@ export type MainTabParamList = {
   TripsTab: undefined;
   IssuesTab: undefined;
   HistoryTab: undefined;
+  ProfileTab: undefined;
 };
 
 export type TripsStackParamList = {
@@ -69,6 +71,8 @@ function MainTabs() {
             iconName = focused ? "warning" : "warning-outline";
           else if (route.name === "HistoryTab")
             iconName = focused ? "time" : "time-outline";
+          else if (route.name === "ProfileTab")
+            iconName = focused ? "person" : "person-outline";
           return <Ionicons name={iconName} size={22} color={color} />;
         },
       })}
@@ -92,6 +96,11 @@ function MainTabs() {
         name="HistoryTab"
         component={HistoryScreen}
         options={{ tabBarLabel: "History" }}
+      />
+      <Tab.Screen
+        name="ProfileTab"
+        component={ProfileScreen}
+        options={{ tabBarLabel: "Profile" }}
       />
     </Tab.Navigator>
   );

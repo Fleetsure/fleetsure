@@ -7,18 +7,9 @@ import React, {
 } from "react";
 import { FirebaseAuthTypes } from "@react-native-firebase/auth";
 import { auth } from "../config/firebase";
-import { driverService } from "../services/driverService";
+import { driverService, DriverProfile } from "../services/driverService";
 
-export interface DriverProfile {
-  id: string;
-  owner_id: string;
-  name: string;
-  phone: string;
-  license_number?: string | null;
-  license_expiry?: string | null;
-  status?: string;
-  firebase_uid?: string | null;
-}
+export type { DriverProfile };
 
 interface AuthContextType {
   driver: DriverProfile | null;
@@ -29,6 +20,7 @@ interface AuthContextType {
   verifyOtp: (code: string) => Promise<void>;
   resetOtp: () => void;
   logout: () => Promise<void>;
+  setDriver: (driver: DriverProfile) => void;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -141,7 +133,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <AuthContext.Provider
-      value={{ driver, loading, otpSent, authError, sendOtp, verifyOtp, resetOtp, logout }}
+      value={{ driver, loading, otpSent, authError, sendOtp, verifyOtp, resetOtp, logout, setDriver }}
     >
       {children}
     </AuthContext.Provider>
