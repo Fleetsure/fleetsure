@@ -134,7 +134,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 28,
     paddingTop: 32,
     paddingBottom: 16,
-    maxHeight: "62%",
+    // Must be a definite height, not maxHeight — the KeyboardAvoidingView
+    // below has flex:1, and Yoga can't resolve a flex:1 child against an
+    // auto-sized (maxHeight-only) parent, so it collapsed to near-zero
+    // height and the card rendered as a barely-visible sliver.
+    height: "62%",
   },
   cardTitle: { fontSize: 24, fontWeight: "800", color: colors.onSurface, letterSpacing: -0.4, marginBottom: 6 },
   cardSub: { color: colors.onSurfaceVariant, fontSize: 14, lineHeight: 20, marginBottom: 20 },
