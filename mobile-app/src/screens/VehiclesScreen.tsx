@@ -1,5 +1,5 @@
 import React, { useCallback, useMemo, useState } from "react";
-import { View, Text, FlatList, TouchableOpacity, StyleSheet, ActivityIndicator, RefreshControl } from "react-native";
+import { View, Text, FlatList, TouchableOpacity, StyleSheet, ActivityIndicator, RefreshControl, ScrollView } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { MaterialIcons } from "@expo/vector-icons";
 import { useNavigation, useFocusEffect } from "@react-navigation/native";
@@ -24,6 +24,11 @@ function daysUntil(dateStr: string | null): number | null {
   return Math.ceil((new Date(dateStr).getTime() - Date.now()) / 86_400_000);
 }
 
+function isDue(dateStr: string | null): boolean {
+  const d = daysUntil(dateStr);
+  return d !== null && d <= 30;
+}
+
 function complianceTone(colors: ReturnType<typeof useColors>, days: number | null): { bg: string; fg: string; label: string } {
   if (days === null) return { bg: colors.surfaceContainerHighest, fg: colors.onSurfaceVariant, label: "—" };
   if (days < 0) return { bg: colors.dangerBg, fg: colors.danger, label: "Expired" };
@@ -31,7 +36,9 @@ function complianceTone(colors: ReturnType<typeof useColors>, days: number | nul
   return { bg: colors.successBg, fg: colors.success, label: `${days}d left` };
 }
 
-type VehicleFilter = "all" | "active" | "in_trip" | "maintenance" | "insurance_due";
+type VehicleFilter =
+  | "all" | "active" | "in_trip" | "maintenance"
+  | "insurance_due" | "fitness_due" | "puc_due" | "permit_due" | "rc_expiry";
 
 export default function VehiclesScreen() {
   const navigation = useNavigation<any>();
@@ -62,23 +69,25 @@ export default function VehiclesScreen() {
     setRefreshing(false);
   }
 
-  const stats = useMemo(() => {
-    const insuranceDue = vehicles.filter(v => {
-      const d = daysUntil(v.insurance_expiry);
-      return d !== null && d <= 30;
-    }).length;
-    return {
-      total: vehicles.length,
-      available: vehicles.filter(v => v.status === "active").length,
-      onTrip: vehicles.filter(v => v.status === "in_trip").length,
-      maintenance: vehicles.filter(v => v.status === "maintenance").length,
-      insuranceDue,
-    };
-  }, [vehicles]);
+  const stats = useMemo(() => ({
+    total: vehicles.length,
+    available: vehicles.filter(v => v.status === "active").length,
+    onTrip: vehicles.filter(v => v.status === "in_trip").length,
+    maintenance: vehicles.filter(v => v.status === "maintenance").length,
+    insuranceDue: vehicles.filter(v => isDue(v.insurance_expiry)).length,
+    fitnessDue: vehicles.filter(v => isDue(v.fitness_expiry)).length,
+    pucDue: vehicles.filter(v => isDue(v.puc_expiry)).length,
+    permitDue: vehicles.filter(v => isDue(v.permit_expiry)).length,
+    rcDue: 0,
+  }), [vehicles]);
 
   const filtered = useMemo(() => {
     if (filter === "all") return vehicles;
-    if (filter === "insurance_due") return vehicles.filter((v) => { const d = daysUntil(v.insurance_expiry); return d !== null && d <= 30; });
+    if (filter === "insurance_due") return vehicles.filter(v => isDue(v.insurance_expiry));
+    if (filter === "fitness_due") return vehicles.filter(v => isDue(v.fitness_expiry));
+    if (filter === "puc_due") return vehicles.filter(v => isDue(v.puc_expiry));
+    if (filter === "permit_due") return vehicles.filter(v => isDue(v.permit_expiry));
+    if (filter === "rc_expiry") return vehicles.filter(v => isDue((v as any).rc_expiry ?? null));
     return vehicles.filter((v) => v.status === filter);
   }, [vehicles, filter]);
 
@@ -124,8 +133,17 @@ export default function VehiclesScreen() {
             <View style={styles.statRowBottom}>
               <MiniStat styles={styles} icon="local-shipping" value={stats.onTrip} label="On Trip" color={colors.primary} active={filter === "in_trip"} onPress={() => setFilter("in_trip")} />
               <MiniStat styles={styles} icon="build" value={stats.maintenance} label="Maintenance" color={colors.amber} bg={colors.amberBg} active={filter === "maintenance"} onPress={() => setFilter("maintenance")} />
-              <MiniStat styles={styles} icon="policy" value={stats.insuranceDue} label="Ins. Due" color={colors.danger} bg={colors.dangerBg} active={filter === "insurance_due"} onPress={() => setFilter("insurance_due")} />
             </View>
+
+            <Text style={styles.complianceSectionLabel}>Compliance Alerts</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.complianceTabRow}>
+              <ComplianceTab styles={styles} colors={colors} label="Insurance Due" icon="policy" count={stats.insuranceDue} active={filter === "insurance_due"} onPress={() => setFilter("insurance_due")} />
+              <ComplianceTab styles={styles} colors={colors} label="Fitness Due" icon="medical-services" count={stats.fitnessDue} active={filter === "fitness_due"} onPress={() => setFilter("fitness_due")} />
+              <ComplianceTab styles={styles} colors={colors} label="PUC Due" icon="air" count={stats.pucDue} active={filter === "puc_due"} onPress={() => setFilter("puc_due")} />
+              <ComplianceTab styles={styles} colors={colors} label="Permit Due" icon="assignment" count={stats.permitDue} active={filter === "permit_due"} onPress={() => setFilter("permit_due")} />
+              <ComplianceTab styles={styles} colors={colors} label="RC Expiry" icon="description" count={stats.rcDue} active={filter === "rc_expiry"} onPress={() => setFilter("rc_expiry")} />
+            </ScrollView>
+
             <Text style={styles.listHeading}>Your Fleet</Text>
           </View>
         }
@@ -194,6 +212,25 @@ function MiniStat({
   );
 }
 
+function ComplianceTab({
+  label, icon, count, active, onPress, colors, styles,
+}: {
+  label: string; icon: keyof typeof MaterialIcons.glyphMap; count: number; active: boolean; onPress: () => void;
+  colors: ReturnType<typeof useColors>; styles: ReturnType<typeof makeStyles>;
+}) {
+  return (
+    <TouchableOpacity onPress={onPress} activeOpacity={0.8} style={[styles.compTab, active && styles.compTabActive]}>
+      <MaterialIcons name={icon} size={16} color={active ? colors.onPrimaryContainer : colors.onSurfaceVariant} />
+      <Text style={[styles.compTabLabel, active && styles.compTabLabelActive]}>{label}</Text>
+      {count > 0 && (
+        <View style={[styles.compTabBadge, active && styles.compTabBadgeActive]}>
+          <Text style={[styles.compTabBadgeText, active && { color: colors.onPrimaryContainer }]}>{count}</Text>
+        </View>
+      )}
+    </TouchableOpacity>
+  );
+}
+
 function ComplianceChip({ label, tone, styles }: { label: string; tone: { bg: string; fg: string; label: string }; styles: ReturnType<typeof makeStyles> }) {
   return (
     <View style={[styles.complianceChip, { backgroundColor: tone.bg }]}>
@@ -234,5 +271,14 @@ function makeStyles(colors: ReturnType<typeof useColors>) {
   complianceChipText: { fontSize: 11, fontWeight: "700" },
   detailsLink: { ...type.labelMd, color: colors.primary, fontWeight: "700", textAlign: "right" },
   statCardActive: { borderWidth: 2, borderColor: colors.primary },
+  complianceSectionLabel: { fontSize: 11, fontWeight: "700", color: colors.onSurfaceVariant, textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 8, marginTop: 4 },
+  complianceTabRow: { gap: 8, paddingBottom: 4 },
+  compTab: { flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 20, backgroundColor: colors.surfaceContainer, borderWidth: 1, borderColor: colors.surfaceContainerHighest },
+  compTabActive: { backgroundColor: colors.primaryContainer, borderColor: colors.primary },
+  compTabLabel: { fontSize: 12, fontWeight: "600", color: colors.onSurfaceVariant },
+  compTabLabelActive: { color: colors.onPrimaryContainer },
+  compTabBadge: { backgroundColor: colors.dangerBg, borderRadius: 10, paddingHorizontal: 6, paddingVertical: 1 },
+  compTabBadgeActive: { backgroundColor: colors.primary },
+  compTabBadgeText: { fontSize: 10, fontWeight: "700", color: colors.danger },
   });
 }
