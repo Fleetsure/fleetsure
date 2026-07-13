@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { View, Text, Switch, TouchableOpacity, ScrollView, StyleSheet, Alert } from "react-native";
+import { View, Text, Switch, TouchableOpacity, ScrollView, StyleSheet, Alert, KeyboardAvoidingView, Platform } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { MaterialIcons } from "@expo/vector-icons";
 import ScreenHeader from "../components/ScreenHeader";
@@ -18,9 +18,14 @@ export default function GeneralSettingsScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.root}>
+    <SafeAreaView style={styles.root} edges={["top"]}>
       <ScreenHeader title="General Settings" />
-      <ScrollView contentContainerStyle={{ padding: spacing.containerMargin, gap: spacing.stackGap, paddingBottom: 40 }}>
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : "height"} keyboardVerticalOffset={0}>
+        <ScrollView
+          contentContainerStyle={{ padding: spacing.containerMargin, gap: spacing.stackGap, paddingBottom: 48 }}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
 
         <Text style={styles.sectionLabel}>Notifications</Text>
         <Card style={styles.menuCard}>
@@ -80,7 +85,8 @@ export default function GeneralSettingsScreen() {
         <TouchableOpacity style={styles.saveBtn} onPress={handleSave}>
           <Text style={styles.saveBtnText}>Save Settings</Text>
         </TouchableOpacity>
-      </ScrollView>
+        </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }

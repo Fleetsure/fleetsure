@@ -1,8 +1,9 @@
 import React, { useState, useRef } from "react";
-import { View, TextInput, FlatList, TouchableOpacity, Text, StyleSheet } from "react-native";
-import { colors, type, radii, spacing, shadow } from "../theme";
+import { View, TextInput, TouchableOpacity, Text, StyleSheet } from "react-native";
+import { MaterialIcons } from "@expo/vector-icons";
+import { colors, type, radii } from "../theme";
 
-interface Suggestion { display_name: string; lat: string; lon: string; }
+interface Suggestion { place_id?: number; display_name: string; lat: string; lon: string; }
 interface LatLng { lat: number; lng: number; }
 
 interface Props {
@@ -15,6 +16,7 @@ interface Props {
 
 export default function PlacesAutocomplete({ label, required, value, onChange, onSelect }: Props) {
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
+  const [focused, setFocused] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   function handleChange(text: string) {
@@ -38,7 +40,7 @@ export default function PlacesAutocomplete({ label, required, value, onChange, o
   }
 
   return (
-    <View style={styles.wrap}>
+    <View style={[styles.wrap, { zIndex: focused ? 999 : 1 }]}>
       <Text style={styles.label}>
         {label.toUpperCase()}
         {required ? <Text style={styles.asterisk}> *</Text> : null}
@@ -47,21 +49,19 @@ export default function PlacesAutocomplete({ label, required, value, onChange, o
         style={styles.input}
         value={value}
         onChangeText={handleChange}
+        onFocus={() => setFocused(true)}
+        onBlur={() => setTimeout(() => setFocused(false), 200)}
         placeholder={`Enter ${label.toLowerCase()}`}
         placeholderTextColor={colors.outline}
       />
-      {suggestions.length > 0 && (
+      {suggestions.length > 0 && focused && (
         <View style={styles.dropdown}>
-          <FlatList
-            data={suggestions}
-            keyExtractor={s => `${s.lat},${s.lon}`}
-            keyboardShouldPersistTaps="handled"
-            renderItem={({ item }) => (
-              <TouchableOpacity style={styles.suggestion} onPress={() => handleSelect(item)}>
-                <Text style={styles.suggestionText} numberOfLines={2}>{item.display_name}</Text>
-              </TouchableOpacity>
-            )}
-          />
+          {suggestions.map((s) => (
+            <TouchableOpacity key={s.place_id ?? s.display_name} style={styles.suggestion} onPress={() => handleSelect(s)}>
+              <MaterialIcons name="location-on" size={14} color={colors.onSurfaceVariant} />
+              <Text style={styles.suggestionText} numberOfLines={2}>{s.display_name}</Text>
+            </TouchableOpacity>
+          ))}
         </View>
       )}
     </View>
@@ -69,7 +69,7 @@ export default function PlacesAutocomplete({ label, required, value, onChange, o
 }
 
 const styles = StyleSheet.create({
-  wrap: { marginBottom: 14, position: "relative", zIndex: 99 },
+  wrap: { marginBottom: 14, position: "relative" },
   label: { fontSize: 11, fontWeight: "700", color: colors.onSurfaceVariant, letterSpacing: 0.8, marginBottom: 8 },
   asterisk: { color: colors.danger },
   input: {
@@ -87,15 +87,25 @@ const styles = StyleSheet.create({
     top: "100%",
     left: 0,
     right: 0,
-    marginTop: 4,
-    maxHeight: 220,
-    backgroundColor: colors.surfaceContainerLowest,
+    backgroundColor: colors.surface,
     borderRadius: radii.md,
     borderWidth: 1,
-    borderColor: colors.outlineVariant,
-    zIndex: 99,
-    ...shadow.card,
+    borderColor: colors.surfaceContainer,
+    zIndex: 9999,
+    elevation: 8,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    maxHeight: 200,
   },
-  suggestion: { paddingHorizontal: 14, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: colors.surfaceContainer },
-  suggestionText: { ...type.bodyMd, color: colors.onSurface },
+  suggestion: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 8,
+    padding: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.surfaceContainer,
+  },
+  suggestionText: { ...type.bodyMd, color: colors.onSurface, flex: 1 },
 });

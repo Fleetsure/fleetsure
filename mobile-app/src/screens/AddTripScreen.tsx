@@ -190,10 +190,14 @@ export default function AddTripScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.root}>
+    <SafeAreaView style={styles.root} edges={["top"]}>
       <ScreenHeader title="Add Trip" />
-      <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={{ flex: 1 }}>
-        <ScrollView contentContainerStyle={{ padding: spacing.containerMargin }} keyboardShouldPersistTaps="handled">
+      <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={{ flex: 1 }} keyboardVerticalOffset={0}>
+        <ScrollView
+          contentContainerStyle={{ padding: spacing.containerMargin, paddingBottom: 48 }}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
           {vehicles.length === 0 ? (
             <Text style={styles.warnText}>No vehicles yet — add a vehicle first.</Text>
           ) : (
@@ -205,8 +209,12 @@ export default function AddTripScreen() {
           ) : null}
           <FormField label="Driver Name" required value={driverName} onChangeText={setDriverName} placeholder="Driver name" />
 
-          <PlacesAutocomplete label="Origin" required value={origin} onChange={setOrigin} onSelect={handleSelectOrigin} />
-          <PlacesAutocomplete label="Destination" required value={destination} onChange={setDestination} onSelect={handleSelectDestination} />
+          <View style={{ zIndex: 200 }}>
+            <PlacesAutocomplete label="Origin" required value={origin} onChange={setOrigin} onSelect={handleSelectOrigin} />
+          </View>
+          <View style={{ zIndex: 100 }}>
+            <PlacesAutocomplete label="Destination" required value={destination} onChange={setDestination} onSelect={handleSelectDestination} />
+          </View>
           <DateField label="Start Date" required value={startDate} onChange={setStartDate} />
           <DateField label="End Date" value={endDate} onChange={setEndDate} placeholder="Optional" />
           <FormField

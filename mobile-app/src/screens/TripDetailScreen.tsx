@@ -1,5 +1,5 @@
 import React, { useCallback, useState } from "react";
-import { View, Text, ScrollView, TouchableOpacity, Modal, StyleSheet, ActivityIndicator, Alert, Linking } from "react-native";
+import { View, Text, ScrollView, TouchableOpacity, Modal, StyleSheet, ActivityIndicator, Alert, Linking, KeyboardAvoidingView, Platform } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { MaterialIcons } from "@expo/vector-icons";
 import { useRoute, useNavigation, useFocusEffect, RouteProp } from "@react-navigation/native";
@@ -21,7 +21,7 @@ import DateField from "../components/DateField";
 import ChipPicker from "../components/ChipPicker";
 import PlacesAutocomplete from "../components/PlacesAutocomplete";
 import { colors, radii, spacing, type, formatCurrency } from "../theme";
-import type { Trip, Vehicle, Driver } from "../lib/types";
+import type { Trip, Vehicle, Driver, Document } from "../lib/types";
 import type { TripsStackParamList } from "../navigation";
 
 type LatLng = { lat: number; lng: number };
@@ -75,14 +75,19 @@ export default function TripDetailScreen() {
   const [editEmptyWeight, setEditEmptyWeight] = useState("");
   const [editEmptyWeightUnit, setEditEmptyWeightUnit] = useState<Unit>("kg");
   const [editSlip1File, setEditSlip1File] = useState<PickedFile | null>(null);
+  const [slip1Url, setSlip1Url] = useState("");
   const [editLoadingDate, setEditLoadingDate] = useState("");
   const [editLoadedQty, setEditLoadedQty] = useState("");
   const [editLoadedQtyUnit, setEditLoadedQtyUnit] = useState<Unit>("kg");
   const [editSlip2File, setEditSlip2File] = useState<PickedFile | null>(null);
+  const [slip2Url, setSlip2Url] = useState("");
   const [editUnloadingDate, setEditUnloadingDate] = useState("");
   const [editDeliveredQty, setEditDeliveredQty] = useState("");
   const [editDeliveredQtyUnit, setEditDeliveredQtyUnit] = useState<Unit>("kg");
   const [editSlip3File, setEditSlip3File] = useState<PickedFile | null>(null);
+  const [slip3Url, setSlip3Url] = useState("");
+
+  const [tripDocs, setTripDocs] = useState<Document[]>([]);
 
   const [showExpenseModal, setShowExpenseModal] = useState(false);
   const [expenseTab, setExpenseTab] = useState<(typeof EXPENSE_TABS)[number]["key"]>("fuel");
@@ -115,6 +120,12 @@ export default function TripDetailScreen() {
 
   useFocusEffect(useCallback(() => { load(); }, [load]));
 
+  useFocusEffect(useCallback(() => {
+    documentService.getByLinked("trip", params.id).then((res) => {
+      if (res.success) setTripDocs(res.data ?? []);
+    });
+  }, [params.id]));
+
   function openEdit() {
     if (!trip) return;
     setEditVehicleReg(vehicleReg !== "—" ? vehicleReg : null);
@@ -131,14 +142,17 @@ export default function TripDetailScreen() {
     setEditEmptyWeight(trip.empty_truck_weight != null ? String(trip.empty_truck_weight) : "");
     setEditEmptyWeightUnit("kg");
     setEditSlip1File(null);
+    setSlip1Url(trip.weighbridge_slip_1_url ?? "");
     setEditLoadingDate(trip.loading_date ?? "");
     setEditLoadedQty(trip.loading_quantity != null ? String(trip.loading_quantity) : "");
     setEditLoadedQtyUnit("kg");
     setEditSlip2File(null);
+    setSlip2Url(trip.weighbridge_slip_2_url ?? "");
     setEditUnloadingDate(trip.unloading_date ?? "");
     setEditDeliveredQty(trip.unloading_quantity != null ? String(trip.unloading_quantity) : "");
     setEditDeliveredQtyUnit("kg");
     setEditSlip3File(null);
+    setSlip3Url(trip.weighbridge_slip_3_url ?? "");
     setEditMode(true);
   }
 
@@ -166,13 +180,13 @@ export default function TripDetailScreen() {
     if (!editDestination.trim()) return Alert.alert("Required", "Destination is mandatory.");
     if (!editDriverName.trim()) return Alert.alert("Driver required", "Select or enter a driver name.");
     if (!editEmptyWeight) return Alert.alert("Required", "Slip 1 empty truck weight is required.");
-    if (!editSlip1File && !trip.weighbridge_slip_1_url) return Alert.alert("Required", "Slip 1 image upload is mandatory.");
+    if (!editSlip1File && !slip1Url) return Alert.alert("Required", "Slip 1 image upload is mandatory.");
     if (!editLoadingDate) return Alert.alert("Required", "Slip 2 loading date is required.");
     if (!editLoadedQty) return Alert.alert("Required", "Slip 2 loaded quantity is required.");
-    if (!editSlip2File && !trip.weighbridge_slip_2_url) return Alert.alert("Required", "Slip 2 image upload is mandatory.");
+    if (!editSlip2File && !slip2Url) return Alert.alert("Required", "Slip 2 image upload is mandatory.");
     if (!editUnloadingDate) return Alert.alert("Required", "Slip 3 unloading date is required.");
     if (!editDeliveredQty) return Alert.alert("Required", "Slip 3 delivered quantity is required.");
-    if (!editSlip3File && !trip.weighbridge_slip_3_url) return Alert.alert("Required", "Slip 3 image upload is mandatory.");
+    if (!editSlip3File && !slip3Url) return Alert.alert("Required", "Slip 3 image upload is mandatory.");
 
     setSaving(true);
     const driver = drivers.find((d) => d.name === editDriverName.trim());
@@ -294,7 +308,7 @@ export default function TripDetailScreen() {
     miscLogs.reduce((s, m) => s + m.amount, 0);
 
   return (
-    <SafeAreaView style={styles.root}>
+    <SafeAreaView style={styles.root} edges={["top"]}>
       <ScreenHeader
         title="Trip Details"
         right={
@@ -321,7 +335,12 @@ export default function TripDetailScreen() {
           )
         }
       />
-      <ScrollView contentContainerStyle={{ padding: spacing.containerMargin, gap: spacing.stackGap, paddingBottom: 40 }}>
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : "height"} keyboardVerticalOffset={0}>
+      <ScrollView
+        contentContainerStyle={{ padding: spacing.containerMargin, gap: spacing.stackGap, paddingBottom: 48 }}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
         {editMode ? (
           <Card>
             <ChipPicker label="Vehicle" options={vehicles.map((v) => v.registration_number)} value={editVehicleReg} onChange={setEditVehicleReg} />
@@ -329,8 +348,12 @@ export default function TripDetailScreen() {
               <ChipPicker label="Driver" options={drivers.map((d) => d.name)} value={editDriverName || null} onChange={setEditDriverName} />
             ) : null}
             <FormField label="Driver Name" required value={editDriverName} onChangeText={setEditDriverName} placeholder="Driver name" />
-            <PlacesAutocomplete label="Origin" required value={editOrigin} onChange={setEditOrigin} onSelect={handleSelectEditOrigin} />
-            <PlacesAutocomplete label="Destination" required value={editDestination} onChange={setEditDestination} onSelect={handleSelectEditDestination} />
+            <View style={{ zIndex: 200 }}>
+              <PlacesAutocomplete label="Origin" required value={editOrigin} onChange={setEditOrigin} onSelect={handleSelectEditOrigin} />
+            </View>
+            <View style={{ zIndex: 100 }}>
+              <PlacesAutocomplete label="Destination" required value={editDestination} onChange={setEditDestination} onSelect={handleSelectEditDestination} />
+            </View>
             <FormField label="Distance (km)" value={editDistanceKm} onChangeText={setEditDistanceKm} placeholder="Auto-calculated from route" keyboardType="numeric" />
             <DateField label="Start Date" required value={editStartDate} onChange={setEditStartDate} />
             <DateField label="End Date" value={editEndDate} onChange={setEditEndDate} placeholder="Optional" />
@@ -360,7 +383,7 @@ export default function TripDetailScreen() {
               />
               <UnitPicker value={editEmptyWeightUnit} onChange={setEditEmptyWeightUnit} />
             </View>
-            <SlipField existingUrl={trip.weighbridge_slip_1_url} newFile={editSlip1File} onPick={setEditSlip1File} label="Upload slip *" />
+            <SlipField existingUrl={slip1Url} newFile={editSlip1File} onPick={setEditSlip1File} label="Upload slip *" />
 
             <View style={styles.slipDivider} />
 
@@ -376,7 +399,7 @@ export default function TripDetailScreen() {
               />
               <UnitPicker value={editLoadedQtyUnit} onChange={setEditLoadedQtyUnit} />
             </View>
-            <SlipField existingUrl={trip.weighbridge_slip_2_url} newFile={editSlip2File} onPick={setEditSlip2File} label="Upload slip *" />
+            <SlipField existingUrl={slip2Url} newFile={editSlip2File} onPick={setEditSlip2File} label="Upload slip *" />
 
             <View style={styles.slipDivider} />
 
@@ -392,7 +415,7 @@ export default function TripDetailScreen() {
               />
               <UnitPicker value={editDeliveredQtyUnit} onChange={setEditDeliveredQtyUnit} />
             </View>
-            <SlipField existingUrl={trip.weighbridge_slip_3_url} newFile={editSlip3File} onPick={setEditSlip3File} label="Upload slip *" />
+            <SlipField existingUrl={slip3Url} newFile={editSlip3File} onPick={setEditSlip3File} label="Upload slip *" />
           </Card>
         ) : (
           <>
@@ -517,64 +540,98 @@ export default function TripDetailScreen() {
                 </View>
               )}
             </View>
+
+            <Card>
+              <Text style={styles.sectionHeading}>Documents & Slips</Text>
+
+              {[
+                { url: trip.weighbridge_slip_1_url, label: "Weighbridge Slip 1 — Empty Truck" },
+                { url: trip.weighbridge_slip_2_url, label: "Weighbridge Slip 2 — After Loading" },
+                { url: trip.weighbridge_slip_3_url, label: "Weighbridge Slip 3 — After Delivery" },
+              ].filter((s) => !!s.url).map((s, i) => (
+                <TouchableOpacity key={i} style={styles.docRow} onPress={() => Linking.openURL(s.url!)}>
+                  <MaterialIcons name="receipt" size={18} color={colors.primary} />
+                  <Text style={styles.docRowText}>{s.label}</Text>
+                  <MaterialIcons name="open-in-new" size={14} color={colors.onSurfaceVariant} />
+                </TouchableOpacity>
+              ))}
+
+              {tripDocs.map((doc) => (
+                <TouchableOpacity key={doc.id} style={styles.docRow} onPress={() => doc.file_url && Linking.openURL(doc.file_url)}>
+                  <MaterialIcons name="insert-drive-file" size={18} color={colors.primary} />
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.docRowText} numberOfLines={1}>{doc.name}</Text>
+                    <Text style={styles.docRowMeta}>{doc.category}</Text>
+                  </View>
+                  <MaterialIcons name="open-in-new" size={14} color={colors.onSurfaceVariant} />
+                </TouchableOpacity>
+              ))}
+
+              {!trip.weighbridge_slip_1_url && tripDocs.length === 0 ? (
+                <Text style={{ color: colors.onSurfaceVariant, fontSize: 13 }}>No documents uploaded yet.</Text>
+              ) : null}
+            </Card>
           </>
         )}
       </ScrollView>
+      </KeyboardAvoidingView>
 
       <Modal visible={showExpenseModal} animationType="slide" transparent onRequestClose={() => setShowExpenseModal(false)}>
         <View style={styles.modalBackdrop}>
-          <View style={styles.modalSheet}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Add Expense</Text>
-              <TouchableOpacity onPress={() => setShowExpenseModal(false)}>
-                <MaterialIcons name="close" size={22} color={colors.onSurfaceVariant} />
-              </TouchableOpacity>
-            </View>
-
-            <View style={styles.expenseTabRow}>
-              {EXPENSE_TABS.map((t) => (
-                <TouchableOpacity key={t.key} style={[styles.expenseTab, expenseTab === t.key && styles.expenseTabActive]} onPress={() => setExpenseTab(t.key)}>
-                  <Text style={[styles.expenseTabText, expenseTab === t.key && styles.expenseTabTextActive]}>{t.label}</Text>
+          <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={{ width: "100%" }}>
+            <View style={styles.expenseSheet}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>Add Expense</Text>
+                <TouchableOpacity onPress={() => setShowExpenseModal(false)}>
+                  <MaterialIcons name="close" size={22} color={colors.onSurfaceVariant} />
                 </TouchableOpacity>
-              ))}
-            </View>
+              </View>
 
-            <ScrollView keyboardShouldPersistTaps="handled">
-              <DateField label="Date" required value={expDate} onChange={setExpDate} />
+              <View style={styles.expenseTabRow}>
+                {EXPENSE_TABS.map((t) => (
+                  <TouchableOpacity key={t.key} style={[styles.expenseTab, expenseTab === t.key && styles.expenseTabActive]} onPress={() => setExpenseTab(t.key)}>
+                    <Text style={[styles.expenseTabText, expenseTab === t.key && styles.expenseTabTextActive]}>{t.label}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
 
-              {expenseTab === "fuel" ? (
-                <>
-                  <FormField label="Litres" required value={expLitres} onChangeText={setExpLitres} placeholder="0" keyboardType="numeric" />
-                  <FormField label="Amount (₹)" required value={expAmount} onChangeText={setExpAmount} placeholder="0" keyboardType="numeric" />
-                  <FormField label="Odometer (km)" value={expOdometer} onChangeText={setExpOdometer} placeholder="Optional" keyboardType="numeric" />
-                  <FormField label="Fuel Station" value={expStation} onChangeText={setExpStation} placeholder="Optional" />
-                </>
-              ) : null}
+              <ScrollView contentContainerStyle={{ paddingBottom: 32 }} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+                <DateField label="Date" required value={expDate} onChange={setExpDate} />
 
-              {expenseTab === "toll" ? (
-                <>
-                  <FormField label="Amount (₹)" required value={expAmount} onChangeText={setExpAmount} placeholder="0" keyboardType="numeric" />
-                  <ChipPicker label="Payment Mode" options={PAYMENT_MODES} value={expPaymentMode} onChange={setExpPaymentMode} />
-                  <FormField label="Toll Plaza" value={expTollPlaza} onChangeText={setExpTollPlaza} placeholder="Optional" />
-                  <FormField label="Route" value={expRoute} onChangeText={setExpRoute} placeholder="Optional" />
-                </>
-              ) : null}
+                {expenseTab === "fuel" ? (
+                  <>
+                    <FormField label="Litres" required value={expLitres} onChangeText={setExpLitres} placeholder="0" keyboardType="numeric" />
+                    <FormField label="Amount (₹)" required value={expAmount} onChangeText={setExpAmount} placeholder="0" keyboardType="numeric" />
+                    <FormField label="Odometer (km)" value={expOdometer} onChangeText={setExpOdometer} placeholder="Optional" keyboardType="numeric" />
+                    <FormField label="Fuel Station" value={expStation} onChangeText={setExpStation} placeholder="Optional" />
+                  </>
+                ) : null}
 
-              {expenseTab === "misc" ? (
-                <>
-                  <ChipPicker label="Category" options={MISC_CATEGORIES} value={expCategory} onChange={setExpCategory} />
-                  <FormField label="Amount (₹)" required value={expAmount} onChangeText={setExpAmount} placeholder="0" keyboardType="numeric" />
-                  <FormField label="Description" value={expDescription} onChangeText={setExpDescription} placeholder="Optional" />
-                </>
-              ) : null}
+                {expenseTab === "toll" ? (
+                  <>
+                    <FormField label="Amount (₹)" required value={expAmount} onChangeText={setExpAmount} placeholder="0" keyboardType="numeric" />
+                    <ChipPicker label="Payment Mode" options={PAYMENT_MODES} value={expPaymentMode} onChange={setExpPaymentMode} />
+                    <FormField label="Toll Plaza" value={expTollPlaza} onChangeText={setExpTollPlaza} placeholder="Optional" />
+                    <FormField label="Route" value={expRoute} onChangeText={setExpRoute} placeholder="Optional" />
+                  </>
+                ) : null}
 
-              <FormField label="Notes" value={expNotes} onChangeText={setExpNotes} placeholder="Optional" />
+                {expenseTab === "misc" ? (
+                  <>
+                    <ChipPicker label="Category" options={MISC_CATEGORIES} value={expCategory} onChange={setExpCategory} />
+                    <FormField label="Amount (₹)" required value={expAmount} onChangeText={setExpAmount} placeholder="0" keyboardType="numeric" />
+                    <FormField label="Description" value={expDescription} onChangeText={setExpDescription} placeholder="Optional" />
+                  </>
+                ) : null}
 
-              <TouchableOpacity style={[styles.saveBtn, expenseSaving && { opacity: 0.6 }]} onPress={handleSaveExpense} disabled={expenseSaving}>
-                {expenseSaving ? <ActivityIndicator color="white" /> : <Text style={styles.saveBtnText}>Save Expense</Text>}
+                <FormField label="Notes" value={expNotes} onChangeText={setExpNotes} placeholder="Optional" />
+              </ScrollView>
+
+              <TouchableOpacity style={[styles.saveExpenseBtn, expenseSaving && { opacity: 0.6 }]} onPress={handleSaveExpense} disabled={expenseSaving}>
+                {expenseSaving ? <ActivityIndicator color="white" /> : <Text style={styles.saveExpenseBtnText}>Save Expense</Text>}
               </TouchableOpacity>
-            </ScrollView>
-          </View>
+            </View>
+          </KeyboardAvoidingView>
         </View>
       </Modal>
     </SafeAreaView>
@@ -640,7 +697,7 @@ function SlipUploadBtn({
 function SlipField({
   existingUrl, newFile, onPick, label,
 }: { existingUrl?: string | null; newFile: PickedFile | null; onPick: (f: PickedFile) => void; label: string }) {
-  const displayFile = newFile ?? (existingUrl ? { uri: existingUrl, name: "Uploaded — tap to replace", mimeType: null } : null);
+  const displayFile = newFile ?? (existingUrl ? { uri: existingUrl, name: "Uploaded ✓ (tap to replace)", mimeType: null } : null);
   return (
     <View style={{ marginBottom: 4 }}>
       <SlipUploadBtn file={displayFile} onPick={onPick} label={label} />
@@ -693,7 +750,14 @@ const styles = StyleSheet.create({
   expenseMeta: { fontSize: 12, color: colors.onSurfaceVariant, marginTop: 2 },
   expenseAmount: { ...type.bodyLg, fontWeight: "700", color: colors.primary },
   modalBackdrop: { flex: 1, backgroundColor: "rgba(0,0,0,0.4)", justifyContent: "flex-end" },
-  modalSheet: { backgroundColor: colors.surfaceContainerLowest, borderTopLeftRadius: radii.xl, borderTopRightRadius: radii.xl, padding: spacing.containerMargin, maxHeight: "85%" },
+  expenseSheet: {
+    backgroundColor: colors.background,
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+    paddingTop: 16,
+    paddingHorizontal: spacing.containerMargin,
+    maxHeight: "90%",
+  },
   modalHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: spacing.stackGap },
   modalTitle: { ...type.headlineSm, color: colors.onBackground },
   expenseTabRow: { flexDirection: "row", gap: 8, marginBottom: spacing.stackGap },
@@ -701,6 +765,9 @@ const styles = StyleSheet.create({
   expenseTabActive: { backgroundColor: colors.primaryContainer, borderColor: colors.primaryContainer },
   expenseTabText: { ...type.labelMd, color: colors.onSurfaceVariant },
   expenseTabTextActive: { color: colors.onPrimaryContainer },
-  saveBtn: { backgroundColor: colors.primary, borderRadius: radii.md, paddingVertical: 14, alignItems: "center", marginTop: 8, marginBottom: 8 },
-  saveBtnText: { color: "white", fontSize: 15, fontWeight: "700" },
+  saveExpenseBtn: { backgroundColor: colors.primary, borderRadius: radii.md, paddingVertical: 14, alignItems: "center", marginTop: 8, marginBottom: 8 },
+  saveExpenseBtnText: { color: "white", fontSize: 15, fontWeight: "700" },
+  docRow: { flexDirection: "row", alignItems: "center", gap: 10, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: colors.surfaceContainer },
+  docRowText: { ...type.bodyMd, color: colors.onSurface, flex: 1 },
+  docRowMeta: { fontSize: 12, color: colors.onSurfaceVariant, marginTop: 2 },
 });

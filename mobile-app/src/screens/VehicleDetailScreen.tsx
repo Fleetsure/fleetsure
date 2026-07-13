@@ -1,5 +1,5 @@
 import React, { useCallback, useState } from "react";
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Alert, ActivityIndicator, Linking } from "react-native";
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Alert, ActivityIndicator, Linking, KeyboardAvoidingView, Platform } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { MaterialIcons } from "@expo/vector-icons";
 import { useRoute, useNavigation, RouteProp, useFocusEffect } from "@react-navigation/native";
@@ -188,7 +188,7 @@ export default function VehicleDetailScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.root}>
+    <SafeAreaView style={styles.root} edges={["top"]}>
       <ScreenHeader
         title={v.registration_number}
         right={
@@ -215,7 +215,12 @@ export default function VehicleDetailScreen() {
           )
         }
       />
-      <ScrollView contentContainerStyle={{ padding: spacing.containerMargin, gap: spacing.stackGap, paddingBottom: 40 }}>
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : "height"} keyboardVerticalOffset={0}>
+      <ScrollView
+        contentContainerStyle={{ padding: spacing.containerMargin, gap: spacing.stackGap, paddingBottom: 48 }}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
 
         {editMode ? (
           <Card>
@@ -369,6 +374,7 @@ export default function VehicleDetailScreen() {
           })}
         </Card>
       </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
