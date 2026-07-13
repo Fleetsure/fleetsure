@@ -53,18 +53,23 @@ export default function LoginScreen() {
   const error = localError || authError;
 
   return (
-    <View style={styles.root}>
-      <SafeAreaView style={styles.hero} edges={["top"]}>
-        <View style={styles.heroContent}>
-          <Image source={require("../../assets/icon.png")} style={styles.logo} resizeMode="cover" />
-          <Text style={styles.brandName}>FleetSure</Text>
-          <Text style={styles.tagline}>Track every trip. Know every rupee.</Text>
-        </View>
-      </SafeAreaView>
+    <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : "height"}>
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={{ flexGrow: 1 }}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={styles.root}>
+          <SafeAreaView style={styles.hero} edges={["top"]}>
+            <View style={styles.heroContent}>
+              <Image source={require("../../assets/icon.png")} style={styles.logo} resizeMode="cover" />
+              <Text style={styles.brandName}>FleetSure</Text>
+              <Text style={styles.tagline}>Track every trip. Know every rupee.</Text>
+            </View>
+          </SafeAreaView>
 
-      <SafeAreaView style={styles.card} edges={["bottom"]}>
-        <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={{ flex: 1 }}>
-          <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false} contentContainerStyle={{ flexGrow: 1 }}>
+          <SafeAreaView style={styles.card} edges={["bottom"]}>
             <Text style={styles.cardTitle}>Welcome back</Text>
             <Text style={styles.cardSub}>Sign in to continue</Text>
 
@@ -113,16 +118,20 @@ export default function LoginScreen() {
             </TouchableOpacity>
 
             <Text style={styles.terms}>By signing in you agree to our Terms of Service.</Text>
-          </ScrollView>
-        </KeyboardAvoidingView>
-      </SafeAreaView>
-    </View>
+          </SafeAreaView>
+        </View>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
+  // root/hero live inside a ScrollView(flexGrow:1) under a
+  // KeyboardAvoidingView now, so hero's flex:1 fills the screen when the
+  // keyboard is closed and shrinks first (card sizes to its own content)
+  // when the keyboard opens, instead of clipping the form below it.
   root: { flex: 1, backgroundColor: colors.primary },
-  hero: { flex: 1, justifyContent: "flex-end" },
+  hero: { flex: 1, justifyContent: "center" },
   heroContent: { alignItems: "center", paddingHorizontal: 24, paddingBottom: 40, gap: 12 },
   logo: { width: 64, height: 64, borderRadius: radii.lg },
   brandName: { color: "#ffffff", fontSize: 32, fontWeight: "900", letterSpacing: -0.5 },
@@ -133,12 +142,7 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 28,
     paddingHorizontal: 28,
     paddingTop: 32,
-    paddingBottom: 16,
-    // Must be a definite height, not maxHeight — the KeyboardAvoidingView
-    // below has flex:1, and Yoga can't resolve a flex:1 child against an
-    // auto-sized (maxHeight-only) parent, so it collapsed to near-zero
-    // height and the card rendered as a barely-visible sliver.
-    height: "62%",
+    paddingBottom: 32,
   },
   cardTitle: { fontSize: 24, fontWeight: "800", color: colors.onSurface, letterSpacing: -0.4, marginBottom: 6 },
   cardSub: { color: colors.onSurfaceVariant, fontSize: 14, lineHeight: 20, marginBottom: 20 },
