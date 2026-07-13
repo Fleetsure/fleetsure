@@ -5,7 +5,7 @@ import { MaterialIcons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import ScreenHeader from "../components/ScreenHeader";
 import Card from "../components/Card";
-import { colors, radii, spacing, type } from "../theme";
+import { colors, spacing, type } from "../theme";
 
 const LANGUAGE_STORAGE_KEY = "app_language";
 

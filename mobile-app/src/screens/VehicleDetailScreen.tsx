@@ -6,7 +6,7 @@ import { useRoute, useNavigation, RouteProp, useFocusEffect } from "@react-navig
 import * as DocumentPicker from "expo-document-picker";
 import { pickImageFromGallery } from "../lib/pickImage";
 import { vehicleService } from "../lib/services/vehicleService";
-import { documentService, DOCUMENT_CATEGORIES, expiryStatus } from "../lib/services/documentService";
+import { documentService, expiryStatus } from "../lib/services/documentService";
 import ScreenHeader from "../components/ScreenHeader";
 import Card from "../components/Card";
 import StatusBadge from "../components/StatusBadge";

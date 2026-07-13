@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { View, Text, Image, ScrollView, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator, RefreshControl, Alert, Linking } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { MaterialIcons } from "@expo/vector-icons";
@@ -181,7 +181,7 @@ export default function HomeScreen() {
             {searchQuery.trim() ? (
               <View style={{ gap: spacing.stackGap, marginTop: spacing.stackGap }}>
                 {searchResults.length === 0 ? (
-                  <EmptyRow text="No matching trips." colors={colors} styles={styles} />
+                  <EmptyRow text="No matching trips." colors={colors} />
                 ) : (
                   searchResults.map((t) => {
                     const st = TRIP_STATUS_TONE[t.status] ?? { label: t.status, tone: "neutral" as const };
@@ -237,7 +237,7 @@ export default function HomeScreen() {
             </TouchableOpacity>
           </View>
           <View style={{ gap: spacing.stackGap }}>
-            {topVehicles.length === 0 && <EmptyRow text="No trips in the last 30 days yet." colors={colors} styles={styles} />}
+            {topVehicles.length === 0 && <EmptyRow text="No trips in the last 30 days yet." colors={colors} />}
             {topVehicles.map((v) => (
               <Card key={v.vehicle_id}>
                 <View style={styles.truckRow}>
@@ -280,7 +280,7 @@ export default function HomeScreen() {
             </TouchableOpacity>
           </View>
           <View style={{ gap: spacing.stackGap }}>
-            {recentTrips.length === 0 && <EmptyRow text="No trips logged yet." colors={colors} styles={styles} />}
+            {recentTrips.length === 0 && <EmptyRow text="No trips logged yet." colors={colors} />}
             {recentTrips.map((t) => {
               const st = TRIP_STATUS_TONE[t.status] ?? { label: t.status, tone: "neutral" as const };
               return (
@@ -343,7 +343,7 @@ function MiniBar({ label, value, max, color, styles }: { label: string; value: n
   );
 }
 
-function EmptyRow({ text, colors, styles }: { text: string; colors: ReturnType<typeof useColors>; styles: ReturnType<typeof makeStyles> }) {
+function EmptyRow({ text, colors }: { text: string; colors: ReturnType<typeof useColors> }) {
   return (
     <Card>
       <Text style={{ color: colors.onSurfaceVariant, ...type.bodyMd }}>{text}</Text>
