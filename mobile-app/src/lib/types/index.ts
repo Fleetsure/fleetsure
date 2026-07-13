@@ -40,6 +40,13 @@ export type Trip = Database["public"]["Tables"]["trips"]["Row"] & {
   fuel_logs?: FuelLog[];
   toll_logs?: TollLog[];
   misc_expenses?: MiscExpense[];
+  // Weighbridge columns — not in database.types.ts yet, see the migration
+  // comment at the top of tripService.ts. Safe to keep optional here even
+  // after the migration lands and codegen picks them up for real.
+  loaded_weight_kg?: number | null;
+  empty_weight_kg?: number | null;
+  weighbridge_location?: string | null;
+  weighbridge_receipt?: string | null;
 };
 
 export type InsurancePolicy = Database["public"]["Tables"]["insurance_policies"]["Row"] & {

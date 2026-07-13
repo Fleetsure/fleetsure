@@ -9,6 +9,7 @@ import { driverService } from "../lib/services/driverService";
 import { fuelService } from "../lib/services/fuelService";
 import { tollService } from "../lib/services/tollService";
 import { miscExpenseService } from "../lib/services/miscExpenseService";
+import { haversineKm } from "../lib/distanceKm";
 import ScreenHeader from "../components/ScreenHeader";
 import Card from "../components/Card";
 import StatusBadge from "../components/StatusBadge";
@@ -16,9 +17,12 @@ import DeleteButton from "../components/DeleteButton";
 import FormField from "../components/FormField";
 import DateField from "../components/DateField";
 import ChipPicker from "../components/ChipPicker";
+import PlacesAutocomplete from "../components/PlacesAutocomplete";
 import { colors, radii, spacing, type, formatCurrency } from "../theme";
 import type { Trip, Vehicle, Driver } from "../lib/types";
 import type { TripsStackParamList } from "../navigation";
+
+type LatLng = { lat: number; lng: number };
 
 const STATUS_TONE: Record<string, { label: string; tone: "success" | "warning" | "neutral" | "info" }> = {
   completed: { label: "Completed", tone: "success" },
@@ -52,10 +56,18 @@ export default function TripDetailScreen() {
   const [editDriverName, setEditDriverName] = useState("");
   const [editOrigin, setEditOrigin] = useState("");
   const [editDestination, setEditDestination] = useState("");
+  const [editOriginLatLng, setEditOriginLatLng] = useState<LatLng | null>(null);
+  const [editDestinationLatLng, setEditDestinationLatLng] = useState<LatLng | null>(null);
+  const [editDistanceKm, setEditDistanceKm] = useState("");
   const [editStartDate, setEditStartDate] = useState("");
   const [editEndDate, setEditEndDate] = useState("");
   const [editFreight, setEditFreight] = useState("");
   const [editStatus, setEditStatus] = useState("planned");
+  const [editLoadedWeightKg, setEditLoadedWeightKg] = useState("");
+  const [editEmptyWeightKg, setEditEmptyWeightKg] = useState("");
+  const [editWeighbridgeLocation, setEditWeighbridgeLocation] = useState("");
+  const [editWeighbridgeReceipt, setEditWeighbridgeReceipt] = useState("");
+  const editNetWeightKg = editLoadedWeightKg && editEmptyWeightKg ? Number(editLoadedWeightKg) - Number(editEmptyWeightKg) : null;
 
   const [showExpenseModal, setShowExpenseModal] = useState(false);
   const [expenseTab, setExpenseTab] = useState<(typeof EXPENSE_TABS)[number]["key"]>("fuel");
@@ -94,11 +106,34 @@ export default function TripDetailScreen() {
     setEditDriverName(trip.driver_name ?? "");
     setEditOrigin(trip.origin);
     setEditDestination(trip.destination);
+    setEditOriginLatLng(null);
+    setEditDestinationLatLng(null);
+    setEditDistanceKm(trip.distance_km != null ? String(trip.distance_km) : "");
     setEditStartDate(trip.start_date);
     setEditEndDate(trip.end_date ?? "");
     setEditFreight(String(trip.freight_amount ?? ""));
     setEditStatus(trip.status);
+    setEditLoadedWeightKg(trip.loaded_weight_kg != null ? String(trip.loaded_weight_kg) : "");
+    setEditEmptyWeightKg(trip.empty_weight_kg != null ? String(trip.empty_weight_kg) : "");
+    setEditWeighbridgeLocation(trip.weighbridge_location ?? "");
+    setEditWeighbridgeReceipt(trip.weighbridge_receipt ?? "");
     setEditMode(true);
+  }
+
+  function handleSelectEditOrigin(description: string, latLng: LatLng) {
+    setEditOrigin(description);
+    setEditOriginLatLng(latLng);
+    if (latLng.lat !== 0 && editDestinationLatLng && editDestinationLatLng.lat !== 0) {
+      setEditDistanceKm(String(haversineKm(latLng.lat, latLng.lng, editDestinationLatLng.lat, editDestinationLatLng.lng)));
+    }
+  }
+
+  function handleSelectEditDestination(description: string, latLng: LatLng) {
+    setEditDestination(description);
+    setEditDestinationLatLng(latLng);
+    if (latLng.lat !== 0 && editOriginLatLng && editOriginLatLng.lat !== 0) {
+      setEditDistanceKm(String(haversineKm(editOriginLatLng.lat, editOriginLatLng.lng, latLng.lat, latLng.lng)));
+    }
   }
 
   async function handleSaveEdit() {
@@ -116,11 +151,16 @@ export default function TripDetailScreen() {
       driver_phone: driver?.phone ?? trip.driver_phone,
       origin: editOrigin.trim(),
       destination: editDestination.trim(),
+      distance_km: editDistanceKm ? Number(editDistanceKm) : null,
       start_date: editStartDate,
       end_date: editEndDate || null,
       freight_amount: editFreight ? Number(editFreight) : 0,
       status: editStatus as any,
-    });
+      loaded_weight_kg: editLoadedWeightKg ? Number(editLoadedWeightKg) : null,
+      empty_weight_kg: editEmptyWeightKg ? Number(editEmptyWeightKg) : null,
+      weighbridge_location: editWeighbridgeLocation || null,
+      weighbridge_receipt: editWeighbridgeReceipt || null,
+    } as any);
     setSaving(false);
     if (res.success) {
       setVehicleReg(vehicle.registration_number);
@@ -237,8 +277,9 @@ export default function TripDetailScreen() {
               <ChipPicker label="Driver" options={drivers.map((d) => d.name)} value={editDriverName || null} onChange={setEditDriverName} />
             ) : null}
             <FormField label="Driver Name" required value={editDriverName} onChangeText={setEditDriverName} placeholder="Driver name" />
-            <FormField label="Origin" required value={editOrigin} onChangeText={setEditOrigin} placeholder="e.g. Mumbai" />
-            <FormField label="Destination" required value={editDestination} onChangeText={setEditDestination} placeholder="e.g. Pune" />
+            <PlacesAutocomplete label="Origin" value={editOrigin} onChange={setEditOrigin} onSelect={handleSelectEditOrigin} />
+            <PlacesAutocomplete label="Destination" value={editDestination} onChange={setEditDestination} onSelect={handleSelectEditDestination} />
+            <FormField label="Distance (km)" value={editDistanceKm} onChangeText={setEditDistanceKm} placeholder="Auto-calculated from route" keyboardType="numeric" />
             <DateField label="Start Date" required value={editStartDate} onChange={setEditStartDate} />
             <DateField label="End Date" value={editEndDate} onChange={setEditEndDate} placeholder="Optional" />
             <FormField label="Freight Amount (₹)" value={editFreight} onChangeText={setEditFreight} placeholder="0" keyboardType="numeric" />
@@ -248,6 +289,22 @@ export default function TripDetailScreen() {
               value={STATUS_TONE[editStatus]?.label ?? null}
               onChange={(v) => setEditStatus(STATUS_KEYS.find((k) => STATUS_TONE[k].label === v) ?? "planned")}
             />
+          </Card>
+        ) : null}
+
+        {editMode ? (
+          <Card>
+            <Text style={styles.sectionHeading}>Weighbridge Entry</Text>
+            <FormField label="Loaded Weight (kg)" value={editLoadedWeightKg} onChangeText={setEditLoadedWeightKg} placeholder="0" keyboardType="numeric" />
+            <FormField label="Empty Weight (kg)" value={editEmptyWeightKg} onChangeText={setEditEmptyWeightKg} placeholder="0" keyboardType="numeric" />
+            {editNetWeightKg !== null ? (
+              <View style={styles.netWeightRow}>
+                <Text style={styles.netWeightLabel}>Net Load</Text>
+                <Text style={styles.netWeightValue}>{editNetWeightKg.toLocaleString("en-IN")} kg</Text>
+              </View>
+            ) : null}
+            <FormField label="Weighbridge Location" value={editWeighbridgeLocation} onChangeText={setEditWeighbridgeLocation} placeholder="Optional" />
+            <FormField label="Receipt / Slip Number" value={editWeighbridgeReceipt} onChangeText={setEditWeighbridgeReceipt} placeholder="Optional" />
           </Card>
         ) : (
           <>
@@ -271,6 +328,22 @@ export default function TripDetailScreen() {
               {trip.distance_km != null ? <Row label="Distance" value={`${trip.distance_km} km`} /> : null}
               {trip.weight_tonnes != null ? <Row label="Weight" value={`${trip.weight_tonnes} T`} /> : null}
             </Card>
+
+            {trip.loaded_weight_kg != null || trip.empty_weight_kg != null || trip.weighbridge_location || trip.weighbridge_receipt ? (
+              <Card>
+                <Text style={styles.sectionHeading}>Weighbridge</Text>
+                <Row
+                  label="Loaded / Empty / Net"
+                  value={`${trip.loaded_weight_kg ?? "—"} kg | ${trip.empty_weight_kg ?? "—"} kg | ${
+                    trip.loaded_weight_kg != null && trip.empty_weight_kg != null
+                      ? `${trip.loaded_weight_kg - trip.empty_weight_kg} kg`
+                      : "—"
+                  }`}
+                />
+                {trip.weighbridge_location ? <Row label="Location" value={trip.weighbridge_location} /> : null}
+                {trip.weighbridge_receipt ? <Row label="Receipt No." value={trip.weighbridge_receipt} /> : null}
+              </Card>
+            ) : null}
 
             <Card>
               <Row label="Freight Amount" value={formatCurrency(trip.freight_amount)} valueColor={colors.primary} />
@@ -417,6 +490,12 @@ const styles = StyleSheet.create({
   rowValue: { ...type.bodyMd, color: colors.onSurface, fontWeight: "600" },
   notesLabel: { fontSize: 10, fontWeight: "700", color: colors.onSurfaceVariant, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6 },
   notesText: { ...type.bodyMd, color: colors.onSurface },
+  netWeightRow: {
+    flexDirection: "row", justifyContent: "space-between", alignItems: "center",
+    backgroundColor: colors.amberBg, borderRadius: radii.md, paddingHorizontal: 14, paddingVertical: 12, marginBottom: 14,
+  },
+  netWeightLabel: { fontSize: 13, fontWeight: "700", color: colors.amber },
+  netWeightValue: { fontSize: 16, fontWeight: "800", color: colors.amber },
   iconBtn: { width: 36, height: 36, borderRadius: radii.full, justifyContent: "center", alignItems: "center", backgroundColor: colors.surfaceContainerLow },
   headerBtn: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: radii.full, backgroundColor: colors.surfaceContainerLow },
   headerBtnPrimary: { backgroundColor: colors.primary },

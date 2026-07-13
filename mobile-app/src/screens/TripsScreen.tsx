@@ -1,5 +1,5 @@
 import React, { useCallback, useMemo, useState } from "react";
-import { View, Text, FlatList, TouchableOpacity, StyleSheet, ActivityIndicator, RefreshControl, Alert } from "react-native";
+import { View, Text, FlatList, TouchableOpacity, StyleSheet, ActivityIndicator, RefreshControl, Modal } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { MaterialIcons } from "@expo/vector-icons";
 import { useNavigation, useFocusEffect } from "@react-navigation/native";
@@ -30,12 +30,12 @@ const STAT_BOXES = [
   { key: "cancelled", label: "Cancelled" },
 ] as const;
 
-const STATUS_OPTIONS: { key: string; label: string }[] = [
-  { key: "planned", label: "Mark Planned" },
-  { key: "in_progress", label: "Mark In Progress" },
-  { key: "completed", label: "Mark Completed" },
-  { key: "cancelled", label: "Mark Cancelled" },
-  { key: "pending_review", label: "Pending Review" },
+const STATUS_MENU_OPTIONS: { key: string; label: string; icon: keyof typeof MaterialIcons.glyphMap }[] = [
+  { key: "planned", label: "Planned", icon: "schedule" },
+  { key: "in_progress", label: "In Progress", icon: "local-shipping" },
+  { key: "completed", label: "Completed", icon: "check-circle" },
+  { key: "cancelled", label: "Cancelled", icon: "cancel" },
+  { key: "pending_review", label: "Pending Review", icon: "hourglass-empty" },
 ];
 
 function getStatusStyle(colors: ReturnType<typeof useColors>): Record<string, { label: string; bg: string; fg: string; dot: string }> {
@@ -59,6 +59,7 @@ export default function TripsScreen() {
   const [trips, setTrips] = useState<Trip[]>([]);
   const [vehicleMap, setVehicleMap] = useState<Record<string, string>>({});
   const [filter, setFilter] = useState<TripFilter>("all");
+  const [statusModal, setStatusModal] = useState<{ id: string; current: string } | null>(null);
 
   const load = useCallback(async () => {
     const [tripRes, vehRes] = await Promise.all([tripService.getAll(), vehicleService.getAll()]);
@@ -167,13 +168,51 @@ export default function TripsScreen() {
             item={item}
             vehicleReg={vehicleMap[item.vehicle_id] ?? "—"}
             onPress={() => navigation.navigate("TripDetail", { id: item.id })}
-            onChangeStatus={updateStatus}
+            onOpenMenu={(id, current) => setStatusModal({ id, current })}
             colors={colors}
             styles={styles}
             statusStyle={statusStyle}
           />
         )}
       />
+
+      <Modal
+        visible={statusModal !== null}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setStatusModal(null)}
+      >
+        <TouchableOpacity
+          style={styles.modalBackdrop}
+          activeOpacity={1}
+          onPress={() => setStatusModal(null)}
+        />
+        <View style={styles.statusSheet}>
+          <View style={styles.sheetHandle} />
+          <Text style={styles.sheetTitle}>Change Status</Text>
+          {STATUS_MENU_OPTIONS.map((opt) => (
+            <TouchableOpacity
+              key={opt.key}
+              style={[styles.sheetOption, statusModal?.current === opt.key && styles.sheetOptionActive]}
+              onPress={async () => {
+                if (statusModal) {
+                  await updateStatus(statusModal.id, opt.key);
+                  setStatusModal(null);
+                }
+              }}
+            >
+              <MaterialIcons name={opt.icon} size={20} color={statusModal?.current === opt.key ? colors.primary : colors.onSurfaceVariant} />
+              <Text style={[styles.sheetOptionText, statusModal?.current === opt.key && { color: colors.primary, fontWeight: "700" }]}>
+                {opt.label}
+              </Text>
+              {statusModal?.current === opt.key ? <MaterialIcons name="check" size={18} color={colors.primary} style={{ marginLeft: "auto" }} /> : null}
+            </TouchableOpacity>
+          ))}
+          <TouchableOpacity style={styles.sheetCancel} onPress={() => setStatusModal(null)}>
+            <Text style={styles.sheetCancelText}>Cancel</Text>
+          </TouchableOpacity>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -182,7 +221,7 @@ function TripCard({
   item,
   vehicleReg,
   onPress,
-  onChangeStatus,
+  onOpenMenu,
   colors,
   styles,
   statusStyle,
@@ -190,27 +229,12 @@ function TripCard({
   item: Trip;
   vehicleReg: string;
   onPress: () => void;
-  onChangeStatus: (id: string, newStatus: string) => void;
+  onOpenMenu: (id: string, current: string) => void;
   colors: ReturnType<typeof useColors>;
   styles: ReturnType<typeof makeStyles>;
   statusStyle: Record<string, { label: string; bg: string; fg: string; dot: string }>;
 }) {
   const st = statusStyle[item.status] ?? { label: item.status, bg: colors.surfaceContainerHighest, fg: colors.onSurfaceVariant, dot: colors.outline };
-
-  function handleMenuPress() {
-    Alert.alert(
-      "Change Status",
-      `Current: ${st.label}`,
-      [
-        ...STATUS_OPTIONS.map((opt) => ({
-          text: opt.label,
-          style: opt.key === "cancelled" ? ("destructive" as const) : undefined,
-          onPress: () => onChangeStatus(item.id, opt.key),
-        })),
-        { text: "Cancel", style: "cancel" as const },
-      ]
-    );
-  }
 
   return (
     <TouchableOpacity activeOpacity={0.7} onPress={onPress}>
@@ -233,7 +257,7 @@ function TripCard({
             </View>
             <Text style={styles.freightValue} numberOfLines={1} ellipsizeMode="tail">{formatCurrency(item.freight_amount)}</Text>
           </View>
-          <TouchableOpacity style={styles.menuBtn} onPress={handleMenuPress} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+          <TouchableOpacity style={styles.menuBtn} onPress={() => onOpenMenu(item.id, item.status)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
             <MaterialIcons name="more-vert" size={18} color={colors.onSurfaceVariant} />
           </TouchableOpacity>
         </View>
@@ -295,5 +319,19 @@ function makeStyles(colors: ReturnType<typeof useColors>) {
   bodyLabel: { fontSize: 10, color: colors.onSurfaceVariant, textTransform: "uppercase", fontWeight: "600", marginBottom: 2 },
   bodyValue: { ...type.bodyMd, fontWeight: "600", color: colors.onSurface },
   freightValue: { ...type.currencyDisplay, color: colors.primary, maxWidth: 140 },
+  modalBackdrop: { flex: 1, backgroundColor: "rgba(0,0,0,0.5)" },
+  statusSheet: {
+    backgroundColor: colors.surfaceContainerLowest,
+    borderTopLeftRadius: radii.xl,
+    borderTopRightRadius: radii.xl,
+    padding: 20,
+  },
+  sheetHandle: { width: 40, height: 4, borderRadius: 2, backgroundColor: colors.surfaceContainerHighest, alignSelf: "center", marginBottom: 16 },
+  sheetTitle: { ...type.headlineSm, color: colors.onBackground, marginBottom: 12 },
+  sheetOption: { flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: colors.surfaceContainer },
+  sheetOptionActive: {},
+  sheetOptionText: { ...type.bodyLg, color: colors.onSurface },
+  sheetCancel: { alignItems: "center", paddingVertical: 16, marginTop: 4 },
+  sheetCancelText: { ...type.bodyLg, color: colors.onSurfaceVariant, fontWeight: "600" },
   });
 }

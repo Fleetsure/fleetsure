@@ -1,3 +1,13 @@
+// Weighbridge entry fields (loaded/empty weight, location, receipt) are not
+// yet in the `trips` table. Run this in the Supabase SQL editor, then
+// regenerate database.types.ts:
+//
+// ALTER TABLE trips
+//   ADD COLUMN IF NOT EXISTS loaded_weight_kg numeric,
+//   ADD COLUMN IF NOT EXISTS empty_weight_kg numeric,
+//   ADD COLUMN IF NOT EXISTS weighbridge_location text,
+//   ADD COLUMN IF NOT EXISTS weighbridge_receipt text;
+
 import { supabase } from "../supabase";
 import { query, ok, getUid, getFirmId, scopeToFirm } from "./_base";
 import type { Trip, ServiceResponse } from "../types";

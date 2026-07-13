@@ -7,7 +7,10 @@ type Props = TextInputProps & { label: string; required?: boolean };
 export default function FormField({ label, required, style, ...props }: Props) {
   return (
     <View style={styles.wrap}>
-      <Text style={styles.label}>{label.toUpperCase()}{required ? " *" : ""}</Text>
+      <Text style={styles.label}>
+        {label.toUpperCase()}
+        {required ? <Text style={styles.asterisk}> *</Text> : null}
+      </Text>
       <TextInput style={[styles.input, style]} placeholderTextColor={colors.outline} {...props} />
     </View>
   );
@@ -16,6 +19,7 @@ export default function FormField({ label, required, style, ...props }: Props) {
 const styles = StyleSheet.create({
   wrap: { marginBottom: 14 },
   label: { fontSize: 11, fontWeight: "700", color: colors.onSurfaceVariant, letterSpacing: 0.8, marginBottom: 8 },
+  asterisk: { color: colors.danger },
   input: {
     borderWidth: 1.5,
     borderColor: colors.outlineVariant,
