@@ -12,6 +12,8 @@ import {
   Linking,
   ScrollView,
   RefreshControl,
+  KeyboardAvoidingView,
+  Platform,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useFocusEffect } from "@react-navigation/native";
@@ -195,11 +197,16 @@ export default function IssuesScreen() {
         </TouchableOpacity>
       </View>
 
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+      >
       <FlatList
         data={issues}
         keyExtractor={(item) => item.id ?? Math.random().toString()}
         renderItem={renderIssue}
         contentContainerStyle={styles.list}
+        keyboardShouldPersistTaps="handled"
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={PRIMARY} />
         }
@@ -350,6 +357,7 @@ export default function IssuesScreen() {
           ) : null
         }
       />
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
@@ -376,7 +384,7 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   newBtnText: { color: "white", fontSize: 13, fontWeight: "700" },
-  list: { padding: 16, paddingBottom: 40 },
+  list: { padding: 16, paddingBottom: 48 },
   ownerCard: {
     backgroundColor: "white",
     borderRadius: 12,

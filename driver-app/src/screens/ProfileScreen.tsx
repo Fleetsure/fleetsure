@@ -9,6 +9,8 @@ import {
   Image,
   ActivityIndicator,
   Alert,
+  KeyboardAvoidingView,
+  Platform,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -127,7 +129,15 @@ export default function ProfileScreen() {
         </View>
       </View>
 
-      <ScrollView contentContainerStyle={styles.list}>
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+      >
+      <ScrollView
+        contentContainerStyle={styles.list}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
         {/* Identity — view only, set by fleet owner */}
         <View style={styles.card}>
           <Text style={styles.sectionLabel}>DRIVER DETAILS</Text>
@@ -195,6 +205,7 @@ export default function ProfileScreen() {
           {saving ? <ActivityIndicator color="white" /> : <Text style={styles.saveBtnText}>Save Profile</Text>}
         </TouchableOpacity>
       </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
@@ -209,7 +220,7 @@ const styles = StyleSheet.create({
   headerTitle: { fontSize: 18, fontWeight: "800", color: "white" },
   headerSub: { fontSize: 12, color: "#FCA5A5", marginTop: 2 },
   headerSubComplete: { color: "#A7F3D0" },
-  list: { padding: 16, paddingBottom: 40 },
+  list: { padding: 16, paddingBottom: 48 },
   card: {
     backgroundColor: "white",
     borderRadius: 12,

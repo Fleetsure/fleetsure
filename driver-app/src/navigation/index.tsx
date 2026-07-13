@@ -4,6 +4,7 @@ import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { Ionicons } from "@expo/vector-icons";
 import { ActivityIndicator, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useAuth } from "../context/AuthContext";
 import LoginScreen from "../screens/LoginScreen";
@@ -48,6 +49,7 @@ function TripsNavigator() {
 }
 
 function MainTabs() {
+  const insets = useSafeAreaInsets();
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
@@ -56,9 +58,9 @@ function MainTabs() {
         tabBarInactiveTintColor: "#94A3B8",
         tabBarStyle: {
           borderTopColor: "#E0E7FF",
-          paddingBottom: 4,
+          paddingBottom: insets.bottom + 4,
           paddingTop: 4,
-          height: 60,
+          height: 60 + insets.bottom,
         },
         tabBarLabelStyle: { fontSize: 11, fontWeight: "600" },
         tabBarIcon: ({ color, focused, size }) => {
