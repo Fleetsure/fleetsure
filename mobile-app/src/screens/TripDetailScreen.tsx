@@ -1,14 +1,16 @@
 import React, { useCallback, useState } from "react";
-import { View, Text, ScrollView, TouchableOpacity, Modal, StyleSheet, ActivityIndicator, Alert } from "react-native";
+import { View, Text, ScrollView, TouchableOpacity, Modal, StyleSheet, ActivityIndicator, Alert, Linking } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { MaterialIcons } from "@expo/vector-icons";
 import { useRoute, useNavigation, useFocusEffect, RouteProp } from "@react-navigation/native";
+import * as DocumentPicker from "expo-document-picker";
 import { tripService } from "../lib/services/tripService";
 import { vehicleService } from "../lib/services/vehicleService";
 import { driverService } from "../lib/services/driverService";
 import { fuelService } from "../lib/services/fuelService";
 import { tollService } from "../lib/services/tollService";
 import { miscExpenseService } from "../lib/services/miscExpenseService";
+import { documentService } from "../lib/services/documentService";
 import { haversineKm } from "../lib/distanceKm";
 import ScreenHeader from "../components/ScreenHeader";
 import Card from "../components/Card";
@@ -23,6 +25,13 @@ import type { Trip, Vehicle, Driver } from "../lib/types";
 import type { TripsStackParamList } from "../navigation";
 
 type LatLng = { lat: number; lng: number };
+type PickedFile = { uri: string; name: string; mimeType: string | null };
+type Unit = "kg" | "tonnes";
+
+function toKg(value: string, unit: Unit): number {
+  const n = Number(value);
+  return unit === "tonnes" ? n * 1000 : n;
+}
 
 const STATUS_TONE: Record<string, { label: string; tone: "success" | "warning" | "neutral" | "info" }> = {
   completed: { label: "Completed", tone: "success" },
@@ -63,11 +72,17 @@ export default function TripDetailScreen() {
   const [editEndDate, setEditEndDate] = useState("");
   const [editFreight, setEditFreight] = useState("");
   const [editStatus, setEditStatus] = useState("planned");
-  const [editLoadedWeightKg, setEditLoadedWeightKg] = useState("");
-  const [editEmptyWeightKg, setEditEmptyWeightKg] = useState("");
-  const [editWeighbridgeLocation, setEditWeighbridgeLocation] = useState("");
-  const [editWeighbridgeReceipt, setEditWeighbridgeReceipt] = useState("");
-  const editNetWeightKg = editLoadedWeightKg && editEmptyWeightKg ? Number(editLoadedWeightKg) - Number(editEmptyWeightKg) : null;
+  const [editEmptyWeight, setEditEmptyWeight] = useState("");
+  const [editEmptyWeightUnit, setEditEmptyWeightUnit] = useState<Unit>("kg");
+  const [editSlip1File, setEditSlip1File] = useState<PickedFile | null>(null);
+  const [editLoadingDate, setEditLoadingDate] = useState("");
+  const [editLoadedQty, setEditLoadedQty] = useState("");
+  const [editLoadedQtyUnit, setEditLoadedQtyUnit] = useState<Unit>("kg");
+  const [editSlip2File, setEditSlip2File] = useState<PickedFile | null>(null);
+  const [editUnloadingDate, setEditUnloadingDate] = useState("");
+  const [editDeliveredQty, setEditDeliveredQty] = useState("");
+  const [editDeliveredQtyUnit, setEditDeliveredQtyUnit] = useState<Unit>("kg");
+  const [editSlip3File, setEditSlip3File] = useState<PickedFile | null>(null);
 
   const [showExpenseModal, setShowExpenseModal] = useState(false);
   const [expenseTab, setExpenseTab] = useState<(typeof EXPENSE_TABS)[number]["key"]>("fuel");
@@ -113,10 +128,17 @@ export default function TripDetailScreen() {
     setEditEndDate(trip.end_date ?? "");
     setEditFreight(String(trip.freight_amount ?? ""));
     setEditStatus(trip.status);
-    setEditLoadedWeightKg(trip.loaded_weight_kg != null ? String(trip.loaded_weight_kg) : "");
-    setEditEmptyWeightKg(trip.empty_weight_kg != null ? String(trip.empty_weight_kg) : "");
-    setEditWeighbridgeLocation(trip.weighbridge_location ?? "");
-    setEditWeighbridgeReceipt(trip.weighbridge_receipt ?? "");
+    setEditEmptyWeight(trip.empty_truck_weight != null ? String(trip.empty_truck_weight) : "");
+    setEditEmptyWeightUnit("kg");
+    setEditSlip1File(null);
+    setEditLoadingDate(trip.loading_date ?? "");
+    setEditLoadedQty(trip.loading_quantity != null ? String(trip.loading_quantity) : "");
+    setEditLoadedQtyUnit("kg");
+    setEditSlip2File(null);
+    setEditUnloadingDate(trip.unloading_date ?? "");
+    setEditDeliveredQty(trip.unloading_quantity != null ? String(trip.unloading_quantity) : "");
+    setEditDeliveredQtyUnit("kg");
+    setEditSlip3File(null);
     setEditMode(true);
   }
 
@@ -140,11 +162,21 @@ export default function TripDetailScreen() {
     if (!trip) return;
     const vehicle = vehicles.find((v) => v.registration_number === editVehicleReg);
     if (!vehicle) return Alert.alert("Vehicle required", "Select a vehicle.");
-    if (!editOrigin.trim() || !editDestination.trim()) return Alert.alert("Missing route", "Enter both origin and destination.");
+    if (!editOrigin.trim()) return Alert.alert("Required", "Origin is mandatory.");
+    if (!editDestination.trim()) return Alert.alert("Required", "Destination is mandatory.");
     if (!editDriverName.trim()) return Alert.alert("Driver required", "Select or enter a driver name.");
+    if (!editEmptyWeight) return Alert.alert("Required", "Slip 1 empty truck weight is required.");
+    if (!editSlip1File && !trip.weighbridge_slip_1_url) return Alert.alert("Required", "Slip 1 image upload is mandatory.");
+    if (!editLoadingDate) return Alert.alert("Required", "Slip 2 loading date is required.");
+    if (!editLoadedQty) return Alert.alert("Required", "Slip 2 loaded quantity is required.");
+    if (!editSlip2File && !trip.weighbridge_slip_2_url) return Alert.alert("Required", "Slip 2 image upload is mandatory.");
+    if (!editUnloadingDate) return Alert.alert("Required", "Slip 3 unloading date is required.");
+    if (!editDeliveredQty) return Alert.alert("Required", "Slip 3 delivered quantity is required.");
+    if (!editSlip3File && !trip.weighbridge_slip_3_url) return Alert.alert("Required", "Slip 3 image upload is mandatory.");
+
     setSaving(true);
     const driver = drivers.find((d) => d.name === editDriverName.trim());
-    const res = await tripService.update(trip.id, {
+    const updateData: Record<string, unknown> = {
       vehicle_id: vehicle.id,
       driver_id: driver?.id ?? null,
       driver_name: editDriverName.trim(),
@@ -156,11 +188,31 @@ export default function TripDetailScreen() {
       end_date: editEndDate || null,
       freight_amount: editFreight ? Number(editFreight) : 0,
       status: editStatus as any,
-      loaded_weight_kg: editLoadedWeightKg ? Number(editLoadedWeightKg) : null,
-      empty_weight_kg: editEmptyWeightKg ? Number(editEmptyWeightKg) : null,
-      weighbridge_location: editWeighbridgeLocation || null,
-      weighbridge_receipt: editWeighbridgeReceipt || null,
-    } as any);
+      empty_truck_weight: toKg(editEmptyWeight, editEmptyWeightUnit),
+      loading_date: editLoadingDate,
+      loading_quantity: toKg(editLoadedQty, editLoadedQtyUnit),
+      unloading_date: editUnloadingDate,
+      unloading_quantity: toKg(editDeliveredQty, editDeliveredQtyUnit),
+    };
+
+    const slips = [
+      { file: editSlip1File, column: "weighbridge_slip_1_url", name: "Weighbridge Slip 1 - Empty Truck" },
+      { file: editSlip2File, column: "weighbridge_slip_2_url", name: "Weighbridge Slip 2 - After Loading" },
+      { file: editSlip3File, column: "weighbridge_slip_3_url", name: "Weighbridge Slip 3 - After Delivery" },
+    ];
+    for (const slip of slips) {
+      if (slip.file) {
+        const docRes = await documentService.create(slip.file, {
+          name: slip.name,
+          category: "Weighbridge Slip",
+          linked_type: "trip",
+          linked_id: trip.id,
+        });
+        if (docRes.success && docRes.data?.file_url) updateData[slip.column] = docRes.data.file_url;
+      }
+    }
+
+    const res = await tripService.update(trip.id, updateData as any);
     setSaving(false);
     if (res.success) {
       setVehicleReg(vehicle.registration_number);
@@ -277,8 +329,8 @@ export default function TripDetailScreen() {
               <ChipPicker label="Driver" options={drivers.map((d) => d.name)} value={editDriverName || null} onChange={setEditDriverName} />
             ) : null}
             <FormField label="Driver Name" required value={editDriverName} onChangeText={setEditDriverName} placeholder="Driver name" />
-            <PlacesAutocomplete label="Origin" value={editOrigin} onChange={setEditOrigin} onSelect={handleSelectEditOrigin} />
-            <PlacesAutocomplete label="Destination" value={editDestination} onChange={setEditDestination} onSelect={handleSelectEditDestination} />
+            <PlacesAutocomplete label="Origin" required value={editOrigin} onChange={setEditOrigin} onSelect={handleSelectEditOrigin} />
+            <PlacesAutocomplete label="Destination" required value={editDestination} onChange={setEditDestination} onSelect={handleSelectEditDestination} />
             <FormField label="Distance (km)" value={editDistanceKm} onChangeText={setEditDistanceKm} placeholder="Auto-calculated from route" keyboardType="numeric" />
             <DateField label="Start Date" required value={editStartDate} onChange={setEditStartDate} />
             <DateField label="End Date" value={editEndDate} onChange={setEditEndDate} placeholder="Optional" />
@@ -294,17 +346,53 @@ export default function TripDetailScreen() {
 
         {editMode ? (
           <Card>
-            <Text style={styles.sectionHeading}>Weighbridge Entry</Text>
-            <FormField label="Loaded Weight (kg)" value={editLoadedWeightKg} onChangeText={setEditLoadedWeightKg} placeholder="0" keyboardType="numeric" />
-            <FormField label="Empty Weight (kg)" value={editEmptyWeightKg} onChangeText={setEditEmptyWeightKg} placeholder="0" keyboardType="numeric" />
-            {editNetWeightKg !== null ? (
-              <View style={styles.netWeightRow}>
-                <Text style={styles.netWeightLabel}>Net Load</Text>
-                <Text style={styles.netWeightValue}>{editNetWeightKg.toLocaleString("en-IN")} kg</Text>
-              </View>
-            ) : null}
-            <FormField label="Weighbridge Location" value={editWeighbridgeLocation} onChangeText={setEditWeighbridgeLocation} placeholder="Optional" />
-            <FormField label="Receipt / Slip Number" value={editWeighbridgeReceipt} onChangeText={setEditWeighbridgeReceipt} placeholder="Optional" />
+            <Text style={styles.wbTitle}>Weighbridge & Quantity</Text>
+            <Text style={styles.wbSubtitle}>Record the three weighbridge slips for this trip.</Text>
+
+            <Text style={styles.slipHeading}>Slip 1 — Empty Truck</Text>
+            <View style={styles.weightRow}>
+              <FormField
+                label="Empty Truck Weight *"
+                value={editEmptyWeight}
+                onChangeText={setEditEmptyWeight}
+                keyboardType="numeric"
+                style={{ flex: 1 }}
+              />
+              <UnitPicker value={editEmptyWeightUnit} onChange={setEditEmptyWeightUnit} />
+            </View>
+            <SlipField existingUrl={trip.weighbridge_slip_1_url} newFile={editSlip1File} onPick={setEditSlip1File} label="Upload slip *" />
+
+            <View style={styles.slipDivider} />
+
+            <Text style={styles.slipHeading}>Slip 2 — After Loading</Text>
+            <DateField label="Loading Date *" value={editLoadingDate} onChange={setEditLoadingDate} />
+            <View style={styles.weightRow}>
+              <FormField
+                label="Loaded Quantity *"
+                value={editLoadedQty}
+                onChangeText={setEditLoadedQty}
+                keyboardType="numeric"
+                style={{ flex: 1 }}
+              />
+              <UnitPicker value={editLoadedQtyUnit} onChange={setEditLoadedQtyUnit} />
+            </View>
+            <SlipField existingUrl={trip.weighbridge_slip_2_url} newFile={editSlip2File} onPick={setEditSlip2File} label="Upload slip *" />
+
+            <View style={styles.slipDivider} />
+
+            <Text style={styles.slipHeading}>Slip 3 — After Delivery</Text>
+            <DateField label="Unloading Date *" value={editUnloadingDate} onChange={setEditUnloadingDate} />
+            <View style={styles.weightRow}>
+              <FormField
+                label="Delivered Quantity *"
+                value={editDeliveredQty}
+                onChangeText={setEditDeliveredQty}
+                keyboardType="numeric"
+                style={{ flex: 1 }}
+              />
+              <UnitPicker value={editDeliveredQtyUnit} onChange={setEditDeliveredQtyUnit} />
+            </View>
+            <SlipField existingUrl={trip.weighbridge_slip_3_url} newFile={editSlip3File} onPick={setEditSlip3File} label="Upload slip *" />
           </Card>
         ) : (
           <>
@@ -329,19 +417,41 @@ export default function TripDetailScreen() {
               {trip.weight_tonnes != null ? <Row label="Weight" value={`${trip.weight_tonnes} T`} /> : null}
             </Card>
 
-            {trip.loaded_weight_kg != null || trip.empty_weight_kg != null || trip.weighbridge_location || trip.weighbridge_receipt ? (
+            {trip.empty_truck_weight != null || trip.loading_quantity != null || trip.unloading_quantity != null || trip.weighbridge_slip_1_url ? (
               <Card>
-                <Text style={styles.sectionHeading}>Weighbridge</Text>
-                <Row
-                  label="Loaded / Empty / Net"
-                  value={`${trip.loaded_weight_kg ?? "—"} kg | ${trip.empty_weight_kg ?? "—"} kg | ${
-                    trip.loaded_weight_kg != null && trip.empty_weight_kg != null
-                      ? `${trip.loaded_weight_kg - trip.empty_weight_kg} kg`
-                      : "—"
-                  }`}
-                />
-                {trip.weighbridge_location ? <Row label="Location" value={trip.weighbridge_location} /> : null}
-                {trip.weighbridge_receipt ? <Row label="Receipt No." value={trip.weighbridge_receipt} /> : null}
+                <Text style={styles.sectionHeading}>Weighbridge & Quantity</Text>
+                <Row label="Empty Truck Weight" value={trip.empty_truck_weight != null ? `${trip.empty_truck_weight.toLocaleString("en-IN")} kg` : "—"} />
+                <Row label="Loading Date" value={formatDate(trip.loading_date)} />
+                <Row label="Loaded Quantity" value={trip.loading_quantity != null ? `${trip.loading_quantity.toLocaleString("en-IN")} kg` : "—"} />
+                <Row label="Unloading Date" value={formatDate(trip.unloading_date)} />
+                <Row label="Delivered Quantity" value={trip.unloading_quantity != null ? `${trip.unloading_quantity.toLocaleString("en-IN")} kg` : "—"} />
+                {trip.quantity_lost != null ? (
+                  <Row
+                    label="Quantity Lost"
+                    value={`${trip.quantity_lost.toLocaleString("en-IN")} kg`}
+                    valueColor={trip.quantity_lost < 0 ? colors.danger : undefined}
+                  />
+                ) : null}
+                <View style={styles.slipLinksRow}>
+                  {trip.weighbridge_slip_1_url ? (
+                    <TouchableOpacity style={styles.slipLink} onPress={() => Linking.openURL(trip.weighbridge_slip_1_url!)}>
+                      <MaterialIcons name="image" size={16} color={colors.primary} />
+                      <Text style={styles.slipLinkText}>Slip 1</Text>
+                    </TouchableOpacity>
+                  ) : null}
+                  {trip.weighbridge_slip_2_url ? (
+                    <TouchableOpacity style={styles.slipLink} onPress={() => Linking.openURL(trip.weighbridge_slip_2_url!)}>
+                      <MaterialIcons name="image" size={16} color={colors.primary} />
+                      <Text style={styles.slipLinkText}>Slip 2</Text>
+                    </TouchableOpacity>
+                  ) : null}
+                  {trip.weighbridge_slip_3_url ? (
+                    <TouchableOpacity style={styles.slipLink} onPress={() => Linking.openURL(trip.weighbridge_slip_3_url!)}>
+                      <MaterialIcons name="image" size={16} color={colors.primary} />
+                      <Text style={styles.slipLinkText}>Slip 3</Text>
+                    </TouchableOpacity>
+                  ) : null}
+                </View>
               </Card>
             ) : null}
 
@@ -480,6 +590,69 @@ function Row({ label, value, valueColor }: { label: string; value: string; value
   );
 }
 
+function UnitPicker({ value, onChange }: { value: Unit; onChange: (v: Unit) => void }) {
+  return (
+    <View style={styles.unitPicker}>
+      {(["kg", "tonnes"] as const).map((u) => (
+        <TouchableOpacity
+          key={u}
+          style={[styles.unitBtn, value === u && styles.unitBtnActive]}
+          onPress={() => onChange(u)}
+        >
+          <Text style={[styles.unitBtnText, value === u && styles.unitBtnTextActive]}>{u}</Text>
+        </TouchableOpacity>
+      ))}
+    </View>
+  );
+}
+
+function SlipUploadBtn({
+  file, onPick, label,
+}: { file: PickedFile | null; onPick: (f: PickedFile) => void; label: string }) {
+  return (
+    <TouchableOpacity
+      style={[styles.slipUploadBtn, file && styles.slipUploadBtnDone]}
+      onPress={async () => {
+        const res = await DocumentPicker.getDocumentAsync({
+          type: ["image/*", "application/pdf"],
+          copyToCacheDirectory: true,
+        });
+        if (!res.canceled && res.assets?.[0]) {
+          const a = res.assets[0];
+          onPick({ uri: a.uri, name: a.name, mimeType: a.mimeType ?? null });
+        }
+      }}
+    >
+      <MaterialIcons
+        name={file ? "check-circle" : "camera-alt"}
+        size={16}
+        color={file ? colors.success : colors.primary}
+      />
+      <Text style={[styles.slipUploadBtnText, file && { color: colors.success }]}>
+        {file ? file.name : label}
+      </Text>
+    </TouchableOpacity>
+  );
+}
+
+// Edit mode: a slip may already have an uploaded URL from a prior save — show
+// it as "done" and let the user replace it, plus a link to view the current file.
+function SlipField({
+  existingUrl, newFile, onPick, label,
+}: { existingUrl?: string | null; newFile: PickedFile | null; onPick: (f: PickedFile) => void; label: string }) {
+  const displayFile = newFile ?? (existingUrl ? { uri: existingUrl, name: "Uploaded — tap to replace", mimeType: null } : null);
+  return (
+    <View style={{ marginBottom: 4 }}>
+      <SlipUploadBtn file={displayFile} onPick={onPick} label={label} />
+      {existingUrl && !newFile ? (
+        <TouchableOpacity onPress={() => Linking.openURL(existingUrl)}>
+          <Text style={styles.viewSlipLink}>View current slip</Text>
+        </TouchableOpacity>
+      ) : null}
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.background },
   center: { flex: 1, justifyContent: "center", alignItems: "center" },
@@ -490,12 +663,23 @@ const styles = StyleSheet.create({
   rowValue: { ...type.bodyMd, color: colors.onSurface, fontWeight: "600" },
   notesLabel: { fontSize: 10, fontWeight: "700", color: colors.onSurfaceVariant, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6 },
   notesText: { ...type.bodyMd, color: colors.onSurface },
-  netWeightRow: {
-    flexDirection: "row", justifyContent: "space-between", alignItems: "center",
-    backgroundColor: colors.amberBg, borderRadius: radii.md, paddingHorizontal: 14, paddingVertical: 12, marginBottom: 14,
-  },
-  netWeightLabel: { fontSize: 13, fontWeight: "700", color: colors.amber },
-  netWeightValue: { fontSize: 16, fontWeight: "800", color: colors.amber },
+  wbTitle: { ...type.headlineSm, color: colors.onSurface, marginBottom: 4 },
+  wbSubtitle: { fontSize: 12, color: colors.onSurfaceVariant, marginBottom: 16 },
+  slipHeading: { fontSize: 13, fontWeight: "700", color: colors.primary, marginBottom: 10, marginTop: 4 },
+  slipDivider: { height: 1, backgroundColor: colors.surfaceContainer, marginVertical: 16 },
+  weightRow: { flexDirection: "row", alignItems: "flex-end", gap: 8, marginBottom: 8 },
+  unitPicker: { flexDirection: "column", borderWidth: 1, borderColor: colors.surfaceContainer, borderRadius: radii.md, overflow: "hidden", marginBottom: 16 },
+  unitBtn: { paddingHorizontal: 12, paddingVertical: 8, backgroundColor: colors.surfaceContainer },
+  unitBtnActive: { backgroundColor: colors.primaryContainer },
+  unitBtnText: { fontSize: 12, fontWeight: "600", color: colors.onSurfaceVariant },
+  unitBtnTextActive: { color: colors.onPrimaryContainer },
+  slipUploadBtn: { flexDirection: "row", alignItems: "center", gap: 8, borderWidth: 1.5, borderColor: colors.primary, borderStyle: "dashed", borderRadius: radii.md, padding: 12, marginBottom: 4 },
+  slipUploadBtnDone: { borderColor: colors.success, borderStyle: "solid", backgroundColor: colors.successBg },
+  slipUploadBtnText: { ...type.labelMd, color: colors.primary, flex: 1 },
+  viewSlipLink: { fontSize: 12, color: colors.primary, fontWeight: "600", marginTop: 4, marginBottom: 10 },
+  slipLinksRow: { flexDirection: "row", gap: 8, marginTop: 8 },
+  slipLink: { flexDirection: "row", alignItems: "center", gap: 4, backgroundColor: colors.surfaceContainerLow, borderRadius: radii.full, paddingHorizontal: 10, paddingVertical: 6 },
+  slipLinkText: { ...type.labelMd, color: colors.primary },
   iconBtn: { width: 36, height: 36, borderRadius: radii.full, justifyContent: "center", alignItems: "center", backgroundColor: colors.surfaceContainerLow },
   headerBtn: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: radii.full, backgroundColor: colors.surfaceContainerLow },
   headerBtnPrimary: { backgroundColor: colors.primary },

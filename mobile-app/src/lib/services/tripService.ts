@@ -1,12 +1,7 @@
-// Weighbridge entry fields (loaded/empty weight, location, receipt) are not
-// yet in the `trips` table. Run this in the Supabase SQL editor, then
-// regenerate database.types.ts:
-//
-// ALTER TABLE trips
-//   ADD COLUMN IF NOT EXISTS loaded_weight_kg numeric,
-//   ADD COLUMN IF NOT EXISTS empty_weight_kg numeric,
-//   ADD COLUMN IF NOT EXISTS weighbridge_location text,
-//   ADD COLUMN IF NOT EXISTS weighbridge_receipt text;
+// Weighbridge fields (empty_truck_weight, loading/unloading date+quantity,
+// weighbridge_slip_1/2/3_url, quantity_lost) live directly on this table —
+// same columns the web portal's WeighbridgeModal reads/writes. quantity_lost
+// is a Postgres GENERATED column; never write to it.
 
 import { supabase } from "../supabase";
 import { query, ok, getUid, getFirmId, scopeToFirm } from "./_base";
