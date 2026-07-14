@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import AppShell from "@/components/AppShell";
+import PWAInstallBanner from "@/components/PWAInstallBanner";
 import { LanguageProvider } from "@/lib/LanguageContext";
 import { FirmProvider } from "@/lib/FirmContext";
 
@@ -45,6 +46,14 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </head>
       <body style={{ margin: 0, display: "flex", minHeight: "100vh" }}>
         <LanguageProvider><FirmProvider><AppShell>{children}</AppShell></FirmProvider></LanguageProvider>
+        <PWAInstallBanner />
+        <script dangerouslySetInnerHTML={{ __html: `
+          if ('serviceWorker' in navigator) {
+            window.addEventListener('load', function() {
+              navigator.serviceWorker.register('/sw.js');
+            });
+          }
+        `}} />
       </body>
     </html>
   );
