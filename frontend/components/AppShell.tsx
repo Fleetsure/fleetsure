@@ -8,7 +8,7 @@ import Sidebar from "@/components/Sidebar";
 import { useFirm } from "@/lib/FirmContext";
 
 
-const PUBLIC_ROUTES = ["/login", "/register", "/landing"];
+const PUBLIC_ROUTES = ["/login", "/register", "/landing", "/privacy", "/delete-account"];
 const DRIVER_PREFIX = "/driver";
 const TEAM_PREFIXES = ["/manager", "/accountant"];
 const isTeamRoute = (p: string) => TEAM_PREFIXES.some(pre => p.startsWith(pre));
